@@ -192,7 +192,15 @@
       if (!t || !t.includes('ad_archive_id')) return;
       for (const line of t.split('\n')) { try { walk(JSON.parse(line)); } catch (e) {} }
     };
-    document.querySelectorAll('script[type="application/json"]').forEach(s => eat(s.textContent));
+    // Scans <script type="application/json"> tags for the SSR-embedded ad
+    // batch (the "first load" data path from CLAUDE.md section 2). Exposed
+    // as a closure, not just a one-off call, because a CLI driver that
+    // installs this file via page.add_init_script runs it before the DOM
+    // exists — the scan finds nothing at install time there. M.collect()
+    // re-runs it on every call so that path still gets picked up once the
+    // page has actually rendered, without duplicating this logic in Python.
+    const scanEmbeddedJson = () => document.querySelectorAll('script[type="application/json"]').forEach(s => eat(s.textContent));
+    scanEmbeddedJson();
     const oo = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (m, u, ...r) {
       if (String(u).includes('graphql')) this.addEventListener('load', () => eat(this.responseText));
@@ -210,6 +218,7 @@
       return Object.keys(M.ads).length + ' ads buffered';
     };
     M.collect = (kw) => {
+      scanEmbeddedJson();
       let n = 0;
       for (const [id, node] of Object.entries(M.ads)) {
         const rec = normalizeAd(node, kw);
