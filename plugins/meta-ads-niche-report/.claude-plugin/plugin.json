@@ -6,6 +6,8 @@
   "author": {
     "name": "YanisDigital"
   },
+  "homepage": "https://github.com/YanisDigital/competitor-ads",
+  "repository": "https://github.com/YanisDigital/competitor-ads",
   "license": "MIT",
   "keywords": ["meta", "facebook", "instagram", "ads-library", "competitor-research", "marketing", "advertising"]
 }

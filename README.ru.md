@@ -54,11 +54,9 @@ zip через **Settings → Skills → Upload skill**.
   `~/.claude/skills/meta-ads-niche-report/`, либо
 - добавь этот репозиторий как плагин-маркетплейс и установи из него:
   ```text
-  /plugin marketplace add <твой-github-юзернейм>/meta-ads-niche-report
+  /plugin marketplace add YanisDigital/competitor-ads
   /plugin install meta-ads-niche-report@meta-ads-niche-report
   ```
-  (замени `<твой-github-юзернейм>` на реальный путь, куда ты опубликуешь
-  репозиторий).
 
 ## Требования
 

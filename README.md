@@ -53,10 +53,9 @@ Either:
   `~/.claude/skills/meta-ads-niche-report/`, or
 - add this repo as a plugin marketplace and install from it:
   ```text
-  /plugin marketplace add <your-github-username>/meta-ads-niche-report
+  /plugin marketplace add YanisDigital/competitor-ads
   /plugin install meta-ads-niche-report@meta-ads-niche-report
   ```
-  (replace `<your-github-username>` with wherever you publish this repo).
 
 ## Requirements
 
