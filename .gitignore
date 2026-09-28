@@ -1,0 +1,9 @@
+# collected Ads Library data (never commit real scraped data)
+out/
+*.csv
+
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
