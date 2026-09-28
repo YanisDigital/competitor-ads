@@ -1,0 +1,15 @@
+{
+  "name": "meta-ads-niche-report",
+  "owner": {
+    "name": "YanisDigital"
+  },
+  "description": "Marketplace for the meta-ads-niche-report skill: competitor ad research from the Meta Ads Library.",
+  "plugins": [
+    {
+      "name": "meta-ads-niche-report",
+      "source": "./plugins/meta-ads-niche-report",
+      "description": "Collects and summarizes active competitor ads from the Meta Ads Library by niche and city.",
+      "category": "marketing"
+    }
+  ]
+}
