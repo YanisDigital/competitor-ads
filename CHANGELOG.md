@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-09-28
 
 Rebuild of the v0.1 prototype into a repo other people can install and Claude
 Code can keep developing.
@@ -50,6 +50,14 @@ Code can keep developing.
   transliteration. Argument validation also now runs before Playwright is
   imported, so a missing `--keywords` gives a clear message even before
   Playwright is installed.
+- `SKILL.md` frontmatter: an unquoted `description` containing `": "`
+  (colon + space) inside a plain YAML scalar failed to parse silently —
+  Claude Code loads such a skill with empty metadata instead of erroring.
+  Found by running `claude plugin validate`. Quoted the description.
+- `SKILL.md` frontmatter: the description also used `<city>` as a
+  placeholder, which claude.ai's skill-upload validator rejects as an XML
+  tag. Found by uploading the skill to claude.ai. Reworded to avoid angle
+  brackets.
 
 ## [0.1.0] - Prototype
 
