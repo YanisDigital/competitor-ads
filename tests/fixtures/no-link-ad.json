@@ -1,0 +1,17 @@
+{
+  "ad_archive_id": "1007",
+  "page_id": "p7",
+  "page_name": "Real Estate G",
+  "is_active": true,
+  "start_date": 1699827200,
+  "end_date": null,
+  "publisher_platform": ["facebook"],
+  "collation_count": 1,
+  "snapshot": {
+    "title": "Нерухомість в Одесі",
+    "body": "Дзвоніть за телефоном",
+    "cta_text": "",
+    "link_url": "",
+    "display_format": "image"
+  }
+}

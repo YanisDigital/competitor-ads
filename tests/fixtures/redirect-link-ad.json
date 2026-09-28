@@ -1,0 +1,17 @@
+{
+  "ad_archive_id": "1004",
+  "page_id": "p4",
+  "page_name": "Beauty Bar D",
+  "is_active": true,
+  "start_date": 1689632000,
+  "end_date": null,
+  "publisher_platform": ["facebook"],
+  "collation_count": 1,
+  "snapshot": {
+    "title": "Брови та вії",
+    "body": "Перший візит зі знижкою",
+    "cta_text": "Learn more",
+    "link_url": "https://l.facebook.com/l.php?u=https%3A%2F%2Fbeautybar-d.example%2Fbrows%3Ffbclid%3Dabc",
+    "display_format": "image"
+  }
+}

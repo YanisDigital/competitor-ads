@@ -1,0 +1,18 @@
+{
+  "ad_archive_id": "1001",
+  "page_id": "p1",
+  "page_name": "Salon A",
+  "is_active": true,
+  "start_date": 1699740800,
+  "end_date": null,
+  "publisher_platform": ["facebook", "instagram"],
+  "collation_count": 1,
+  "snapshot": {
+    "title": "Манікюр зі знижкою 20%",
+    "body": "Ласкаво просимо до Salon A. Манікюр, педикюр, гарантія якості.",
+    "cta_text": "Learn more",
+    "link_url": "https://salon-a.example/promo",
+    "display_format": "image",
+    "page_categories": ["Beauty salon"]
+  }
+}

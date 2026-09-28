@@ -1,0 +1,26 @@
+{
+  "ad_archive_id": "1002",
+  "page_id": "p2",
+  "page_name": "Nail Studio B",
+  "is_active": true,
+  "start_date": 1698704000,
+  "end_date": null,
+  "publisher_platform": ["facebook"],
+  "collation_count": 3,
+  "snapshot": {
+    "title": "{{product.name}}",
+    "body": "{{product.description}}",
+    "cta_text": "",
+    "link_url": "",
+    "display_format": "dco",
+    "cards": [
+      { "title": "", "body": "" },
+      {
+        "title": "Манікюр гель-лак",
+        "body": "Тільки до кінця тижня знижка 15%",
+        "cta_text": "Book now",
+        "link_url": "https://nailstudio-b.example"
+      }
+    ]
+  }
+}

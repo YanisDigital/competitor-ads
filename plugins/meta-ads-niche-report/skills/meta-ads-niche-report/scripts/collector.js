@@ -99,11 +99,14 @@
   function classifyDoor(rec) {
     const d = domainOf(rec.link);
     const cta = rec.cta || '';
-    if (/whatsapp/i.test(cta) || d === 'wa.me' || d === 'api.whatsapp.com') return 'WhatsApp';
-    if (/message/i.test(cta) || d === 'm.me') return 'Директ/Messenger';
+    // Domain-specific checks come first: a link to t.me/instagram.com/etc.
+    // is a stronger signal than generic CTA text like "Message", which
+    // Meta reuses across WhatsApp, Messenger and Telegram ads alike.
+    if (d === 'wa.me' || d === 'api.whatsapp.com' || /whatsapp/i.test(cta)) return 'WhatsApp';
     if (d === 't.me') return 'Telegram';
     if (d === 'instagram.com') return 'Instagram-профиль';
     if (/^(facebook\.com|fb\.com|fb\.me)$/.test(d)) return 'Facebook-страница';
+    if (d === 'm.me' || /message/i.test(cta)) return 'Директ/Messenger';
     if (/call/i.test(cta)) return 'Звонок';
     if (d) return 'Сайт';
     return 'Без ссылки';
@@ -115,6 +118,11 @@
   function buildReport(rows, opts = {}) {
     const longDays = opts.longDays || 90;
     const now = opts.now || Date.now() / 1000;
+    // Defensive dedup: callers normally pass rows already unique by id
+    // (Object.values(M.store)), but buildReport shouldn't double-count if
+    // the same ad shows up twice (e.g. rows collected across two runs).
+    // Last occurrence wins, matching how window.__mai.store is written.
+    rows = [...new Map(rows.map(r => [r.id, r])).values()];
     const age = r => Math.round((now - r.start) / 86400);
     const cnt = a => a.reduce((m, k) => (m[k] = (m[k] || 0) + 1, m), {});
     const pages = {};

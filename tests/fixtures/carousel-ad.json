@@ -1,0 +1,22 @@
+{
+  "ad_archive_id": "1003",
+  "page_id": "p3",
+  "page_name": "Dental Clinic C",
+  "is_active": true,
+  "start_date": 1696112000,
+  "end_date": null,
+  "publisher_platform": ["facebook", "instagram"],
+  "collation_count": 4,
+  "snapshot": {
+    "title": "Стоматологія без страху",
+    "body": "Імплантація, брекети, вініри. Розстрочка 0%.",
+    "cta_text": "Sign up",
+    "link_url": "https://dental-c.example",
+    "display_format": "carousel",
+    "cards": [
+      { "title": "Імплантація", "body": "від 15000 грн", "cta_text": "Sign up", "link_url": "https://dental-c.example/implants" },
+      { "title": "Брекети", "body": "розстрочка", "cta_text": "Sign up", "link_url": "https://dental-c.example/braces" },
+      { "title": "Вініри", "body": "гарантія 5 років", "cta_text": "Sign up", "link_url": "https://dental-c.example/veneers" }
+    ]
+  }
+}

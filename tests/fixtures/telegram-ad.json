@@ -1,0 +1,17 @@
+{
+  "ad_archive_id": "1006",
+  "page_id": "p6",
+  "page_name": "Auto Service F",
+  "is_active": true,
+  "start_date": 1682720000,
+  "end_date": null,
+  "publisher_platform": ["facebook"],
+  "collation_count": 1,
+  "snapshot": {
+    "title": "Діагностика авто зі знижкою",
+    "body": "Пишіть у Telegram",
+    "cta_text": "Message",
+    "link_url": "https://t.me/autoservice_f",
+    "display_format": "image"
+  }
+}

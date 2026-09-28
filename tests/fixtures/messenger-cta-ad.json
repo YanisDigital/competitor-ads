@@ -1,0 +1,17 @@
+{
+  "ad_archive_id": "1008",
+  "page_id": "p8",
+  "page_name": "Cosmetology H",
+  "is_active": true,
+  "start_date": 1699136000,
+  "end_date": null,
+  "publisher_platform": ["instagram"],
+  "collation_count": 1,
+  "snapshot": {
+    "title": "Косметолог з досвідом 10 років",
+    "body": "Гарантія результату",
+    "cta_text": "Send message",
+    "link_url": "",
+    "display_format": "image"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "ad_archive_id": "1005",
+  "page_id": "p5",
+  "page_name": "Fitness Studio E",
+  "is_active": true,
+  "start_date": 1665440000,
+  "end_date": null,
+  "publisher_platform": ["instagram"],
+  "collation_count": 1,
+  "snapshot": {
+    "title": "Перше тренування безкоштовно",
+    "body": "Записуйтесь у WhatsApp",
+    "cta_text": "Contact us",
+    "link_url": "https://wa.me/380501234567",
+    "display_format": "video"
+  }
+}
