@@ -168,7 +168,14 @@
   // collapsed so multi-line ad bodies stay on one CSV line).
   function toCsv(rows) {
     const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body'];
-    const esc = v => '"' + String(Array.isArray(v) ? v.join('; ') : (v ?? '')).replace(/"/g, '""').replace(/\s+/g, ' ') + '"';
+    const esc = v => {
+      let s = String(Array.isArray(v) ? v.join('; ') : (v ?? '')).replace(/\s+/g, ' ');
+      // Ad text/page names/CTAs are untrusted third-party input. A value
+      // starting with = + - @ is read as a formula by Excel/Sheets when the
+      // CSV is opened — prefix it with a quote so it's treated as text.
+      if (/^[=+\-@]/.test(s)) s = "'" + s;
+      return '"' + s.replace(/"/g, '""') + '"';
+    };
     const lines = rows.map(r => cols.map(c => esc(c === 'start' ? new Date(r.start * 1000).toISOString().slice(0, 10) : r[c])).join(','));
     return [cols.join(',')].concat(lines).join('\n');
   }

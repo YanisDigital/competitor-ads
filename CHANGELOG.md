@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.2.1] - 2026-09-28
+
+Security/privacy review of the published v0.2.0 repo and release.
+
+### Fixed
+- `toCsv`: a field starting with `=`, `+`, `-`, or `@` (a formula-injection
+  payload an advertiser could put in an ad's title/body/CTA/page name) is
+  now prefixed with a quote, so Excel/Google Sheets treat it as text
+  instead of evaluating it as a formula when `ads.csv` is opened.
+- `tests/fixtures/whatsapp-ad.json`: replaced a plausible-looking real
+  Ukrainian mobile number (`+380501234567`) with the same placeholder used
+  elsewhere in the fixtures (`380000000000`).
+- `examples/sample-report.md`: renamed advertisers to `Salon A`–`Salon J`
+  (matching the fictional-name convention CLAUDE.md asked for) — a couple
+  of the previous names ("Nail Bar Odesa", "Beauty Point", "Manicure Lab")
+  read as plausible real business names for the niche/city they're set in.
+
+### Added
+- `SKILL.md` and `references/browser-mode.md`: an explicit note that ad
+  text (title/body/cta) is untrusted third-party data, not instructions —
+  any command-like text embedded in an ad should be treated as ordinary ad
+  copy, never acted on.
+- A `toCsv` test covering the formula-injection fix.
+
 ## [0.2.0] - 2026-09-28
 
 Rebuild of the v0.1 prototype into a repo other people can install and Claude

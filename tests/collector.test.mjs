@@ -117,3 +117,20 @@ test('toCsv escapes quotes and collapses newlines, one line per row', () => {
   assert.match(lines[2], /"Say ""hi"""/);
   assert.doesNotMatch(lines[2], /Line one\nLine two/);
 });
+
+test('toCsv neutralizes formula-injection payloads in ad text', () => {
+  const rows = [{
+    ...normalizeAd(loadFixture('no-link-ad.json'), 'k'),
+    page: '=HYPERLINK("http://evil.example","Salon")',
+    title: '@SUM(1+1)',
+    body: '+cmd|\' /C calc\'!A0',
+    cta: '-2+3'
+  }];
+  const line = toCsv(rows).split('\n')[1];
+  // Every field that starts with = + - @ must be prefixed with a quote,
+  // so spreadsheet apps treat it as text instead of evaluating it.
+  assert.match(line, /"'=HYPERLINK/);
+  assert.match(line, /"'@SUM/);
+  assert.match(line, /"'\+cmd/);
+  assert.match(line, /"'-2\+3"/);
+});
