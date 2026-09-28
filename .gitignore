@@ -1,3 +1,6 @@
+# internal project brief -- read locally by Claude Code, not for publication
+CLAUDE.md
+
 # collected Ads Library data (never commit real scraped data)
 out/
 *.csv
