@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.3] - 2026-09-29
+
+### Added
+- `creative_clusters`: the same ad copy running on 2+ different pages
+  (copied creative / page network), with pages, ad count and oldest age.
+- `store_groups`: several pages sending traffic to the same own site.
+  On the third live US run these exposed networks like one posture-corrector
+  ad on 3 pages (~920 days) and "Community" pages sharing one supplement store.
+
+### Fixed
+- Local-business detection had a false positive on an online store (a single
+  "visit us"/"come in" phrase). Signals are now strong (address "City, ST
+  12345", "Get directions", "free estimate", "law firm", "dealership", ...)
+  or weak ("visit us", "book now": only when at least half of a page's ads
+  have one). Verified offline against a real 781-ad export.
+
 ## [0.4.2] - 2026-09-29
 
 Fixes from the second live `ecom-dropship-us` run (407 ads), where local

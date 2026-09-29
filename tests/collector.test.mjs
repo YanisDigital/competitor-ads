@@ -255,6 +255,31 @@ test('classifyDoor: Telegram bots and marketplaces get their own door', () => {
   assert.equal(classifyDoor({ cta: 'Shop now', link: 'https://mystore.com/products/x' }), 'Сайт');
 });
 
+test('creative_clusters and store_groups find copied creatives and shared stores', () => {
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const copy = 'Last Day 50% OFF Instant Posture Corrector, had enough of backaches?';
+  const rows = [
+    { ...base, id: '1', page: 'Page A', title: copy, body: '', link: 'https://shop.example/a' },
+    { ...base, id: '2', page: 'Page B', title: copy, body: '', link: 'https://shop.example/b' },
+    { ...base, id: '3', page: 'Page C', title: 'A totally different and long enough ad text here', body: '', link: 'https://other.example' }
+  ];
+  const r = buildReport(rows, { now: REFERENCE_NOW });
+  assert.equal(r.creative_clusters.length, 1);
+  assert.deepEqual(r.creative_clusters[0].pages.sort(), ['Page A', 'Page B']);
+  assert.deepEqual(r.store_groups, [{ site: 'shop.example', pages: ['Page A', 'Page B'] }]);
+});
+
+test('local detection: an address is a strong signal, one "visit us" is not', () => {
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const rows = [
+    { ...base, id: '1', page: 'Dealer', cta: 'Shop now', title: '', body: 'Trailers in stock! Melbourne, FL 32901' },
+    { ...base, id: '2', page: 'Online', cta: 'Shop now', title: '', body: 'Visit us at our store online' },
+    { ...base, id: '3', page: 'Online', cta: 'Shop now', title: '', body: 'Great gadget for your car' },
+    { ...base, id: '4', page: 'Online', cta: 'Shop now', title: '', body: 'Another great gadget' }
+  ];
+  assert.deepEqual(buildReport(rows, { now: REFERENCE_NOW }).local_pages, ['Dealer']);
+});
+
 test('toCsv escapes quotes and collapses newlines, one line per row', () => {
   const rows = [
     normalizeAd(loadFixture('basic-ad.json'), 'k'),

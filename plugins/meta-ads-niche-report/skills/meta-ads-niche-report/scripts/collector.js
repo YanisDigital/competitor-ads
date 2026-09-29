@@ -52,9 +52,15 @@
   const AFFILIATE_LINKS = /^(urlgeni\.us|geni\.us|amzlink\.to|amzn\.to|a\.co|howl\.link|shrsl\.com|go\.magik\.ly|shop-links\.co)$/;
   // Signals of a brick-and-mortar business: CTAs and phrases that only make
   // sense for a physical location.
-  const LOCAL_CTA = /(get directions|call now|get quote|book now)/i;
-  const LOCAL_TEXT = /(stop by|visit us|locally owned|come in\b|established in|our (?:store|shop|location)|walk.?ins? welcome)/i;
-  const isLocalSignal = r => LOCAL_CTA.test(r.cta || '') || LOCAL_TEXT.test((r.title || '') + ' ' + (r.body || ''));
+  // Strong signals flag a page on a single ad; weak ones (phrases an online
+  // store also uses, e.g. "visit us", "book now") only when at least half of
+  // the page's ads have one. A single weak phrase flagged an online store.
+  const US_STATES = 'AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY';
+  const LOCAL_STRONG_CTA = /(get directions|call now|get quote)/i;
+  const LOCAL_STRONG_TEXT = new RegExp('(locally owned|established in|walk.?ins? welcome|free estimates?|service center|dealership|law firm|attorneys?\\b|serving [A-Z][a-z]+|located (?:in|at|on)\\b|\\b[A-Z][a-z]+,\\s?(?:' + US_STATES + ')\\b|\\b(?:' + US_STATES + ')\\s\\d{5}\\b)');
+  const LOCAL_WEAK = /(stop by|visit us|come in\b|our (?:store|shop|location)|book now)/i;
+  const strongLocal = r => LOCAL_STRONG_CTA.test(r.cta || '') || LOCAL_STRONG_TEXT.test((r.title || '') + ' ' + (r.body || ''));
+  const weakLocal = r => LOCAL_WEAK.test((r.cta || '') + ' ' + (r.title || '') + ' ' + (r.body || ''));
   const PLATFORM_DOORS = ['Маркетплейс', 'Установка приложения'];
   const SHORT_LINKS =/^(bit\.ly|tinyurl\.com|cutt\.ly|rebrand\.ly|goo\.gl|ow\.ly|is\.gd|shorturl\.at|t\.ly)$/;
 
@@ -191,10 +197,11 @@
       p.doors.add(classifyDoor(r));
       const d = domainOf(r.link);
       if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d) && !AFFILIATE_LINKS.test(d)) p.sites.add(d);
-      if (isLocalSignal(r)) p.local = true;
+      if (strongLocal(r)) p.local = true;
+      if (weakLocal(r)) p.weak = (p.weak || 0) + 1;
     }
     const pageList = Object.values(pages)
-      .map(p => ({ ...p, local: !!p.local, platform: [...p.doors].every(d => PLATFORM_DOORS.includes(d)), doors: [...p.doors].join(', '), sites: [...p.sites].join(', ') }))
+      .map(({ weak, ...p }) => ({ ...p, local: !!p.local || (weak || 0) >= p.ads / 2, platform: [...p.doors].every(d => PLATFORM_DOORS.includes(d)), doors: [...p.doors].join(', '), sites: [...p.sites].join(', ') }))
       .sort((a, b) => b.ads - a.ads);
     // opts.onlineOnly (set by online-niche presets): drop brick-and-mortar
     // pages and big platforms (Amazon, eBay, app-install ads) from the
@@ -265,6 +272,21 @@
       discount_pairs: discounts.length, median_discount_pct: med(discounts),
       pct_off_mentions: pctOff.length, median_pct_off: med(pctOff)
     };
+    // The same ad copy running on several different pages: a page network or
+    // a copied creative. Key = first 70 alphanumeric chars of title+body.
+    const clusters = {};
+    for (const r of rows) {
+      const key = text(r).replace(/[^a-zа-яіїєґ0-9]/g, '');
+      if (key.length < 30) continue;
+      const c = clusters[key.slice(0, 70)] || (clusters[key.slice(0, 70)] = { text: snip(r), pages: new Set(), ads: 0, oldest_days: 0 });
+      c.pages.add(r.page); c.ads++; c.oldest_days = Math.max(c.oldest_days, age(r));
+    }
+    const creative_clusters = Object.values(clusters).filter(c => c.pages.size >= 2)
+      .map(c => ({ ...c, pages: [...c.pages] })).sort((a, b) => b.pages.length - a.pages.length || b.oldest_days - a.oldest_days).slice(0, 15);
+    // Different pages sending traffic to the same own site: one store, several pages.
+    const bySite = {};
+    for (const p of pageList) for (const s of p.sites.split(', ').filter(Boolean)) (bySite[s] = bySite[s] || []).push(p.page);
+    const store_groups = Object.entries(bySite).filter(([, pgs]) => pgs.length >= 2).map(([site, pgs]) => ({ site, pages: pgs })).sort((a, b) => b.pages.length - a.pages.length).slice(0, 15);
     return {
       ads: rows.length,
       advertisers: pageList.length,
@@ -279,6 +301,8 @@
       local_pages: pageList.filter(p => p.local).map(p => p.page),
       platform_pages: pageList.filter(p => p.platform).map(p => p.page),
       shopify_stores,
+      creative_clusters,
+      store_groups,
       noise_candidates,
       prices,
       top_pages: pageList.slice(0, 15),
