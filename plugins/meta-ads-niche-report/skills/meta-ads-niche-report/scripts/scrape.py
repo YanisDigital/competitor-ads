@@ -231,7 +231,13 @@ def main() -> None:
     parser.add_argument("--city-ru", default="", dest="city_ru", help="City name in Russian for preset queries")
     parser.add_argument("--max-queries", type=int, default=12, dest="max_queries", help="Max preset-built queries (default: 12)")
     parser.add_argument("--express", action="store_true", help=f"Quick look: run only the first {EXPRESS_QUERIES} queries")
+    parser.add_argument("--list-presets", action="store_true", dest="list_presets", help="List available niche presets and exit")
     args = parser.parse_args()
+    if args.list_presets:
+        for path in sorted(PRESETS_DIR.glob("*.json")):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            print(f"{data['id']}: {data['title']} ({len(data['services'])} services)")
+        return
     if args.max_queries > MAX_KEYWORDS:
         sys.exit(f"--max-queries above {MAX_KEYWORDS} is not allowed.")
     keywords = read_keywords(args)  # validated before importing/launching Playwright

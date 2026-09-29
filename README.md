@@ -57,6 +57,27 @@ Either:
   /plugin install meta-ads-niche-report@meta-ads-niche-report
   ```
 
+## Niche presets
+
+For common niches the skill ships ready-made presets in
+[`presets/`](plugins/meta-ads-niche-report/skills/meta-ads-niche-report/presets):
+services in Ukrainian and Russian, niche-specific hooks, and noise words
+(courses, schools, ...) to review. In Claude the preset is picked
+automatically when your niche matches; the skill tells you which one it
+used. If your niche isn't listed, it builds the queries itself.
+
+| Niche | Preset id |
+|---|---|
+| Beauty salons, nails, brows, lashes | `beauty` |
+| Dental clinics | `dentistry` |
+| Gyms, fitness studios, trainers | `fitness` |
+| Car service, tires, detailing | `auto-service` |
+
+CLI: `python scrape.py --preset beauty --city-uk Одеса --city-ru Одесса`
+(`--express` for a 3-query quick look, `--list-presets` to list them). To
+add a niche, copy any preset JSON, change `id`, `services`, `extra_hooks`
+and `noise`, and drop it into the same folder.
+
 ## Requirements
 
 - **Browser mode**: a browser tool in your Claude session (built-in browser,

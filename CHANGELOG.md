@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1] - 2026-09-29
+
+### Added
+- README (EN/RU): "Niche presets" section with preset ids and how to add one.
+- `scrape.py --list-presets`.
+
+### Changed
+- `SKILL.md`: an explicit rule to use a matching preset without asking,
+  say which one was used, and offer to save custom queries as a new preset.
+
 ## [0.3.0] - 2026-09-29
 
 ### Added
