@@ -55,6 +55,12 @@ First query (tab already open from Step 1):
 await window.__mai.scroll(); window.__mai.collect('<query>')
 ```
 
+The search field is `input[type="search"]` (placeholder "Search by keyword or
+advertiser"; UI-language dependent, no aria-label). It must be driven with
+real input events from the browser tool: setting `.value` and dispatching
+synthetic Enter/`popstate` events from page JS does **not** run a new search
+(tested live), so don't try to script this inside `collect`.
+
 Every next query, in one batched tool call (see "Why batched" below):
 1. Find the search field — `find` for "Search by keyword" the first time;
    after that you can usually reuse its coordinates or ref.

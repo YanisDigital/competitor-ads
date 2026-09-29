@@ -20,7 +20,8 @@
     'рассрочка': /(розстроч|рассроч|частин|installment)/,
     'запись/бронь': /(запис|запиш|бронь|бронюй|book now|sign up)/,
     'обучение/курсы': /(навчан|обучен|курс|\bcourse\b|training)/,
-    'до/после': /(до і після|до и после|before.*after)/
+    'до/после': /(до і після|до и после|before.*after)/,
+    'адрес/район': /(📍|вул\.|вулиц|ул\.|улиц|просп|пров\.|район|метро|адрес|адреса)/
   };
 
   // ==========================================================================
@@ -103,6 +104,23 @@
     return m ? m[0].trim() : '0 results';
   }
 
+  // Builds search queries from a niche preset (presets/*.json) and a city
+  // written per language, e.g. cities = { uk: 'Одеса', ru: 'Одесса' }.
+  // Services alternate across languages so a small `max` still covers every
+  // service in at least one language before repeating.
+  function buildQueries(preset, cities, max = 12) {
+    const out = [];
+    for (const lang of preset.languages) {
+      preset.services.forEach((s, i) => {
+        const name = s[lang];
+        if (!name) return;
+        out.push({ i, q: (name + ' ' + ((cities && (cities[lang] || cities.en)) || '')).trim() });
+      });
+    }
+    out.sort((a, b) => a.i - b.i);
+    return [...new Set(out.map(o => o.q))].slice(0, max);
+  }
+
   // Classifies where an ad's link/CTA sends the viewer.
   function classifyDoor(rec) {
     const d = domainOf(rec.link);
@@ -150,7 +168,16 @@
       .sort((a, b) => b.ads - a.ads);
     const text = r => ((r.title || '') + ' ' + (r.body || '')).toLowerCase();
     const freq = {};
-    for (const [k, p] of Object.entries(HOOK_PATTERNS)) freq[k] = rows.filter(r => p.test(text(r))).length;
+    // opts.extraHooks: { label: regexSource } from a niche preset.
+    const hooks = { ...HOOK_PATTERNS };
+    for (const [k, src] of Object.entries(opts.extraHooks || {})) hooks[k] = new RegExp(src);
+    for (const [k, p] of Object.entries(hooks)) freq[k] = rows.filter(r => p.test(text(r))).length;
+    // opts.noise: words from a preset. Pages whose ads mention them are
+    // suggested for exclude(); the caller decides, nothing is dropped here.
+    const noiseWords = (opts.noise || []).map(w => w.toLowerCase());
+    const noiseCount = {};
+    if (noiseWords.length) for (const r of rows) if (noiseWords.some(w => text(r).includes(w))) noiseCount[r.page] = (noiseCount[r.page] || 0) + 1;
+    const noise_candidates = Object.entries(noiseCount).map(([page, ads]) => ({ page, ads_matching: ads, ads_total: pages[page].ads })).sort((a, b) => b.ads_matching - a.ads_matching);
     const buckets = { '<7': 0, '7-30': 0, '30-90': 0, '90-365': 0, '>365': 0 };
     rows.forEach(r => { const a = age(r); buckets[a < 7 ? '<7' : a < 30 ? '7-30' : a < 90 ? '30-90' : a < 365 ? '90-365' : '>365']++; });
     const snip = r => ((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' ').slice(0, 160);
@@ -193,6 +220,7 @@
       formats: cnt(rows.map(r => r.fmt || '?')),
       age_buckets: buckets,
       hook_freq: freq,
+      noise_candidates,
       prices,
       top_pages: pageList.slice(0, 15),
       longrun,
@@ -285,6 +313,7 @@
       return { kw, captured: n, library_says: shown, total_unique: Object.keys(M.store).length };
     };
     M.exclude = (names) => { let k = 0; for (const [id, r] of Object.entries(M.store)) if (names.includes(r.page)) { delete M.store[id]; k++; } return k + ' removed'; };
+    M.buildQueries = buildQueries;
     M.report = (opts = {}) => buildReport(Object.values(M.store), opts);
     M.csv = () => toCsv(Object.values(M.store));
     return 'installed: ' + Object.keys(M.ads).length + ' ads buffered from first page';
@@ -293,7 +322,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv };
   }
 
   return installResult;

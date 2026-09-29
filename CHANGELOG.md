@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.3.0] - 2026-09-29
+
+### Added
+- Niche presets in `presets/` (beauty, dentistry, fitness, auto-service):
+  services in Ukrainian/Russian, niche-specific hook regexes, and noise
+  words. `buildQueries(preset, cities, max)` turns them into search queries
+  (also `window.__mai.buildQueries`); `scrape.py` gets `--preset`,
+  `--city-uk`, `--city-ru`, `--max-queries`.
+- `report({extraHooks, noise})`: preset hooks are counted in `hook_freq`;
+  `noise_candidates` lists pages whose ads mention noise words (courses,
+  schools, ...) for review — nothing is removed automatically.
+- Generic `адрес/район` hook (📍, вул., район, метро, ...).
+- Express mode (`--express`, or "quick look" in SKILL.md): first 3 queries,
+  report sections 1, 3 and 6 only.
+
+### Changed
+- `scrape.py` search-field selectors: the live field is
+  `input[type=search]` ("Search by keyword or advertiser"), now tried first.
+
+### Not included
+- An in-page `__mai.search(q)`. Tested live: the Ads Library ignores
+  synthetic Enter and `popstate` events, so a new search needs real input
+  from the browser tool. Documented in `references/browser-mode.md`.
+
 ## [0.2.2] - 2026-09-29
 
 ### Fixed

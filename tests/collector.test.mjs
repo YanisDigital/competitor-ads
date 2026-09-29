@@ -8,6 +8,7 @@ import {
   classifyDoor,
   domainOf,
   resultCountOf,
+  buildQueries,
   buildReport,
   toCsv
 } from '../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/collector.js';
@@ -133,6 +134,42 @@ test('buildReport keeps at most 2 longrun entries per advertiser', () => {
   const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
   const rows = [1, 2, 3, 4].map(i => ({ ...base, id: 'x' + i, start: REFERENCE_NOW - (100 + i) * 86400 }));
   assert.equal(buildReport(rows, { now: REFERENCE_NOW }).longrun.length, 2);
+});
+
+const PRESET_DIR = path.join(__dirname, '../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/presets');
+const loadPreset = (id) => JSON.parse(readFileSync(path.join(PRESET_DIR, id + '.json'), 'utf8'));
+
+test('every preset is well-formed and its extra_hooks compile', () => {
+  for (const id of ['beauty', 'dentistry', 'fitness', 'auto-service']) {
+    const p = loadPreset(id);
+    assert.equal(p.id, id);
+    assert.ok(p.services.length >= 4);
+    for (const s of p.services) for (const lang of p.languages) assert.ok(s[lang], `${id}: missing ${lang}`);
+    for (const src of Object.values(p.extra_hooks)) assert.doesNotThrow(() => new RegExp(src));
+  }
+});
+
+test('buildQueries: services x languages with city per language, capped and deduped', () => {
+  const q = buildQueries(loadPreset('beauty'), { uk: 'Одеса', ru: 'Одесса' }, 12);
+  assert.equal(q.length, 12);
+  assert.equal(q[0], 'салон краси Одеса');
+  assert.equal(q[1], 'салон красоты Одесса');
+  assert.equal(new Set(q).size, q.length);
+  assert.equal(buildQueries(loadPreset('beauty'), { uk: 'Одеса', ru: 'Одесса' }, 4).length, 4);
+  assert.equal(buildQueries(loadPreset('beauty'), {}, 2)[0], 'салон краси');
+});
+
+test('buildReport applies preset extra hooks, the address hook and flags noise pages', () => {
+  const beauty = loadPreset('beauty');
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const rows = [
+    { ...base, id: 'a', page: 'Salon', body: '3-етапна стерилізація 📍 вул. Новосельського, 38' },
+    { ...base, id: 'b', page: 'School', body: 'Курс манікюру для початківців' }
+  ];
+  const r = buildReport(rows, { now: REFERENCE_NOW, extraHooks: beauty.extra_hooks, noise: beauty.noise });
+  assert.equal(r.hook_freq['стерильность'], 1);
+  assert.equal(r.hook_freq['адрес/район'], 1);
+  assert.deepEqual(r.noise_candidates.map(n => n.page), ['School']);
 });
 
 test('toCsv escapes quotes and collapses newlines, one line per row', () => {
