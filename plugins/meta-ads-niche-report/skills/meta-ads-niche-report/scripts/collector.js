@@ -32,15 +32,22 @@
 
   // Resolves an Ads Library link to a bare domain, unwrapping the
   // l.facebook.com/l.php?u=... redirect wrapper along the way.
-  function domainOf(u) {
+  function unwrapUrl(u) {
     try {
       let x = new URL(u);
       if (/facebook\.com$/.test(x.hostname) && x.searchParams.get('u')) x = new URL(x.searchParams.get('u'));
-      return x.hostname.replace(/^(www|l|m)\./, '');
+      return x;
     } catch (e) {
-      return '';
+      return null;
     }
   }
+
+  function domainOf(u) {
+    const x = unwrapUrl(u);
+    return x ? x.hostname.replace(/^(www|l|m)\./, '') : '';
+  }
+
+  const MARKETPLACES = /(^|\.)(prom\.ua|rozetka\.com\.ua|olx\.ua|kasta\.ua|amazon\.com|etsy\.com|ebay\.com|walmart\.com|temu\.com|aliexpress\.com|tiktok\.com)$/;
 
   // Finds the first card (DCO / carousel) whose title or body is non-empty.
   function firstNonEmptyCard(cards) {
@@ -131,10 +138,11 @@
     // link_url with the profile URL there, so the domain alone would
     // misreport most small-business ads as "profile" ads.
     if (d === 'wa.me' || d === 'api.whatsapp.com' || /whatsapp/i.test(cta)) return 'WhatsApp';
-    if (d === 't.me') return 'Telegram';
+    if (d === 't.me') return /bot\/?$/i.test(unwrapUrl(rec.link).pathname) ? 'Telegram-бот' : 'Telegram';
     if (d === 'm.me' || /message/i.test(cta)) return 'Директ/Messenger';
     if (d === 'instagram.com') return 'Instagram-профиль';
     if (/^(facebook\.com|fb\.com|fb\.me)$/.test(d)) return 'Facebook-страница';
+    if (MARKETPLACES.test(d)) return 'Маркетплейс';
     if (/call/i.test(cta)) return 'Звонок';
     if (d) return 'Сайт';
     return 'Без ссылки';
@@ -161,7 +169,7 @@
       p.newest_days = Math.min(p.newest_days, age(r));
       p.doors.add(classifyDoor(r));
       const d = domainOf(r.link);
-      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d)) p.sites.add(d);
+      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d)) p.sites.add(d);
     }
     const pageList = Object.values(pages)
       .map(p => ({ ...p, doors: [...p.doors].join(', '), sites: [...p.sites].join(', ') }))
@@ -191,24 +199,40 @@
     const seen = new Set();
     const samples = [...rows].sort((a, b) => a.start - b.start)
       .filter(r => !seen.has(r.page) && seen.add(r.page)).slice(0, 35).map(r => ({ page: r.page, text: snip(r) }));
-    // Prices in UAH mentioned in ad text; "X instead of Y" pairs give the typical discount.
+    // Prices mentioned in ad text, in opts.currency (UAH by default, USD for
+    // US presets); "X instead of Y" / "was X now Y" pairs and "N% off"
+    // mentions give the typical discount.
+    const currency = String(opts.currency || 'UAH').toUpperCase();
+    const num = s => +String(s).replace(/\s/g, '').replace(',', '.');
     const amounts = [];
     const discounts = [];
+    const pctOff = [];
     let adsWithPrice = 0;
     for (const r of rows) {
       const t = text(r);
-      const found = [...t.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*(?:грн|₴|uah|гривен|гривень)/g)].map(m => +m[1].replace(/\s/g, '')).filter(n => n >= 10 && n <= 100000);
+      const found = currency === 'USD'
+        ? [...t.matchAll(/\$\s?(\d{1,5}(?:[.,]\d{1,2})?)|(\d{1,5}(?:\.\d{1,2})?)\s?(?:usd|dollars?)\b/g)].map(m => num(m[1] || m[2])).filter(n => n >= 1 && n <= 10000)
+        : [...t.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*(?:грн|₴|uah|гривен|гривень)/g)].map(m => num(m[1])).filter(n => n >= 10 && n <= 100000);
       if (found.length) { adsWithPrice++; amounts.push(...found); }
-      for (const m of t.matchAll(/(\d[\d\s]{0,6})\s*(?:грн|₴)?\s*\(?(?:замість|вместо|instead of)\s*(\d[\d\s]{0,6})/g)) {
-        const nw = +m[1].replace(/\s/g, ''), old = +m[2].replace(/\s/g, '');
+      const pairs = currency === 'USD'
+        ? [...t.matchAll(/\$\s?(\d+(?:\.\d+)?)\s*\(?\s*(?:instead of|was|reg\.?|regularly)\s*\$?\s?(\d+(?:\.\d+)?)/g)].map(m => [m[1], m[2]])
+            .concat([...t.matchAll(/was\s*\$\s?(\d+(?:\.\d+)?)\s*[,—–-]?\s*now\s*(?:only\s*)?\$\s?(\d+(?:\.\d+)?)/g)].map(m => [m[2], m[1]]))
+        : [...t.matchAll(/(\d[\d\s]{0,6})\s*(?:грн|₴)?\s*\(?(?:замість|вместо|instead of)\s*(\d[\d\s]{0,6})/g)].map(m => [m[1], m[2]]);
+      for (const [n, o] of pairs) {
+        const nw = num(n), old = num(o);
         if (old > nw && nw > 0) discounts.push(Math.round((1 - nw / old) * 100));
+      }
+      for (const m of t.matchAll(/(\d{1,2})\s*%\s*(?:off|знижк|скидк)|(?:знижк\S*|скидк\S*|save)\s*(?:до\s*|up to\s*)?-?(\d{1,2})\s*%|(?:^|\s)-(\d{1,2})\s*%/g)) {
+        pctOff.push(+(m[1] || m[2] || m[3]));
       }
     }
     const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
     const prices = {
+      currency,
       ads_with_price: adsWithPrice,
       min: amounts.length ? Math.min(...amounts) : null, median: med(amounts), max: amounts.length ? Math.max(...amounts) : null,
-      discount_pairs: discounts.length, median_discount_pct: med(discounts)
+      discount_pairs: discounts.length, median_discount_pct: med(discounts),
+      pct_off_mentions: pctOff.length, median_pct_off: med(pctOff)
     };
     return {
       ads: rows.length,

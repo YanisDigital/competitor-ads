@@ -1,0 +1,29 @@
+{
+  "id": "ecom-dropship-us",
+  "title": "Dropshipping / Shopify stores selling to the US",
+  "country": "US",
+  "currency": "USD",
+  "languages": ["en"],
+  "services": [
+    { "en": "tiktok made me buy it" },
+    { "en": "as seen on tiktok" },
+    { "en": "50% off today only" },
+    { "en": "limited stock" },
+    { "en": "free shipping today" },
+    { "en": "kitchen gadget" },
+    { "en": "pet gadget" },
+    { "en": "car gadget" },
+    { "en": "beauty tool" },
+    { "en": "home gadget" }
+  ],
+  "extra_hooks": {
+    "бесплатная доставка": "free shipping|free delivery",
+    "BOGO/комплект": "buy \\d+ get \\d+|bogo|bundle|2 for \\$",
+    "ограниченный запас": "limited stock|selling fast|almost gone|sold out|only \\d+ left|while supplies last",
+    "TikTok/вирусность": "tiktok|viral|as seen on",
+    "гарантия возврата": "money.back|\\d+.day (?:guarantee|return)|risk.free",
+    "отзывы/звёзды": "\\d[\\d,]* (?:reviews|happy customers)|★|⭐|5.star",
+    "срочность": "today only|ends tonight|last day|24 hours|flash sale"
+  },
+  "noise": ["we're hiring", "hiring", "podcast", "webinar", "course", "coaching"]
+}

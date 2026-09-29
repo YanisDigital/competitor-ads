@@ -73,6 +73,9 @@ zip через **Settings → Skills → Upload skill**.
 | Стоматологии | `dentistry` |
 | Залы, фитнес-студии, тренеры | `fitness` |
 | Автосервис, шиномонтаж, детейлинг | `auto-service` |
+| Дропшиппинг / Shopify-магазины на США (страна US, цены в $) | `ecom-dropship-us` |
+| Онлайн-курсы: таргет, SMM, маркетинг | `infobiz-marketing` |
+| Курсы для бьюти-мастеров | `infobiz-beauty` |
 
 CLI: `python scrape.py --preset beauty --city-uk Одеса --city-ru Одесса`
 (`--express` — быстрый срез из 3 запросов, `--list-presets` — список

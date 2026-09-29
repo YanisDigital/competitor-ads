@@ -72,6 +72,9 @@ used. If your niche isn't listed, it builds the queries itself.
 | Dental clinics | `dentistry` |
 | Gyms, fitness studios, trainers | `fitness` |
 | Car service, tires, detailing | `auto-service` |
+| Dropshipping / Shopify stores selling to the US (country US, prices in $) | `ecom-dropship-us` |
+| Online courses: targeting, SMM, marketing | `infobiz-marketing` |
+| Courses for beauty professionals | `infobiz-beauty` |
 
 CLI: `python scrape.py --preset beauty --city-uk Одеса --city-ru Одесса`
 (`--express` for a 3-query quick look, `--list-presets` to list them). To

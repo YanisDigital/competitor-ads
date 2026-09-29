@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0] - 2026-09-29
+
+### Added
+- Presets for online niches: `ecom-dropship-us` (English queries by
+  product type and offer phrase, country US, prices in USD, hooks: free
+  shipping, BOGO, limited stock, TikTok/viral, money-back, reviews,
+  urgency), `infobiz-marketing` and `infobiz-beauty` (webinars, lead
+  magnets, "from zero", student results, seats/cohort start, certificates,
+  practice on models).
+- Presets may set `country` and `currency`; `scrape.py` uses the preset's
+  country unless `--country` is given.
+- `report({currency: 'USD'})`: dollar prices and "was $X now $Y" /
+  "$Y (was $X)" discount pairs. `prices` now also has `currency`,
+  `pct_off_mentions` and `median_pct_off` ("50% off", "знижка 20%", "-15%").
+- Doors: `Маркетплейс` (Prom, Rozetka, OLX, Kasta, Amazon, Etsy, eBay,
+  Walmart, Temu, AliExpress, TikTok Shop) and `Telegram-бот` (t.me links
+  ending in "bot"). Marketplace domains are no longer listed as an
+  advertiser's own site.
+
 ## [0.3.1] - 2026-09-29
 
 ### Added

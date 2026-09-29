@@ -140,6 +140,7 @@ async def run(args, keywords: list[str]) -> None:
 
     collector_src = COLLECTOR_JS.read_text(encoding="utf-8")
     preset = load_preset(args.preset) if args.preset else None
+    country = args.country or (preset or {}).get("country") or "UA"
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=not args.headed)
@@ -164,7 +165,7 @@ async def run(args, keywords: list[str]) -> None:
             print(f"Queries ({len(keywords)}): " + " | ".join(keywords))
 
             print(f"[1/{len(keywords)}] opening Ads Library for: {keywords[0]}")
-            await page.goto(library_url(args.country, keywords[0]), wait_until="domcontentloaded")
+            await page.goto(library_url(country, keywords[0]), wait_until="domcontentloaded")
             await page.wait_for_timeout(3000)
             await detect_block(page)
 
@@ -194,6 +195,8 @@ async def run(args, keywords: list[str]) -> None:
             if preset:
                 report_opts["extraHooks"] = preset.get("extra_hooks", {})
                 report_opts["noise"] = preset.get("noise", [])
+                if preset.get("currency"):
+                    report_opts["currency"] = preset["currency"]
             report = await page.evaluate("(opts) => window.__mai.report(opts)", report_opts)
             csv_text = await page.evaluate("() => window.__mai.csv()")
         except BlockedError as e:
@@ -221,7 +224,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Collect active ads from the Meta Ads Library for a niche + city.")
     parser.add_argument("--keywords", nargs="+", help='Search queries, e.g. --keywords "nail salon odesa" "manicure odesa" (any language works, just avoid non-ASCII in --help)')
     parser.add_argument("--keywords-file", help="Path to a text file with one query per line")
-    parser.add_argument("--country", default="UA", help="Ads Library country code (default: UA)")
+    parser.add_argument("--country", default=None, help="Ads Library country code (default: the preset's country, else UA)")
     parser.add_argument("--long-days", type=int, default=DEFAULT_LONG_DAYS, dest="long_days", help=f"Longrun threshold in days (default: {DEFAULT_LONG_DAYS})")
     parser.add_argument("--out", help="Output directory (default: out/<slug of first keyword>/)")
     parser.add_argument("--headed", action="store_true", help="Run with a visible browser window (use this if headless returns empty results or a login wall)")

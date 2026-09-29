@@ -31,10 +31,11 @@ below is read from one of those two, in `normalizeAd(node, kw)`
   URL instead. Strips a leading `www.`/`l.`/`m.` from whatever hostname it
   lands on.
 - **`classifyDoor(rec)`** turns `link`'s domain + `cta` text into one of:
-  WhatsApp, Telegram, Instagram-профиль, Facebook-страница,
-  Директ/Messenger, Звонок, Сайт, Без ссылки. Domain checks run before
-  generic CTA-text checks (a link to `t.me` outranks a generic "Message"
-  CTA — see the code comment for why).
+  WhatsApp, Telegram, Telegram-бот, Директ/Messenger, Instagram-профиль,
+  Facebook-страница, Маркетплейс, Звонок, Сайт, Без ссылки. `wa.me`/`t.me`
+  links win over a generic "Message" CTA; a "Message" CTA wins over a bare
+  `instagram.com`/`facebook.com` link (that's a Direct ad, not a profile
+  ad) — see the code comment for why.
 - **`hook_freq`** (in `buildReport`) matches `HOOK_PATTERNS` (top of
   `collector.js`) against lowercased `title + " " + body`. Each pattern is
   a single regex covering Ukrainian/Russian/English phrasing for the same

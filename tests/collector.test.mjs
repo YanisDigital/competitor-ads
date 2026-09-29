@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
@@ -140,7 +140,9 @@ const PRESET_DIR = path.join(__dirname, '../plugins/meta-ads-niche-report/skills
 const loadPreset = (id) => JSON.parse(readFileSync(path.join(PRESET_DIR, id + '.json'), 'utf8'));
 
 test('every preset is well-formed and its extra_hooks compile', () => {
-  for (const id of ['beauty', 'dentistry', 'fitness', 'auto-service']) {
+  const ids = readdirSync(PRESET_DIR).filter(f => f.endsWith('.json')).map(f => f.replace(/\.json$/, ''));
+  assert.ok(ids.length >= 7);
+  for (const id of ids) {
     const p = loadPreset(id);
     assert.equal(p.id, id);
     assert.ok(p.services.length >= 4);
@@ -170,6 +172,36 @@ test('buildReport applies preset extra hooks, the address hook and flags noise p
   assert.equal(r.hook_freq['стерильность'], 1);
   assert.equal(r.hook_freq['адрес/район'], 1);
   assert.deepEqual(r.noise_candidates.map(n => n.page), ['School']);
+});
+
+test('buildQueries: English-only preset with no city', () => {
+  const q = buildQueries(loadPreset('ecom-dropship-us'), {}, 3);
+  assert.deepEqual(q, ['tiktok made me buy it', 'as seen on tiktok', '50% off today only']);
+});
+
+test('buildReport: USD prices, was/now pairs and % off for US presets', () => {
+  const us = loadPreset('ecom-dropship-us');
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const rows = [
+    { ...base, id: 'a', title: '', body: 'Only $29.99 (was $59.99). 50% OFF today only! Free shipping' },
+    { ...base, id: 'b', title: '', body: 'Was $40 now $30 — only 12 left' }
+  ];
+  const r = buildReport(rows, { now: REFERENCE_NOW, currency: us.currency, extraHooks: us.extra_hooks });
+  assert.equal(r.prices.currency, 'USD');
+  assert.equal(r.prices.ads_with_price, 2);
+  assert.equal(r.prices.min, 29.99);
+  assert.equal(r.prices.discount_pairs, 2);
+  assert.equal(r.prices.median_pct_off, 50);
+  assert.equal(r.hook_freq['бесплатная доставка'], 1);
+  assert.equal(r.hook_freq['ограниченный запас'], 1);
+});
+
+test('classifyDoor: Telegram bots and marketplaces get their own door', () => {
+  assert.equal(classifyDoor({ cta: 'Learn more', link: 'https://t.me/course_signup_bot' }), 'Telegram-бот');
+  assert.equal(classifyDoor({ cta: 'Learn more', link: 'https://t.me/channel_name' }), 'Telegram');
+  assert.equal(classifyDoor({ cta: 'Shop now', link: 'https://prom.ua/p123-item.html' }), 'Маркетплейс');
+  assert.equal(classifyDoor({ cta: 'Shop now', link: 'https://www.amazon.com/dp/B0X' }), 'Маркетплейс');
+  assert.equal(classifyDoor({ cta: 'Shop now', link: 'https://mystore.com/products/x' }), 'Сайт');
 });
 
 test('toCsv escapes quotes and collapses newlines, one line per row', () => {
