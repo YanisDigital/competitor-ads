@@ -199,6 +199,8 @@ async def run(args, keywords: list[str]) -> None:
             if preset:
                 report_opts["extraHooks"] = preset.get("extra_hooks", {})
                 report_opts["noise"] = preset.get("noise", [])
+                if preset.get("online_only"):
+                    report_opts["onlineOnly"] = True
                 if preset.get("base_hooks") is False:
                     report_opts["baseHooks"] = False
                 if preset.get("currency"):

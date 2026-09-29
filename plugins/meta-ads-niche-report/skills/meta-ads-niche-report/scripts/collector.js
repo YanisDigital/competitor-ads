@@ -49,7 +49,14 @@
 
   const MARKETPLACES = /(^|\.)(prom\.ua|rozetka\.com\.ua|olx\.ua|kasta\.ua|amazon\.com|etsy\.com|ebay\.com|walmart\.com|temu\.com|aliexpress\.com|shop\.tiktok\.com)$/;
   const APP_STORES = /^(apps\.apple\.com|itunes\.apple\.com|play\.google\.com)$/;
-  const SHORT_LINKS = /^(bit\.ly|tinyurl\.com|cutt\.ly|rebrand\.ly|goo\.gl|ow\.ly|is\.gd|shorturl\.at|t\.ly)$/;
+  const AFFILIATE_LINKS = /^(urlgeni\.us|geni\.us|amzlink\.to|amzn\.to|a\.co|howl\.link|shrsl\.com|go\.magik\.ly|shop-links\.co)$/;
+  // Signals of a brick-and-mortar business: CTAs and phrases that only make
+  // sense for a physical location.
+  const LOCAL_CTA = /(get directions|call now|get quote|book now)/i;
+  const LOCAL_TEXT = /(stop by|visit us|locally owned|come in\b|established in|our (?:store|shop|location)|walk.?ins? welcome)/i;
+  const isLocalSignal = r => LOCAL_CTA.test(r.cta || '') || LOCAL_TEXT.test((r.title || '') + ' ' + (r.body || ''));
+  const PLATFORM_DOORS = ['Маркетплейс', 'Установка приложения'];
+  const SHORT_LINKS =/^(bit\.ly|tinyurl\.com|cutt\.ly|rebrand\.ly|goo\.gl|ow\.ly|is\.gd|shorturl\.at|t\.ly)$/;
 
   // Finds the first card (DCO / carousel) whose title or body is non-empty.
   function firstNonEmptyCard(cards) {
@@ -155,6 +162,7 @@
     if (/^(facebook\.com|fb\.com|fb\.me)$/.test(d)) return 'Facebook-страница';
     if (MARKETPLACES.test(d)) return 'Маркетплейс';
     if (APP_STORES.test(d)) return 'Установка приложения';
+    if (AFFILIATE_LINKS.test(d)) return 'Партнёрская ссылка';
     if (SHORT_LINKS.test(d)) return 'Короткая ссылка';
     if (/call/i.test(cta)) return 'Звонок';
     if (d) return 'Сайт';
@@ -182,11 +190,17 @@
       p.newest_days = Math.min(p.newest_days, age(r));
       p.doors.add(classifyDoor(r));
       const d = domainOf(r.link);
-      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d)) p.sites.add(d);
+      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d) && !AFFILIATE_LINKS.test(d)) p.sites.add(d);
+      if (isLocalSignal(r)) p.local = true;
     }
     const pageList = Object.values(pages)
-      .map(p => ({ ...p, doors: [...p.doors].join(', '), sites: [...p.sites].join(', ') }))
+      .map(p => ({ ...p, local: !!p.local, platform: [...p.doors].every(d => PLATFORM_DOORS.includes(d)), doors: [...p.doors].join(', '), sites: [...p.sites].join(', ') }))
       .sort((a, b) => b.ads - a.ads);
+    // opts.onlineOnly (set by online-niche presets): drop brick-and-mortar
+    // pages and big platforms (Amazon, eBay, app-install ads) from the
+    // longrun and samples lists. They are still counted and flagged.
+    const outOfNiche = new Set(opts.onlineOnly ? pageList.filter(p => p.local || p.platform).map(p => p.page) : []);
+    const shopify_stores = pageList.filter(p => /(^|, )[^,]*\.myshopify\.com/.test(p.sites)).map(p => ({ page: p.page, sites: p.sites }));
     const text = r => ((r.title || '') + ' ' + (r.body || '')).toLowerCase();
     const freq = {};
     // opts.extraHooks: { label: regexSource } from a niche preset.
@@ -207,12 +221,14 @@
     // Max 2 longrun entries per advertiser, so one advertiser running many
     // copies of the same creative can't fill the whole list.
     const perPage = {};
-    const longrun = rows.filter(r => age(r) >= longDays).sort((a, b) => a.start - b.start)
+    // Ranked by creative variants first (many variants of one ad = active
+    // testing/scaling), then by age.
+    const longrun = rows.filter(r => age(r) >= longDays && !outOfNiche.has(r.page)).sort((a, b) => (b.variants - a.variants) || (a.start - b.start))
       .filter(r => (perPage[r.page] = (perPage[r.page] || 0) + 1) <= 2).slice(0, 25)
       .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, door: classifyDoor(r), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }));
     // One sample per advertiser: the oldest ad, i.e. the most battle-tested one.
     const seen = new Set();
-    const samples = [...rows].sort((a, b) => a.start - b.start)
+    const samples = rows.filter(r => !outOfNiche.has(r.page)).sort((a, b) => a.start - b.start)
       .filter(r => !seen.has(r.page) && seen.add(r.page)).slice(0, 35).map(r => ({ page: r.page, text: snip(r) }));
     // Prices mentioned in ad text, in opts.currency (UAH by default, USD for
     // US presets); "X instead of Y" / "was X now Y" pairs and "N% off"
@@ -260,6 +276,9 @@
       age_buckets: buckets,
       hook_freq: freq,
       catalog_ads: rows.filter(r => r.catalog).length,
+      local_pages: pageList.filter(p => p.local).map(p => p.page),
+      platform_pages: pageList.filter(p => p.platform).map(p => p.page),
+      shopify_stores,
       noise_candidates,
       prices,
       top_pages: pageList.slice(0, 15),

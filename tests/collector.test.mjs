@@ -176,7 +176,33 @@ test('buildReport applies preset extra hooks, the address hook and flags noise p
 
 test('buildQueries: English-only preset with no city', () => {
   const q = buildQueries(loadPreset('ecom-dropship-us'), {}, 3);
-  assert.deepEqual(q, ['kitchen gadget', 'pet supplies', 'car accessories']);
+  assert.deepEqual(q, ['car door lock cover', 'pet stain remover', 'led car lights']);
+});
+
+test('classifyDoor: affiliate links get their own door and are not an advertiser site', () => {
+  assert.equal(classifyDoor({ cta: 'Shop now', link: 'https://amzlink.to/az0abc' }), 'Партнёрская ссылка');
+  assert.equal(classifyDoor({ cta: 'Shop now', link: 'https://urlgeni.us/x' }), 'Партнёрская ссылка');
+  const rows = [{ ...normalizeAd(loadFixture('basic-ad.json'), 'k'), link: 'https://amzlink.to/az0abc' }];
+  assert.equal(buildReport(rows, { now: REFERENCE_NOW }).top_pages[0].sites, '');
+});
+
+test('buildReport flags local and platform pages, and onlineOnly drops them from longrun/samples', () => {
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const old = REFERENCE_NOW - 400 * 86400;
+  const rows = [
+    { ...base, id: '1', page: 'Local Pet Shop', cta: 'Get directions', link: 'https://localpets.example', start: old, variants: 1 },
+    { ...base, id: '2', page: 'Big Market', cta: 'Shop now', link: 'https://www.amazon.com/dp/x', start: old, variants: 1 },
+    { ...base, id: '3', page: 'Online Store', cta: 'Shop now', link: 'https://store.myshopify.com/p', start: old, variants: 1 },
+    { ...base, id: '4', page: 'Online Store B', cta: 'Shop now', link: 'https://b.example', start: old + 86400, variants: 9 }
+  ];
+  const all = buildReport(rows, { now: REFERENCE_NOW });
+  assert.deepEqual(all.local_pages, ['Local Pet Shop']);
+  assert.deepEqual(all.platform_pages, ['Big Market']);
+  assert.deepEqual(all.shopify_stores.map(s => s.page), ['Online Store']);
+  assert.equal(all.longrun.length, 4);
+  const online = buildReport(rows, { now: REFERENCE_NOW, onlineOnly: true });
+  assert.deepEqual(online.longrun.map(l => l.page), ['Online Store B', 'Online Store']); // more variants first
+  assert.ok(!online.samples.some(s => s.page === 'Local Pet Shop' || s.page === 'Big Market'));
 });
 
 test('catalog ads: unresolved {{placeholders}} are stripped and flagged, counted in the report', () => {

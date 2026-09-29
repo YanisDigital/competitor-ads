@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.2] - 2026-09-29
+
+Fixes from the second live `ecom-dropship-us` run (407 ads), where local
+pet shops, tint shops, Amazon/eBay/Temu and affiliate bloggers filled the
+results and old local pages topped the "longrun" list.
+
+### Added
+- Door `Партнёрская ссылка` (`urlgeni.us`, `geni.us`, `amzlink.to`,
+  `amzn.to`, ...), not listed as an advertiser's site.
+- Report: `local_pages` (physical-business CTAs/phrases), `platform_pages`
+  (all ads go to marketplaces/app stores), `shopify_stores`
+  (`*.myshopify.com` sites); `local`/`platform` flags on `top_pages`.
+- `report({onlineOnly: true})` (preset flag `online_only`) removes local and
+  platform pages from `longrun` and `samples`.
+
+### Changed
+- `longrun` is ranked by creative variants first, then age: many variants of
+  one ad means active testing.
+- `ecom-dropship-us` queries specific products ("car door lock cover", "pet
+  stain remover", "led car lights", ...) instead of broad categories.
+
 ## [0.4.1] - 2026-09-29
 
 Fixes from the first live `ecom-dropship-us` run (165 ads).
