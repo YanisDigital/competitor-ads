@@ -154,7 +154,7 @@ async def run(args, keywords: list[str]) -> None:
                     await page.wait_for_timeout(4000)
                     await detect_block(page)
 
-                await page.evaluate("window.__mai.scroll(6)")
+                await page.evaluate("window.__mai.scroll()")
                 summary = await page.evaluate("(kw) => window.__mai.collect(kw)", kw)
                 print(
                     f"    captured={summary['captured']} "

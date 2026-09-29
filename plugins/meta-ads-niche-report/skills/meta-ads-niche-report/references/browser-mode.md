@@ -52,14 +52,14 @@ without reloading.
 
 First query (tab already open from Step 1):
 ```javascript
-await window.__mai.scroll(6); window.__mai.collect('<query>')
+await window.__mai.scroll(); window.__mai.collect('<query>')
 ```
 
 Every next query, in one batched tool call (see "Why batched" below):
 1. Find the search field — `find` for "Search by keyword" the first time;
    after that you can usually reuse its coordinates or ref.
 2. Click it, select all, type the new query, press Enter, wait ~4s.
-3. Run: `await window.__mai.scroll(6); window.__mai.collect('<query>')`
+3. Run: `await window.__mai.scroll(); window.__mai.collect('<query>')`
 
 **Why batched, and why scroll via `__mai.scroll`:**
 - Cowork's `browser_batch` has a ~50s ceiling, so keep it to **one search
@@ -69,7 +69,7 @@ Every next query, in one batched tool call (see "Why batched" below):
   `scroll` action on this page has been observed to hang.
 - `collect()` returns `{ captured, library_says, total_unique }`. If
   `captured` is well below `library_says`, call
-  `await window.__mai.scroll(6); window.__mai.collect('<query>')` again —
+  `await window.__mai.scroll(); window.__mai.collect('<query>')` again —
   a small gap is normal (the Library counts creative variants of one ad
   separately).
 - `captured: 0` with an empty `library_says` means nothing matched —

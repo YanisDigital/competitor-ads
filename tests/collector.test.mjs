@@ -7,6 +7,7 @@ import {
   normalizeAd,
   classifyDoor,
   domainOf,
+  resultCountOf,
   buildReport,
   toCsv
 } from '../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/collector.js';
@@ -104,6 +105,34 @@ test('buildReport dedupes rows by id, keeping the last occurrence', () => {
   const report = buildReport([first, second], { now: REFERENCE_NOW });
   assert.equal(report.ads, 1);
   assert.equal(report.advertisers, 1);
+});
+
+test('classifyDoor: "Send message" with an instagram.com link is Direct, not a profile', () => {
+  assert.equal(classifyDoor(normalizeAd(loadFixture('instagram-direct-ad.json'), 'k')), 'Директ/Messenger');
+  assert.equal(classifyDoor({ cta: 'Visit Instagram profile', link: 'https://www.instagram.com/x' }), 'Instagram-профиль');
+});
+
+test('resultCountOf reads the results counter in English, Ukrainian and Russian', () => {
+  assert.equal(resultCountOf('~73 results'), '~73 results');
+  assert.equal(resultCountOf('Ukraine ~73 результати'), '~73 результати');
+  assert.equal(resultCountOf('~1,200 результатов'), '~1,200 результатов');
+  assert.equal(resultCountOf('nothing here'), '0 results');
+});
+
+test('buildReport extracts prices, discount pairs, page and ad links', () => {
+  const rows = [normalizeAd(loadFixture('instagram-direct-ad.json'), 'k'), normalizeAd(loadFixture('carousel-ad.json'), 'k')];
+  const r = buildReport(rows, { now: REFERENCE_NOW, longDays: 1 });
+  assert.equal(r.prices.ads_with_price, 1);
+  assert.equal(r.prices.min, 600);
+  assert.equal(r.prices.median_discount_pct, 20);
+  assert.match(r.top_pages.find(p => p.page === 'Studio I').library_url, /view_all_page_id=p9/);
+  assert.match(r.longrun[0].url, /ads\/library\/\?id=\d+/);
+});
+
+test('buildReport keeps at most 2 longrun entries per advertiser', () => {
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const rows = [1, 2, 3, 4].map(i => ({ ...base, id: 'x' + i, start: REFERENCE_NOW - (100 + i) * 86400 }));
+  assert.equal(buildReport(rows, { now: REFERENCE_NOW }).longrun.length, 2);
 });
 
 test('toCsv escapes quotes and collapses newlines, one line per row', () => {

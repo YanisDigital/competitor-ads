@@ -95,18 +95,28 @@
     };
   }
 
+  // The Ads Library prints "~73 results" in the UI language; match English,
+  // Ukrainian and Russian so the captured-vs-shown completeness check still
+  // works when Facebook isn't set to English.
+  function resultCountOf(text) {
+    const m = String(text || '').match(/[~≈]?\s*\d[\d,. ]*\s*(?:results?|результат\S*)/i);
+    return m ? m[0].trim() : '0 results';
+  }
+
   // Classifies where an ad's link/CTA sends the viewer.
   function classifyDoor(rec) {
     const d = domainOf(rec.link);
     const cta = rec.cta || '';
-    // Domain-specific checks come first: a link to t.me/instagram.com/etc.
-    // is a stronger signal than generic CTA text like "Message", which
-    // Meta reuses across WhatsApp, Messenger and Telegram ads alike.
+    // Order matters. Off-platform messengers (wa.me, t.me) win over the
+    // generic "Message" CTA. But a "Send message" CTA on an ad whose link is
+    // just instagram.com/facebook.com is a Direct/Messenger ad: Meta fills
+    // link_url with the profile URL there, so the domain alone would
+    // misreport most small-business ads as "profile" ads.
     if (d === 'wa.me' || d === 'api.whatsapp.com' || /whatsapp/i.test(cta)) return 'WhatsApp';
     if (d === 't.me') return 'Telegram';
+    if (d === 'm.me' || /message/i.test(cta)) return 'Директ/Messenger';
     if (d === 'instagram.com') return 'Instagram-профиль';
     if (/^(facebook\.com|fb\.com|fb\.me)$/.test(d)) return 'Facebook-страница';
-    if (d === 'm.me' || /message/i.test(cta)) return 'Директ/Messenger';
     if (/call/i.test(cta)) return 'Звонок';
     if (d) return 'Сайт';
     return 'Без ссылки';
@@ -127,7 +137,7 @@
     const cnt = a => a.reduce((m, k) => (m[k] = (m[k] || 0) + 1, m), {});
     const pages = {};
     for (const r of rows) {
-      const p = pages[r.page] || (pages[r.page] = { page: r.page, ads: 0, oldest_days: 0, newest_days: Infinity, doors: new Set(), sites: new Set(), cats: r.cats });
+      const p = pages[r.page] || (pages[r.page] = { page: r.page, page_id: r.page_id, library_url: r.page_id ? 'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&view_all_page_id=' + r.page_id : '', ads: 0, oldest_days: 0, newest_days: Infinity, doors: new Set(), sites: new Set(), cats: r.cats });
       p.ads++;
       p.oldest_days = Math.max(p.oldest_days, age(r));
       p.newest_days = Math.min(p.newest_days, age(r));
@@ -144,10 +154,35 @@
     const buckets = { '<7': 0, '7-30': 0, '30-90': 0, '90-365': 0, '>365': 0 };
     rows.forEach(r => { const a = age(r); buckets[a < 7 ? '<7' : a < 30 ? '7-30' : a < 90 ? '30-90' : a < 365 ? '90-365' : '>365']++; });
     const snip = r => ((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' ').slice(0, 160);
-    const longrun = rows.filter(r => age(r) >= longDays).sort((a, b) => a.start - b.start).slice(0, 25)
-      .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, door: classifyDoor(r), id: r.id, text: snip(r) }));
+    // Max 2 longrun entries per advertiser, so one advertiser running many
+    // copies of the same creative can't fill the whole list.
+    const perPage = {};
+    const longrun = rows.filter(r => age(r) >= longDays).sort((a, b) => a.start - b.start)
+      .filter(r => (perPage[r.page] = (perPage[r.page] || 0) + 1) <= 2).slice(0, 25)
+      .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, door: classifyDoor(r), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }));
+    // One sample per advertiser: the oldest ad, i.e. the most battle-tested one.
     const seen = new Set();
-    const samples = rows.filter(r => !seen.has(r.page) && seen.add(r.page)).slice(0, 35).map(r => ({ page: r.page, text: snip(r) }));
+    const samples = [...rows].sort((a, b) => a.start - b.start)
+      .filter(r => !seen.has(r.page) && seen.add(r.page)).slice(0, 35).map(r => ({ page: r.page, text: snip(r) }));
+    // Prices in UAH mentioned in ad text; "X instead of Y" pairs give the typical discount.
+    const amounts = [];
+    const discounts = [];
+    let adsWithPrice = 0;
+    for (const r of rows) {
+      const t = text(r);
+      const found = [...t.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*(?:грн|₴|uah|гривен|гривень)/g)].map(m => +m[1].replace(/\s/g, '')).filter(n => n >= 10 && n <= 100000);
+      if (found.length) { adsWithPrice++; amounts.push(...found); }
+      for (const m of t.matchAll(/(\d[\d\s]{0,6})\s*(?:грн|₴)?\s*\(?(?:замість|вместо|instead of)\s*(\d[\d\s]{0,6})/g)) {
+        const nw = +m[1].replace(/\s/g, ''), old = +m[2].replace(/\s/g, '');
+        if (old > nw && nw > 0) discounts.push(Math.round((1 - nw / old) * 100));
+      }
+    }
+    const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
+    const prices = {
+      ads_with_price: adsWithPrice,
+      min: amounts.length ? Math.min(...amounts) : null, median: med(amounts), max: amounts.length ? Math.max(...amounts) : null,
+      discount_pairs: discounts.length, median_discount_pct: med(discounts)
+    };
     return {
       ads: rows.length,
       advertisers: pageList.length,
@@ -158,6 +193,7 @@
       formats: cnt(rows.map(r => r.fmt || '?')),
       age_buckets: buckets,
       hook_freq: freq,
+      prices,
       top_pages: pageList.slice(0, 15),
       longrun,
       samples
@@ -219,8 +255,18 @@
       try { const u = (a[0] && a[0].url) || String(a[0]); if (u.includes('graphql')) r.clone().text().then(eat); } catch (e) {}
       return r;
     };
-    M.scroll = async (n = 6) => {
-      for (let i = 0; i < n; i++) { window.scrollTo(0, document.body.scrollHeight); await new Promise(r => setTimeout(r, 1200)); }
+    // Adaptive: keeps scrolling until the buffer stops growing for 3 rounds
+    // in a row (late GraphQL responses used to be missed by a fixed number
+    // of rounds), capped at `n` rounds. Each round waits 1.2s.
+    M.scroll = async (n = 15) => {
+      let idle = 0, last = Object.keys(M.ads).length;
+      for (let i = 0; i < n && idle < 3; i++) {
+        window.scrollTo(0, document.body.scrollHeight);
+        await new Promise(r => setTimeout(r, 1200));
+        const now = Object.keys(M.ads).length;
+        idle = now > last ? 0 : idle + 1;
+        last = now;
+      }
       window.scrollTo(0, 0);
       return Object.keys(M.ads).length + ' ads buffered';
     };
@@ -235,7 +281,7 @@
         n++;
       }
       M.ads = {};
-      const shown = (document.body.innerText.match(/~?[\d,]+ results?/) || ['0 results'])[0];
+      const shown = resultCountOf(document.body.innerText);
       return { kw, captured: n, library_says: shown, total_unique: Object.keys(M.store).length };
     };
     M.exclude = (names) => { let k = 0; for (const [id, r] of Object.entries(M.store)) if (names.includes(r.page)) { delete M.store[id]; k++; } return k + ' removed'; };
@@ -247,7 +293,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv };
   }
 
   return installResult;

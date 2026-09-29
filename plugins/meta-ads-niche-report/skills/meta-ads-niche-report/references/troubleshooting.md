@@ -22,7 +22,7 @@ machine (browser mode via Cowork/Claude in Chrome, or CLI mode via
 Normal in small amounts — the Library counts creative variants of the same
 underlying ad separately, so `captured` (unique `ad_archive_id`s) is
 usually a bit lower. If the gap is large, call
-`window.__mai.scroll(6); window.__mai.collect('<query>')` again to load
+`window.__mai.scroll(); window.__mai.collect('<query>')` again to load
 more of the results list before giving up on that query.
 
 ## `captured: 0` and an empty `library_says`

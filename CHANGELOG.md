@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.2] - 2026-09-29
+
+### Fixed
+- `classifyDoor`: a "Send message" ad whose link is `instagram.com` or
+  `facebook.com` is now Direct/Messenger, not a profile ad. v0.2.0/0.2.1
+  put the domain check first, so in a live run ~70% of Direct ads were
+  reported as "Instagram profile".
+- The `library_says` counter only matched English ("results"); it now also
+  reads Ukrainian/Russian UI, so the captured-vs-shown check works there too.
+- `__mai.scroll()` is adaptive: scrolls until the buffer stops growing for
+  3 rounds (max 15), instead of a fixed 6 rounds that missed late GraphQL
+  responses (29 of 49 ads captured in a live run).
+
+### Added
+- Report: `prices` (ads with a price, min/median/max, median discount from
+  "X замість Y" pairs); `library_url` per advertiser and `url` per longrun
+  ad so creatives open in one click.
+- `longrun` keeps at most 2 ads per advertiser; `samples` uses each
+  advertiser's oldest ad.
+
 ## [0.2.1] - 2026-09-28
 
 Security/privacy review of the published v0.2.0 repo and release.

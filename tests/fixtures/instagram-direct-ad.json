@@ -1,0 +1,17 @@
+{
+  "ad_archive_id": "1009",
+  "page_id": "p9",
+  "page_name": "Studio I",
+  "is_active": true,
+  "start_date": 1699500000,
+  "end_date": null,
+  "publisher_platform": ["instagram"],
+  "collation_count": 1,
+  "snapshot": {
+    "title": "",
+    "body": "Манікюр 600 грн (замість 750). Для запису пиши в директ!",
+    "cta_text": "Send message",
+    "link_url": "https://www.instagram.com/",
+    "display_format": "image"
+  }
+}
