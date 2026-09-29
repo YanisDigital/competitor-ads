@@ -3,27 +3,32 @@
   "title": "Dropshipping / Shopify stores selling to the US",
   "country": "US",
   "currency": "USD",
+  "base_hooks": false,
   "languages": ["en"],
   "services": [
-    { "en": "tiktok made me buy it" },
-    { "en": "as seen on tiktok" },
-    { "en": "50% off today only" },
-    { "en": "limited stock" },
-    { "en": "free shipping today" },
     { "en": "kitchen gadget" },
-    { "en": "pet gadget" },
-    { "en": "car gadget" },
+    { "en": "pet supplies" },
+    { "en": "car accessories" },
+    { "en": "home organization" },
+    { "en": "personalized gift" },
+    { "en": "hair growth" },
+    { "en": "led lights" },
     { "en": "beauty tool" },
-    { "en": "home gadget" }
+    { "en": "phone accessory" },
+    { "en": "fitness gadget" }
   ],
   "extra_hooks": {
+    "скидка %": "\\d{1,2}\\s?%\\s?off|save \\d{1,2}\\s?%|\\d{1,2}\\s?% discount",
     "бесплатная доставка": "free shipping|free delivery",
+    "бонус/подарок": "free gift|free bonus|\\+ free|free \\w+ (?:belt|bag|case|set)|bonus",
     "BOGO/комплект": "buy \\d+ get \\d+|bogo|bundle|2 for \\$",
     "ограниченный запас": "limited stock|selling fast|almost gone|sold out|only \\d+ left|while supplies last",
+    "срочность": "today only|ends tonight|last day|last chance|24 hours|flash sale|ends soon|final hours",
     "TikTok/вирусность": "tiktok|viral|as seen on",
     "гарантия возврата": "money.back|\\d+.day (?:guarantee|return)|risk.free",
     "отзывы/звёзды": "\\d[\\d,]* (?:reviews|happy customers)|★|⭐|5.star",
-    "срочность": "today only|ends tonight|last day|24 hours|flash sale"
+    "оригинал/подделки": "knockoff|original|authentic|genuine",
+    "персонализация": "personali[sz]ed|custom|engraved"
   },
-  "noise": ["we're hiring", "hiring", "podcast", "webinar", "course", "coaching"]
+  "noise": ["hiring", "podcast", "webinar", "course", "coaching", "coach", "realty", "real estate", "mortgage", "insurance", "donate", "charity", "foundation", "campus", "for sale"]
 }

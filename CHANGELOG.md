@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.1] - 2026-09-29
+
+Fixes from the first live `ecom-dropship-us` run (165 ads).
+
+### Fixed
+- Catalog/DPA ads with an unresolved `{{product.brand}}` and no card text:
+  placeholders are stripped, the ad gets `catalog: true`, and the report
+  has `catalog_ads`.
+- `tiktok.com` was treated as a marketplace, so TikTok's own ads landed in
+  "Маркетплейс" (only `shop.tiktok.com` now). App Store/Google Play links
+  are a separate door "Установка приложения"; `bit.ly` and other short
+  links are "Короткая ссылка" (the real destination is hidden), and neither
+  is listed as an advertiser's own site.
+- Ukrainian base hooks were reported (all zero) for a US niche. Presets can
+  set `base_hooks: false`; `report({baseHooks: false})` reports only the
+  preset's hooks.
+- `ecom-dropship-us` queried hook phrases ("50% off today only"), which
+  matched realtors, charities and coaches and made the hook counts
+  circular. It now queries product categories, has hooks for discount,
+  bonus/gift, urgency, personalization, "original vs knockoff", and a
+  longer noise list.
+- `__mai.scroll()` stopped early on the first page after opening (30 ads vs
+  114 on later queries): at least 5 rounds and 4 idle rounds now, and
+  `scrape.py` waits for `networkidle` before the first collect. Not yet
+  re-verified on a live run.
+
 ## [0.4.0] - 2026-09-29
 
 ### Added

@@ -47,7 +47,9 @@
     return x ? x.hostname.replace(/^(www|l|m)\./, '') : '';
   }
 
-  const MARKETPLACES = /(^|\.)(prom\.ua|rozetka\.com\.ua|olx\.ua|kasta\.ua|amazon\.com|etsy\.com|ebay\.com|walmart\.com|temu\.com|aliexpress\.com|tiktok\.com)$/;
+  const MARKETPLACES = /(^|\.)(prom\.ua|rozetka\.com\.ua|olx\.ua|kasta\.ua|amazon\.com|etsy\.com|ebay\.com|walmart\.com|temu\.com|aliexpress\.com|shop\.tiktok\.com)$/;
+  const APP_STORES = /^(apps\.apple\.com|itunes\.apple\.com|play\.google\.com)$/;
+  const SHORT_LINKS = /^(bit\.ly|tinyurl\.com|cutt\.ly|rebrand\.ly|goo\.gl|ow\.ly|is\.gd|shorturl\.at|t\.ly)$/;
 
   // Finds the first card (DCO / carousel) whose title or body is non-empty.
   function firstNonEmptyCard(cards) {
@@ -83,7 +85,16 @@
     }
     if (!cta && cards[0]) cta = cards[0].cta_text || '';
     if (!link && cards[0]) link = cards[0].link_url || '';
+    // Catalog/DPA ads keep placeholders like {{product.brand}} with no card
+    // text to fall back on. Strip them and flag the ad so it isn't mistaken
+    // for real copy.
+    const catalog = title.includes('{{') || body.includes('{{');
+    if (catalog) {
+      title = title.replace(/\{\{[^}]*\}\}/g, '').replace(/\s*\|\s*$/, '').trim();
+      body = body.replace(/\{\{[^}]*\}\}/g, '').trim();
+    }
     return {
+      catalog,
       id: node.ad_archive_id,
       page_id: node.page_id || s.page_id,
       page: node.page_name || s.page_name,
@@ -143,6 +154,8 @@
     if (d === 'instagram.com') return 'Instagram-профиль';
     if (/^(facebook\.com|fb\.com|fb\.me)$/.test(d)) return 'Facebook-страница';
     if (MARKETPLACES.test(d)) return 'Маркетплейс';
+    if (APP_STORES.test(d)) return 'Установка приложения';
+    if (SHORT_LINKS.test(d)) return 'Короткая ссылка';
     if (/call/i.test(cta)) return 'Звонок';
     if (d) return 'Сайт';
     return 'Без ссылки';
@@ -169,7 +182,7 @@
       p.newest_days = Math.min(p.newest_days, age(r));
       p.doors.add(classifyDoor(r));
       const d = domainOf(r.link);
-      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d)) p.sites.add(d);
+      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d)) p.sites.add(d);
     }
     const pageList = Object.values(pages)
       .map(p => ({ ...p, doors: [...p.doors].join(', '), sites: [...p.sites].join(', ') }))
@@ -177,7 +190,9 @@
     const text = r => ((r.title || '') + ' ' + (r.body || '')).toLowerCase();
     const freq = {};
     // opts.extraHooks: { label: regexSource } from a niche preset.
-    const hooks = { ...HOOK_PATTERNS };
+    // opts.baseHooks === false: only the preset's hooks (e.g. a US preset
+    // shouldn't report Ukrainian-language hooks that are all zero).
+    const hooks = opts.baseHooks === false ? {} : { ...HOOK_PATTERNS };
     for (const [k, src] of Object.entries(opts.extraHooks || {})) hooks[k] = new RegExp(src);
     for (const [k, p] of Object.entries(hooks)) freq[k] = rows.filter(r => p.test(text(r))).length;
     // opts.noise: words from a preset. Pages whose ads mention them are
@@ -244,6 +259,7 @@
       formats: cnt(rows.map(r => r.fmt || '?')),
       age_buckets: buckets,
       hook_freq: freq,
+      catalog_ads: rows.filter(r => r.catalog).length,
       noise_candidates,
       prices,
       top_pages: pageList.slice(0, 15),
@@ -312,7 +328,10 @@
     // of rounds), capped at `n` rounds. Each round waits 1.2s.
     M.scroll = async (n = 15) => {
       let idle = 0, last = Object.keys(M.ads).length;
-      for (let i = 0; i < n && idle < 3; i++) {
+      // At least 5 rounds and 4 idle rounds before stopping: the first page
+      // after opening loads slowly and stopped early in a live run
+      // (30 ads vs 114 on the next queries).
+      for (let i = 0; i < n && (idle < 4 || i < 5); i++) {
         window.scrollTo(0, document.body.scrollHeight);
         await new Promise(r => setTimeout(r, 1200));
         const now = Object.keys(M.ads).length;

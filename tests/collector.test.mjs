@@ -176,7 +176,32 @@ test('buildReport applies preset extra hooks, the address hook and flags noise p
 
 test('buildQueries: English-only preset with no city', () => {
   const q = buildQueries(loadPreset('ecom-dropship-us'), {}, 3);
-  assert.deepEqual(q, ['tiktok made me buy it', 'as seen on tiktok', '50% off today only']);
+  assert.deepEqual(q, ['kitchen gadget', 'pet supplies', 'car accessories']);
+});
+
+test('catalog ads: unresolved {{placeholders}} are stripped and flagged, counted in the report', () => {
+  const node = { ad_archive_id: 'c1', page_id: 'p', page_name: 'Shop', start_date: REFERENCE_NOW - 86400,
+    snapshot: { title: '#1 Metal Building Company | {{product.brand}}', body: '{{product.name}}', cards: [] } };
+  const rec = normalizeAd(node, 'k');
+  assert.equal(rec.catalog, true);
+  assert.equal(rec.title, '#1 Metal Building Company |'.replace(/\s*\|$/, ''));
+  assert.equal(rec.body, '');
+  assert.equal(buildReport([rec], { now: REFERENCE_NOW }).catalog_ads, 1);
+  // A DCO ad whose template is resolved from a card is not a catalog ad.
+  assert.equal(normalizeAd(loadFixture('dco-ad.json'), 'k').catalog, false);
+});
+
+test('classifyDoor: app stores and short links get their own doors; tiktok.com is not a marketplace', () => {
+  assert.equal(classifyDoor({ cta: 'Install now', link: 'https://apps.apple.com/us/app/x/id1' }), 'Установка приложения');
+  assert.equal(classifyDoor({ cta: 'Install now', link: 'https://play.google.com/store/apps/details?id=x' }), 'Установка приложения');
+  assert.equal(classifyDoor({ cta: 'Shop now', link: 'https://bit.ly/4eL3wrX' }), 'Короткая ссылка');
+  assert.equal(classifyDoor({ cta: 'Learn more', link: 'https://www.tiktok.com/business' }), 'Сайт');
+});
+
+test('buildReport baseHooks:false reports only the preset hooks', () => {
+  const r = buildReport([normalizeAd(loadFixture('basic-ad.json'), 'k')], { now: REFERENCE_NOW, baseHooks: false, extraHooks: { x: 'знижк' } });
+  assert.deepEqual(Object.keys(r.hook_freq), ['x']);
+  assert.equal(r.hook_freq.x, 1);
 });
 
 test('buildReport: USD prices, was/now pairs and % off for US presets', () => {

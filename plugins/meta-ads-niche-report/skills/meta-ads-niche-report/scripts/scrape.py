@@ -166,6 +166,10 @@ async def run(args, keywords: list[str]) -> None:
 
             print(f"[1/{len(keywords)}] opening Ads Library for: {keywords[0]}")
             await page.goto(library_url(country, keywords[0]), wait_until="domcontentloaded")
+            try:
+                await page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception:
+                pass  # the Ads Library may never go fully idle; the fixed wait below covers it
             await page.wait_for_timeout(3000)
             await detect_block(page)
 
@@ -195,6 +199,8 @@ async def run(args, keywords: list[str]) -> None:
             if preset:
                 report_opts["extraHooks"] = preset.get("extra_hooks", {})
                 report_opts["noise"] = preset.get("noise", [])
+                if preset.get("base_hooks") is False:
+                    report_opts["baseHooks"] = False
                 if preset.get("currency"):
                     report_opts["currency"] = preset["currency"]
             report = await page.evaluate("(opts) => window.__mai.report(opts)", report_opts)
