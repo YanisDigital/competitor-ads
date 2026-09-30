@@ -235,6 +235,25 @@ def main() -> None:
         table("Страницы, которые пропали", ["Страница"], [[p] for p in d["pages"]["gone"]])
         table("Страницы, выросшие на 3+ объявления", ["Страница", "Было", "Стало"], [[p["page"], p["prev"], p["curr"]] for p in d["pages"]["grew"]])
 
+    # ---- Hypotheses (only if Claude saved hypotheses.json next to the snapshot) ----
+    hyp_path = folder / "hypotheses.json"
+    if hyp_path.exists():
+        hyps = json.loads(hyp_path.read_text(encoding="utf-8"))
+        wh = wb.create_sheet("Гипотезы")
+        hcols = [("name", "Название", 26), ("angle", "Угол", 34), ("evidence", "Свидетельство из данных", 44),
+                 ("headline", "Заголовок", 30), ("primary_text", "Основной текст", 60), ("cta", "CTA", 14),
+                 ("destination", "Куда ведёт", 28), ("format", "Формат креатива", 34), ("test", "Что тестируем", 30),
+                 ("metric", "Метрика", 20), ("risk", "Риски по политикам", 34), ("confirm_with_client", "Подтвердить у клиента", 34)]
+        header(wh, 1, [h[1] for h in hcols], [h[2] for h in hcols])
+        for i, h in enumerate(hyps, 2):
+            for c, (key, _, _) in enumerate(hcols, 1):
+                v = h.get(key, "")
+                cell = wh.cell(row=i, column=c, value="; ".join(map(str, v)) if isinstance(v, list) else v)
+                cell.font = f_base
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
+        wh.freeze_panes = "B2"
+        wh.row_dimensions[1].height = 30
+
     # ---- Summary ----
     ws = wb.create_sheet("Сводка", 0)
     for col, w in zip("ABCD", (44, 14, 12, 60)):

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0] - 2026-09-30
+
+### Added
+- Report section 9, "ready-made ad hypotheses". `report.hypothesis_inputs`
+  gives Claude the evidence: `underused_hooks`, `winner_hooks` (share among
+  long-running ads vs the rest, with lift; only when there are at least 5
+  long-running ads), `winner_formats`/`winner_ctas`/`winner_doors`, and
+  `price_anchors`. `SKILL.md` defines the rules (3-5 hypotheses, each tied to
+  data, no verbatim copying, placeholders for client facts, Meta policy
+  risks, one variable and a metric per test) and the per-hypothesis format.
+- `export_xlsx.py` adds a "Гипотезы" sheet when `hypotheses.json` (written by
+  Claude, schema in `SKILL.md`) is next to the snapshot.
+
 ## [0.7.0] - 2026-09-30
 
 ### Added

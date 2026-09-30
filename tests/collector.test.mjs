@@ -366,6 +366,30 @@ test('buildReport gives each advertiser its most common own landing page, withou
   assert.equal(tp.find(p => p.page === 'M').landing, '');
 });
 
+test('hypothesis_inputs: hooks over-represented in long-running ads, under-used hooks, formats', () => {
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const DAY = 86400;
+  const mk = (i, ageDays, body, fmt) => ({ ...base, id: 'h' + i, page: 'P' + i, start: REFERENCE_NOW - ageDays * DAY, title: '', body, fmt, cta: 'Shop now', link: 'https://s' + i + '.example' });
+  const rows = [
+    ...Array.from({ length: 8 }, (_, i) => mk(i, 200, 'personalized gift with free shipping', 'VIDEO')),
+    ...Array.from({ length: 8 }, (_, i) => mk(100 + i, 5, 'great gadget for your car', 'IMAGE'))
+  ];
+  const h = buildReport(rows, { now: REFERENCE_NOW, baseHooks: false, extraHooks: { 'персонализация': 'personali[sz]ed', 'бесплатная доставка': 'free shipping', 'срочность': 'today only' } }).hypothesis_inputs;
+  assert.equal(h.long_running_ads, 8);
+  assert.equal(h.enough_long_ads, true);
+  assert.deepEqual(h.winner_hooks.map(x => x.hook).sort(), ['бесплатная доставка', 'персонализация']);
+  assert.equal(h.winner_hooks[0].other_share, 0);
+  assert.equal(h.winner_hooks[0].lift, null); // nothing outside the long-running group has it
+  assert.deepEqual(h.winner_formats, [{ value: 'VIDEO', share: 1 }]);
+  assert.ok(h.underused_hooks.some(x => x.hook === 'срочность' && x.ads === 0));
+});
+
+test('hypothesis_inputs: too few long-running ads gives no winner claims', () => {
+  const r = buildReport([normalizeAd(loadFixture('basic-ad.json'), 'k')], { now: REFERENCE_NOW });
+  assert.equal(r.hypothesis_inputs.enough_long_ads, false);
+  assert.deepEqual(r.hypothesis_inputs.winner_hooks, []);
+});
+
 test('toCsv escapes quotes and collapses newlines, one line per row', () => {
   const rows = [
     normalizeAd(loadFixture('basic-ad.json'), 'k'),

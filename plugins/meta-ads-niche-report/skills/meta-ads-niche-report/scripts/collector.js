@@ -333,6 +333,31 @@
     const bySite = {};
     for (const p of pageList) for (const s of p.sites.split(', ').filter(Boolean)) (bySite[s] = bySite[s] || []).push(p.page);
     const store_groups = Object.entries(bySite).filter(([, pgs]) => pgs.length >= 2).map(([site, pgs]) => ({ site, pages: pgs })).sort((a, b) => b.pages.length - a.pages.length).slice(0, 15);
+    // Inputs for the "ready-made ad hypotheses" report section: what the niche
+    // under-uses, and what long-running ads have more often than the rest.
+    // Evidence only; writing the hypotheses is Claude's job (see SKILL.md).
+    const share = (n, d) => (d ? Math.round(100 * n / d) / 100 : 0);
+    const hp = hookPatterns(opts);
+    const longRows = rows.filter(r => age(r) >= longDays && !outOfNiche.has(r.page));
+    const restRows = rows.filter(r => !(age(r) >= longDays && !outOfNiche.has(r.page)));
+    const tally = (rs, f) => rs.reduce((m, r) => (m[f(r)] = (m[f(r)] || 0) + 1, m), {});
+    const top = (rs, f, n) => Object.entries(tally(rs, f)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ value: k, share: share(v, rs.length) }));
+    const enough = longRows.length >= 5;
+    const hypothesis_inputs = {
+      ads_analyzed: rows.length,
+      long_running_ads: longRows.length,
+      enough_long_ads: enough,
+      underused_hooks: Object.entries(freq).map(([hook, n]) => ({ hook, ads: n, share: share(n, rows.length) })).filter(h => h.share <= 0.05).sort((a, b) => a.share - b.share).slice(0, 8),
+      winner_hooks: !enough ? [] : Object.entries(hp).map(([hook, re]) => {
+        const l = longRows.filter(r => re.test(text(r))).length, o = restRows.filter(r => re.test(text(r))).length;
+        const ls = share(l, longRows.length), os = share(o, restRows.length);
+        return { hook, long_ads: l, long_share: ls, other_share: os, lift: os ? Math.round(10 * ls / os) / 10 : null };
+      }).filter(h => h.long_ads >= 3 && (h.lift === null || h.lift >= 1.3)).sort((a, b) => b.long_share - a.long_share).slice(0, 6),
+      winner_formats: enough ? top(longRows, r => r.fmt || '?', 3) : [],
+      winner_ctas: enough ? top(longRows, r => r.cta || '(нет)', 3) : [],
+      winner_doors: enough ? top(longRows, r => classifyDoor(r), 3) : [],
+      price_anchors: { currency, median_price: prices.median, median_pct_off: prices.median_pct_off, median_discount_pct: prices.median_discount_pct }
+    };
     return {
       ads: rows.length,
       advertisers: pageList.length,
@@ -343,6 +368,7 @@
       formats: cnt(rows.map(r => r.fmt || '?')),
       age_buckets: buckets,
       hook_freq: freq,
+      hypothesis_inputs,
       catalog_ads: rows.filter(r => r.catalog).length,
       local_pages: pageList.filter(p => p.local).map(p => p.page),
       platform_pages: pageList.filter(p => p.platform).map(p => p.page),

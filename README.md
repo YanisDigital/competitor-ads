@@ -23,6 +23,10 @@ niches (US dropshipping, courses). No paid scraping API.
   ads), courses/schools, so they don't distort conclusions.
 - **Snapshot comparison** (new, stopped, scaling ads) and an **Excel export**.
 - **Untapped angles** for the client, written by Claude from the data.
+- **Ready-made ad hypotheses**: 3-5 drafts (headline, text, CTA, where it
+  leads, creative format, what to test and the success metric), each tied to
+  evidence in the data (under-used hooks, hooks over-represented in
+  long-running ads, ad-vs-site gaps) with a Meta-policy risk note.
 
 [examples/sample-report.md](examples/sample-report.md) is a full sample
 report (fictional data) in the 8-section format the skill produces.
