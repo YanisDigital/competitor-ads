@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.1] - 2026-09-30
+
+### Changed
+- `scrape.py` without `--out` now saves to `out/<preset or query slug>/<date>/`
+  (`-2`, `-3` for repeat runs on the same day), so repeated runs are
+  separate snapshots.
+- `compare.js out/<niche>` compares the two latest snapshots in a folder on
+  its own, and notes when the two snapshots used different queries.
+- `SKILL.md`: instructions for Claude to make and compare snapshots on plain
+  requests ("make a snapshot", "compare with the previous one") without the
+  user touching a terminal, and what to do in a plain chat without file access.
+
 ## [0.5.0] - 2026-09-30
 
 ### Added

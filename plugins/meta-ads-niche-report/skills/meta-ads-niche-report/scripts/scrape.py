@@ -78,6 +78,18 @@ def slugify(text: str) -> str:
     return text or "niche"
 
 
+def default_out_dir(name: str) -> Path:
+    """out/<preset or slug>/<YYYY-MM-DD>; a second run on the same day gets -2, -3, ...
+    so repeated runs are separate snapshots that compare.js can diff."""
+    base = Path("out") / name
+    day = datetime.now().strftime("%Y-%m-%d")
+    candidate, n = base / day, 2
+    while (candidate / "ads.csv").exists():
+        candidate = base / f"{day}-{n}"
+        n += 1
+    return candidate
+
+
 def library_url(country: str, query: str) -> str:
     return (
         "https://www.facebook.com/ads/library/"
@@ -161,7 +173,7 @@ async def run(args, keywords: list[str]) -> None:
                 keywords = keywords[:EXPRESS_QUERIES]
             if not keywords:
                 sys.exit("No queries to run.")
-            out_dir = Path(args.out) if args.out else Path("out") / slugify(keywords[0])
+            out_dir = Path(args.out) if args.out else default_out_dir(args.preset or slugify(keywords[0]))
             out_dir.mkdir(parents=True, exist_ok=True)
             print(f"Queries ({len(keywords)}): " + " | ".join(keywords))
 
@@ -240,7 +252,7 @@ def main() -> None:
     parser.add_argument("--keywords-file", help="Path to a text file with one query per line")
     parser.add_argument("--country", default=None, help="Ads Library country code (default: the preset's country, else UA)")
     parser.add_argument("--long-days", type=int, default=DEFAULT_LONG_DAYS, dest="long_days", help=f"Longrun threshold in days (default: {DEFAULT_LONG_DAYS})")
-    parser.add_argument("--out", help="Output directory (default: out/<slug of first keyword>/)")
+    parser.add_argument("--out", help="Output directory (default: out/<preset or slug of first keyword>/<date>/)")
     parser.add_argument("--headed", action="store_true", help="Run with a visible browser window (use this if headless returns empty results or a login wall)")
     parser.add_argument("--delay", type=float, default=DEFAULT_DELAY, help=f"Seconds to wait between searches (default: {DEFAULT_DELAY})")
     parser.add_argument("--preset", help="Niche preset id from presets/ (beauty, dentistry, fitness, auto-service); builds queries from services x languages")

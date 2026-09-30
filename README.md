@@ -83,12 +83,18 @@ and `noise`, and drop it into the same folder.
 
 ## Monitoring: compare two snapshots
 
-Run `scrape.py` twice with the same preset/queries (say, a week or two
-apart, into different `--out` folders), then:
+In Claude Code (or the Code tab of the desktop app) just ask: "make a
+snapshot for the beauty niche in Odesa", and a week or two later "compare
+with the previous snapshot". Claude runs the commands itself. Manually:
+`scrape.py` without `--out` saves to `out/<preset>/<date>/`; run it twice
+with the same preset/queries, then:
 
 ```bash
-node plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/compare.js out/week1 out/week2
+node plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/compare.js out/<preset>
 ```
+
+(without arguments beyond the folder it compares the two latest snapshots
+inside; `compare.js out/a out/b` compares two specific ones.)
 
 It writes `out/week2/diff.json`: new ads, stopped ads, how many young tests
 (<30 days old) disappeared, ads that gained creative variants (scaling), and
