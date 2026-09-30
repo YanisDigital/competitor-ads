@@ -127,6 +127,19 @@ so an ad missing from the second run may just have dropped out of the top. A
 stop counts as confident only if its query was re-run and returned fewer than
 90 ads.
 
+## Landing-page check
+
+Ask Claude "check the sites of the leaders", or run
+`python plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/check_sites.py out/<preset>/<date> --top 5`.
+For the top advertisers it opens the landing page their ads actually link to
+and records title, headings, prices, hooks (free shipping, guarantee, ...),
+whether it is a Shopify store, a first-screen screenshot, and compares it with
+the ads: what the ads promise but the page doesn't show, what the page shows
+but the ads don't mention, ad prices not found on the page. Output:
+`sites.json` and `sites/*.png` in the snapshot folder. A mismatch is a lead,
+not proof (banners and pop-ups may be missing from the page text). Sites with
+a bot challenge are skipped, never bypassed.
+
 ## Excel export
 
 Ask Claude "save the last snapshot to Excel", or run

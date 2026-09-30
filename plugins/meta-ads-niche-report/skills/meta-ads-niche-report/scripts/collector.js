@@ -175,6 +175,63 @@
     return 'Без ссылки';
   }
 
+  // Hook regexes for a run: the base set plus a preset's extraHooks
+  // ({ label: regexSource }); opts.baseHooks === false drops the base set
+  // (e.g. a US preset shouldn't report Ukrainian-language hooks).
+  function hookPatterns(opts = {}) {
+    const hooks = opts.baseHooks === false ? {} : { ...HOOK_PATTERNS };
+    for (const [k, src] of Object.entries(opts.extraHooks || {})) hooks[k] = new RegExp(src);
+    return hooks;
+  }
+
+  const num = s => +String(s).replace(/\s/g, '').replace(',', '.');
+  const median = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
+
+  // Prices, "was/instead of" discount pairs and "N% off" mentions in one text
+  // (already lowercased). currency: 'UAH' (default) or 'USD'.
+  function priceHits(t, currency) {
+    const amounts = currency === 'USD'
+      ? [...t.matchAll(/\$\s?(\d{1,5}(?:[.,]\d{1,2})?)|(\d{1,5}(?:\.\d{1,2})?)\s?(?:usd|dollars?)\b/g)].map(m => num(m[1] || m[2])).filter(n => n >= 1 && n <= 10000)
+      : [...t.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*(?:грн|₴|uah|гривен|гривень)/g)].map(m => num(m[1])).filter(n => n >= 10 && n <= 100000);
+    const pairs = currency === 'USD'
+      ? [...t.matchAll(/\$\s?(\d+(?:\.\d+)?)\s*\(?\s*(?:instead of|was|reg\.?|regularly)\s*\$?\s?(\d+(?:\.\d+)?)/g)].map(m => [m[1], m[2]])
+          .concat([...t.matchAll(/was\s*\$\s?(\d+(?:\.\d+)?)\s*[,—–-]?\s*now\s*(?:only\s*)?\$\s?(\d+(?:\.\d+)?)/g)].map(m => [m[2], m[1]]))
+      : [...t.matchAll(/(\d[\d\s]{0,6})\s*(?:грн|₴)?\s*\(?(?:замість|вместо|instead of)\s*(\d[\d\s]{0,6})/g)].map(m => [m[1], m[2]]);
+    const discounts = [];
+    for (const [n, o] of pairs) {
+      const nw = num(n), old = num(o);
+      if (old > nw && nw > 0) discounts.push(Math.round((1 - nw / old) * 100));
+    }
+    const pctOff = [...t.matchAll(/(\d{1,2})\s*%\s*(?:off|знижк|скидк)|(?:знижк\S*|скидк\S*|save)\s*(?:до\s*|up to\s*)?-?(\d{1,2})\s*%|(?:^|\s)-(\d{1,2})\s*%/g)].map(m => +(m[1] || m[2] || m[3]));
+    return { amounts, discounts, pctOff };
+  }
+
+  // Facts from a block of text (a landing page's visible text, or the joined
+  // text of an advertiser's ads): which hooks appear and which prices.
+  function siteFacts(text, opts = {}) {
+    const t = String(text || '').toLowerCase();
+    const hits = priceHits(t, String(opts.currency || 'UAH').toUpperCase());
+    const list = [...new Set(hits.amounts)].sort((a, b) => a - b);
+    return {
+      hooks: Object.entries(hookPatterns(opts)).filter(([, re]) => re.test(t)).map(([k]) => k),
+      prices: { list, min: list.length ? list[0] : null, median: median(list), max: list.length ? list[list.length - 1] : null },
+      pct_off: hits.pctOff
+    };
+  }
+
+  // Ads vs landing page. Not proof: banners, pop-ups and lazy-loaded blocks
+  // may be missing from the extracted page text.
+  function compareAdVsSite(ad, site) {
+    const near = (a, b) => Math.abs(a - b) < 0.005;
+    return {
+      promised_not_on_site: ad.hooks.filter(h => !site.hooks.includes(h)),
+      on_site_not_advertised: site.hooks.filter(h => !ad.hooks.includes(h)),
+      ad_prices_not_on_site: ad.prices.list.filter(p => !site.prices.list.some(s => near(s, p))),
+      ad_price_range: [ad.prices.min, ad.prices.max],
+      site_price_range: [site.prices.min, site.prices.max]
+    };
+  }
+
   // Aggregates normalized rows into the report shape consumed by SKILL.md's
   // Step 5-7. `opts.now` (unix seconds) lets tests pin "today" instead of
   // depending on the wall clock; defaults to Date.now() otherwise.
@@ -190,18 +247,22 @@
     const cnt = a => a.reduce((m, k) => (m[k] = (m[k] || 0) + 1, m), {});
     const pages = {};
     for (const r of rows) {
-      const p = pages[r.page] || (pages[r.page] = { page: r.page, page_id: r.page_id, library_url: r.page_id ? 'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&view_all_page_id=' + r.page_id : '', ads: 0, oldest_days: 0, newest_days: Infinity, doors: new Set(), sites: new Set(), cats: r.cats });
+      const p = pages[r.page] || (pages[r.page] = { page: r.page, page_id: r.page_id, library_url: r.page_id ? 'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&view_all_page_id=' + r.page_id : '', ads: 0, oldest_days: 0, newest_days: Infinity, doors: new Set(), sites: new Set(), links: {}, cats: r.cats });
       p.ads++;
       p.oldest_days = Math.max(p.oldest_days, age(r));
       p.newest_days = Math.min(p.newest_days, age(r));
       p.doors.add(classifyDoor(r));
       const d = domainOf(r.link);
-      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d) && !AFFILIATE_LINKS.test(d)) p.sites.add(d);
+      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d) && !AFFILIATE_LINKS.test(d)) {
+        p.sites.add(d);
+        const u = unwrapUrl(r.link);
+        if (u) { const k = u.origin + u.pathname; p.links[k] = (p.links[k] || 0) + 1; }
+      }
       if (strongLocal(r)) p.local = true;
       if (weakLocal(r)) p.weak = (p.weak || 0) + 1;
     }
     const pageList = Object.values(pages)
-      .map(({ weak, ...p }) => ({ ...p, local: !!p.local || (weak || 0) >= p.ads / 2, platform: [...p.doors].every(d => PLATFORM_DOORS.includes(d)), doors: [...p.doors].join(', '), sites: [...p.sites].join(', ') }))
+      .map(({ weak, links, ...p }) => ({ ...p, landing: Object.entries(links).sort((a, b) => b[1] - a[1])[0]?.[0] || '', local: !!p.local || (weak || 0) >= p.ads / 2, platform: [...p.doors].every(d => PLATFORM_DOORS.includes(d)), doors: [...p.doors].join(', '), sites: [...p.sites].join(', ') }))
       .sort((a, b) => b.ads - a.ads);
     // opts.onlineOnly (set by online-niche presets): drop brick-and-mortar
     // pages and big platforms (Amazon, eBay, app-install ads) from the
@@ -213,9 +274,7 @@
     // opts.extraHooks: { label: regexSource } from a niche preset.
     // opts.baseHooks === false: only the preset's hooks (e.g. a US preset
     // shouldn't report Ukrainian-language hooks that are all zero).
-    const hooks = opts.baseHooks === false ? {} : { ...HOOK_PATTERNS };
-    for (const [k, src] of Object.entries(opts.extraHooks || {})) hooks[k] = new RegExp(src);
-    for (const [k, p] of Object.entries(hooks)) freq[k] = rows.filter(r => p.test(text(r))).length;
+    for (const [k, p] of Object.entries(hookPatterns(opts))) freq[k] = rows.filter(r => p.test(text(r))).length;
     // opts.noise: words from a preset. Pages whose ads mention them are
     // suggested for exclude(); the caller decides, nothing is dropped here.
     const noiseWords = (opts.noise || []).map(w => w.toLowerCase());
@@ -241,30 +300,17 @@
     // US presets); "X instead of Y" / "was X now Y" pairs and "N% off"
     // mentions give the typical discount.
     const currency = String(opts.currency || 'UAH').toUpperCase();
-    const num = s => +String(s).replace(/\s/g, '').replace(',', '.');
     const amounts = [];
     const discounts = [];
     const pctOff = [];
     let adsWithPrice = 0;
     for (const r of rows) {
-      const t = text(r);
-      const found = currency === 'USD'
-        ? [...t.matchAll(/\$\s?(\d{1,5}(?:[.,]\d{1,2})?)|(\d{1,5}(?:\.\d{1,2})?)\s?(?:usd|dollars?)\b/g)].map(m => num(m[1] || m[2])).filter(n => n >= 1 && n <= 10000)
-        : [...t.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*(?:грн|₴|uah|гривен|гривень)/g)].map(m => num(m[1])).filter(n => n >= 10 && n <= 100000);
-      if (found.length) { adsWithPrice++; amounts.push(...found); }
-      const pairs = currency === 'USD'
-        ? [...t.matchAll(/\$\s?(\d+(?:\.\d+)?)\s*\(?\s*(?:instead of|was|reg\.?|regularly)\s*\$?\s?(\d+(?:\.\d+)?)/g)].map(m => [m[1], m[2]])
-            .concat([...t.matchAll(/was\s*\$\s?(\d+(?:\.\d+)?)\s*[,—–-]?\s*now\s*(?:only\s*)?\$\s?(\d+(?:\.\d+)?)/g)].map(m => [m[2], m[1]]))
-        : [...t.matchAll(/(\d[\d\s]{0,6})\s*(?:грн|₴)?\s*\(?(?:замість|вместо|instead of)\s*(\d[\d\s]{0,6})/g)].map(m => [m[1], m[2]]);
-      for (const [n, o] of pairs) {
-        const nw = num(n), old = num(o);
-        if (old > nw && nw > 0) discounts.push(Math.round((1 - nw / old) * 100));
-      }
-      for (const m of t.matchAll(/(\d{1,2})\s*%\s*(?:off|знижк|скидк)|(?:знижк\S*|скидк\S*|save)\s*(?:до\s*|up to\s*)?-?(\d{1,2})\s*%|(?:^|\s)-(\d{1,2})\s*%/g)) {
-        pctOff.push(+(m[1] || m[2] || m[3]));
-      }
+      const h = priceHits(text(r), currency);
+      if (h.amounts.length) { adsWithPrice++; amounts.push(...h.amounts); }
+      discounts.push(...h.discounts);
+      pctOff.push(...h.pctOff);
     }
-    const med = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
+    const med = median;
     const prices = {
       currency,
       ads_with_price: adsWithPrice,
@@ -467,6 +513,8 @@
     };
     M.exclude = (names) => { let k = 0; for (const [id, r] of Object.entries(M.store)) if (names.includes(r.page)) { delete M.store[id]; k++; } return k + ' removed'; };
     M.buildQueries = buildQueries;
+    M.siteFacts = siteFacts;
+    M.compareAdVsSite = compareAdVsSite;
     M.report = (opts = {}) => buildReport(Object.values(M.store), opts);
     M.csv = () => toCsv(Object.values(M.store));
     return 'installed: ' + Object.keys(M.ads).length + ' ads buffered from first page';
@@ -475,7 +523,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite };
   }
 
   return installResult;

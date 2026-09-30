@@ -21,8 +21,9 @@ const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf
 const ts = meta.date ? Date.parse(meta.date) / 1000 : fs.statSync(path.join(dir, 'ads.csv')).mtimeMs / 1000;
 
 let preset = null;
-if (meta.preset) {
-  const p = path.join(__dirname, '..', 'presets', meta.preset + '.json');
+const presetId = process.argv[3] || meta.preset; // optional override for snapshots without run.json
+if (presetId) {
+  const p = path.join(__dirname, '..', 'presets', presetId + '.json');
   if (fs.existsSync(p)) preset = JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 

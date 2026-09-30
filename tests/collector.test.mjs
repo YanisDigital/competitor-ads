@@ -12,7 +12,9 @@ import {
   buildReport,
   toCsv,
   parseCsv,
-  diffSnapshots
+  diffSnapshots,
+  siteFacts,
+  compareAdVsSite
 } from '../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/collector.js';
 
 // All fixtures are synthetic (invented names, invented numbers) — never
@@ -333,6 +335,35 @@ test('diffSnapshots: a saturated re-run cannot prove an ad stopped', () => {
   assert.equal(d.stopped.count, 1);
   assert.equal(d.stopped.high_confidence, 0);
   assert.equal(d.young_tests.ads, 0);
+});
+
+test('siteFacts + compareAdVsSite: promised hooks, prices and the landing URL', () => {
+  const us = loadPreset('ecom-dropship-us');
+  const opts = { currency: 'USD', extraHooks: us.extra_hooks, baseHooks: false };
+  const ad = siteFacts('Only $29.99! Free shipping. 50% off today only', opts);
+  const site = siteFacts('Buy now. Price $39.99. 30-day money back guarantee. Reviews: 1,200 happy customers', opts);
+  assert.deepEqual(ad.prices.list, [29.99]);
+  assert.ok(ad.hooks.includes('бесплатная доставка'));
+  const c = compareAdVsSite(ad, site);
+  assert.ok(c.promised_not_on_site.includes('бесплатная доставка'));
+  assert.ok(c.on_site_not_advertised.includes('гарантия возврата'));
+  assert.deepEqual(c.ad_prices_not_on_site, [29.99]);
+  assert.deepEqual(c.site_price_range, [39.99, 39.99]);
+  // matching price is not flagged
+  assert.deepEqual(compareAdVsSite(siteFacts('$29.99', opts), siteFacts('now $29.99 only', opts)).ad_prices_not_on_site, []);
+});
+
+test('buildReport gives each advertiser its most common own landing page, without tracking params', () => {
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const rows = [
+    { ...base, id: '1', page: 'S', link: 'https://shop.example/p/a?utm_source=fb&fbclid=1' },
+    { ...base, id: '2', page: 'S', link: 'https://l.facebook.com/l.php?u=' + encodeURIComponent('https://shop.example/p/a?x=2') },
+    { ...base, id: '3', page: 'S', link: 'https://shop.example/other' },
+    { ...base, id: '4', page: 'M', link: 'https://www.amazon.com/dp/x' }
+  ];
+  const tp = buildReport(rows, { now: REFERENCE_NOW }).top_pages;
+  assert.equal(tp.find(p => p.page === 'S').landing, 'https://shop.example/p/a');
+  assert.equal(tp.find(p => p.page === 'M').landing, '');
 });
 
 test('toCsv escapes quotes and collapses newlines, one line per row', () => {

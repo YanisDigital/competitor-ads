@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0] - 2026-09-30
+
+### Added
+- Landing-page check: `scripts/check_sites.py <snapshot> [--top 5]` opens the
+  landing page the leading advertisers' ads actually link to and writes
+  `sites.json` + first-screen screenshots: title, headings, prices, hooks,
+  Shopify detection (by page resources, so it works on custom domains), and a
+  comparison with the advertiser's ads (promised but not on the page, on the
+  page but not advertised, ad prices not found). Bot challenges are skipped,
+  never bypassed; at most 10 sites per run.
+- `collector.js`: `siteFacts(text, opts)` and `compareAdVsSite(ad, site)`
+  (also on `window.__mai` for browser mode); `top_pages[].landing` (the most
+  common own landing URL per advertiser, tracking parameters stripped).
+- `report.js <folder> [preset]` accepts a preset override for snapshots
+  without `run.json`.
+
+### Changed
+- Price extraction and hook selection in `buildReport` moved into shared
+  helpers (`priceHits`, `hookPatterns`); no behavior change.
+
 ## [0.6.0] - 2026-09-30
 
 ### Added
