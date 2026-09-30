@@ -126,6 +126,13 @@ With one folder it compares the two latest snapshots inside;
 tests (<30 days old) that disappeared, ads that gained creative variants
 (scaling), and pages that appeared, vanished or grew.
 
+`diff.json` also has a `dynamics` block that Claude turns into hypotheses:
+which hooks the ads that gained creative variants have (what competitors are
+scaling), which hooks were over-represented among young tests that
+disappeared (only from confident stops and only with enough data), what new
+advertisers bring, and how the format mix moved. Each hook is counted per
+advertiser with a strength label, like in the single-snapshot hypotheses.
+
 The library only shows the top of each result list (about 120 ads per query),
 so an ad missing from the second run may just have dropped out of the top. A
 stop counts as confident only if its query was re-run and returned fewer than

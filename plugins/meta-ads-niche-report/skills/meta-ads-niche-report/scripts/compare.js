@@ -52,7 +52,12 @@ if (qa && qb) {
   if (shared.length < Math.max(qa.length, qb.length)) console.log(`Note: only ${shared.length} of ${qa.length}/${qb.length} queries are the same in both snapshots; stops can be confirmed only for those.`);
 }
 
-const d = diffSnapshots(parseCsv(fs.readFileSync(path.join(older, 'ads.csv'), 'utf8')), parseCsv(fs.readFileSync(path.join(newer, 'ads.csv'), 'utf8')), { prevTs: tsA, currTs: tsB, cap });
+// The newer snapshot's preset supplies the niche hooks used in the dynamics.
+const runMeta = fs.existsSync(path.join(newer, 'run.json')) ? JSON.parse(fs.readFileSync(path.join(newer, 'run.json'), 'utf8')) : {};
+const presetFile = runMeta.preset && path.join(__dirname, '..', 'presets', runMeta.preset + '.json');
+const preset = presetFile && fs.existsSync(presetFile) ? JSON.parse(fs.readFileSync(presetFile, 'utf8')) : {};
+const hookOpts = { extraHooks: preset.extra_hooks || {}, baseHooks: preset.base_hooks === false ? false : undefined };
+const d = diffSnapshots(parseCsv(fs.readFileSync(path.join(older, 'ads.csv'), 'utf8')), parseCsv(fs.readFileSync(path.join(newer, 'ads.csv'), 'utf8')), { prevTs: tsA, currTs: tsB, cap, hookOpts });
 const out = path.join(newer, 'diff.json');
 fs.writeFileSync(out, JSON.stringify(d, null, 2), 'utf8');
 
@@ -61,4 +66,8 @@ console.log(`Interval: ${d.interval_days} days. Ads: ${d.prev_ads} -> ${d.curr_a
 console.log(`New ads: ${d.new_ads.count}. Stopped: ${d.stopped.count} (${d.stopped.high_confidence} high confidence, the rest may just have dropped out of the top of the results).`);
 if (d.young_tests.ads) console.log(`Young tests (<30 days old at the first snapshot): ${d.young_tests.gone} of ${d.young_tests.ads} are gone (${Math.round(d.young_tests.gone_share * 100)}%).`);
 console.log(`Scaling (more creative variants): ${d.scaling.length}. New pages: ${d.pages.new.length}. Pages gone: ${d.pages.gone.length}. Pages that grew by 3+ ads: ${d.pages.grew.length}.`);
+const dy = d.dynamics;
+if (dy.failed_hooks_enough_data) console.log('Hooks over-represented among failed young tests: ' + (dy.failed_hooks.map(h => h.hook + ' (' + h.strength + ')').join(', ') || 'none'));
+else console.log('Failed-test hooks: not enough young tests or confident stops to say anything.');
+console.log('Hooks of ads that gained variants: ' + (dy.scaling_hooks.map(h => h.hook + ' x' + h.ads + ' (' + h.strength + ')').join(', ') || 'none') + '. New advertisers with 2+ ads: ' + dy.new_entrants.top.length + '.');
 console.log('Saved: ' + out);

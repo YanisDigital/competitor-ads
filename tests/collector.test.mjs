@@ -331,6 +331,41 @@ test('diffSnapshots: new, stopped (with confidence), survived, scaling, page cha
   assert.deepEqual(d.pages.gone, ['Store B']);
 });
 
+test('diffSnapshots dynamics: hooks of failed young tests, scaling hooks, new entrants, format shift', () => {
+  const DAY = 86400, T0 = REFERENCE_NOW, T1 = T0 + 14 * DAY;
+  const mk = (id, page, ageDays, variants, body, fmt = 'IMAGE') => ({ id, page, start: T0 - ageDays * DAY, variants, kws: ['q'], title: '', body, fmt });
+  // 20 young tests from 20 different pages; 6 use "flash sale" and vanish, 14 use "guarantee" and survive
+  const gone = Array.from({ length: 6 }, (_, i) => mk('g' + i, 'G' + i, 3, 1, 'flash sale today'));
+  const kept = Array.from({ length: 14 }, (_, i) => mk('k' + i, 'K' + i, 3, 1, 'money back guarantee'));
+  const grower = mk('s1', 'Scaler', 100, 2, 'free shipping on everything');
+  const prev = [...gone, ...kept, grower];
+  const curr = [
+    ...kept.map(r => ({ ...r })),
+    { ...grower, variants: 6 },
+    ...['a', 'b', 'c'].map(i => mk('n' + i, 'NewShop', 1, 1, 'personalized gift', 'VIDEO'))
+  ];
+  const d = diffSnapshots(prev, curr, { prevTs: T0, currTs: T1, cap: 90, hookOpts: { baseHooks: false, extraHooks: { срочность: 'flash sale', гарантия: 'guarantee', доставка: 'free shipping', персонализация: 'personalized' } } });
+  const y = d.dynamics;
+  assert.equal(y.failed_hooks_enough_data, true);
+  assert.deepEqual(y.failed_hooks.map(h => h.hook), ['срочность']);
+  assert.equal(y.failed_hooks[0].advertisers, 6);
+  assert.equal(y.failed_hooks[0].strength, 'strong');
+  assert.equal(y.failed_hooks[0].lift, null); // survivors never used it
+  assert.deepEqual(y.scaling_hooks.map(h => h.hook), []); // one scaling ad is not enough (needs 2)
+  assert.deepEqual(y.new_entrants.top.map(t => [t.page, t.ads]), [['NewShop', 3]]);
+  assert.deepEqual(y.new_entrants.top[0].hooks, ['персонализация']);
+  assert.ok(y.format_shift.some(f => f.fmt === 'VIDEO' && f.curr_share > f.prev_share));
+  assert.equal(y.scaling_examples[0].variants_curr, 6);
+});
+
+test('diffSnapshots dynamics: too few young tests gives no failure claims', () => {
+  const DAY = 86400, T0 = REFERENCE_NOW;
+  const mk = (id, ageDays) => ({ id, page: 'P' + id, start: T0 - ageDays * DAY, variants: 1, kws: ['q'], title: '', body: 'x', fmt: 'IMAGE' });
+  const d = diffSnapshots([mk('a', 3), mk('b', 3)], [mk('a', 17)], { prevTs: T0, currTs: T0 + 14 * DAY });
+  assert.equal(d.dynamics.failed_hooks_enough_data, false);
+  assert.deepEqual(d.dynamics.failed_hooks, []);
+});
+
 test('diffSnapshots: a saturated re-run cannot prove an ad stopped', () => {
   const DAY = 86400, T0 = REFERENCE_NOW;
   const prev = [{ id: 'x', page: 'P', start: T0 - 5 * DAY, variants: 1, kws: ['q'], title: '', body: '' }];

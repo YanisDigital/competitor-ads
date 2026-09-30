@@ -634,6 +634,55 @@
     const newPages = Object.keys(pc).filter(p => !(p in pp)).map(p => ({ page: p, ads: pc[p] })).sort((a, b) => b.ads - a.ads);
     const grew = Object.keys(pc).filter(p => p in pp && pc[p] - pp[p] >= 3).map(p => ({ page: p, prev: pp[p], curr: pc[p] })).sort((a, b) => (b.curr - b.prev) - (a.curr - a.prev));
 
+    // Inputs for hypotheses from dynamics (SKILL.md): which hooks the failed
+    // young tests had more often than the survivors, which hooks the ads that
+    // gained creative variants have, what new advertisers bring, and how the
+    // format mix moved. Same caution as the report: counted per advertiser,
+    // with a strength label, and failures only from confident stops.
+    const round2 = x => Math.round(100 * x) / 100;
+    const shareOf = (n, d) => (d ? round2(n / d) : 0);
+    const hooksHere = hookPatterns(opts.hookOpts || {});
+    const txt = r => ((r.title || '') + ' ' + (r.body || '')).toLowerCase();
+    const spread = rs => {
+      const by = {};
+      rs.forEach(r => { by[r.page] = (by[r.page] || 0) + 1; });
+      const e = Object.entries(by).sort((a, b) => b[1] - a[1]);
+      const top_share = rs.length ? shareOf(e[0][1], rs.length) : 0;
+      const advertisers = e.length;
+      return { advertisers, top_advertiser: e.length ? e[0][0] : null, top_share, strength: advertisers >= 5 && top_share <= 0.5 ? 'strong' : advertisers >= 3 && top_share <= 0.7 ? 'moderate' : 'weak' };
+    };
+    const goneYoung = young.filter(r => !C.has(r.id));
+    const keptYoung = young.filter(r => C.has(r.id));
+    const enoughFailures = young.length >= 20 && goneYoung.length >= 5;
+    const growers = survivors.filter(r => r.variants > P.get(r.id).variants);
+    const newPageSet = new Set(Object.keys(pc).filter(p => !(p in pp)));
+    const entrantRows = curr.filter(r => newPageSet.has(r.page));
+    const mixOf = rs => rs.reduce((m, r) => { const k = r.fmt || '?'; m[k] = (m[k] || 0) + 1; return m; }, {});
+    const [mp, mc] = [mixOf(prev), mixOf(curr)];
+    const dynamics = {
+      failed_hooks_enough_data: enoughFailures,
+      failed_hooks: !enoughFailures ? [] : Object.entries(hooksHere).map(([hook, re]) => {
+        const g = goneYoung.filter(r => re.test(txt(r))), k = keptYoung.filter(r => re.test(txt(r)));
+        const gs = shareOf(g.length, goneYoung.length), ks = shareOf(k.length, keptYoung.length);
+        return { hook, gone_ads: g.length, gone_share: gs, kept_share: ks, lift: ks ? Math.round(10 * gs / ks) / 10 : null, ...spread(g) };
+      }).filter(h => h.gone_ads >= 3 && (h.lift === null || h.lift >= 1.5)).sort((a, b) => b.gone_share - a.gone_share).slice(0, 6),
+      scaling_hooks: Object.entries(hooksHere).map(([hook, re]) => {
+        const m = growers.filter(r => re.test(txt(r)));
+        return { hook, ads: m.length, ...spread(m) };
+      }).filter(h => h.ads >= 2).sort((a, b) => b.ads - a.ads).slice(0, 6),
+      scaling_examples: growers.slice().sort((a, b) => (b.variants - P.get(b.id).variants) - (a.variants - P.get(a.id).variants)).slice(0, 5)
+        .map(r => ({ page: r.page, url: url(r.id), variants_prev: P.get(r.id).variants, variants_curr: r.variants, text: snip(r) })),
+      new_entrants: {
+        pages: newPageSet.size,
+        top: Object.entries(count(entrantRows)).sort((a, b) => b[1] - a[1]).slice(0, 5).filter(([, n]) => n >= 2).map(([page, n]) => {
+          const rs = entrantRows.filter(r => r.page === page);
+          return { page, ads: n, formats: Object.keys(mixOf(rs)), hooks: Object.entries(hooksHere).filter(([, re]) => rs.some(r => re.test(txt(r)))).map(([h]) => h), example: snip(rs[0]) };
+        })
+      },
+      format_shift: [...new Set([...Object.keys(mp), ...Object.keys(mc)])]
+        .map(fmt => ({ fmt, prev_share: shareOf(mp[fmt] || 0, prev.length), curr_share: shareOf(mc[fmt] || 0, curr.length) }))
+        .filter(f => Math.abs(f.curr_share - f.prev_share) >= 0.05).sort((a, b) => Math.abs(b.curr_share - b.prev_share) - Math.abs(a.curr_share - a.prev_share))
+    };
     return {
       interval_days,
       prev_ads: prev.length, curr_ads: curr.length,
@@ -642,7 +691,8 @@
       stopped: { count: stopped.length, high_confidence: stoppedHigh.length, top: stopped.sort((a, b) => (a.confidence === b.confidence ? 0 : a.confidence === 'high' ? -1 : 1) || b.variants - a.variants).slice(0, 25) },
       young_tests: { ads: young.length, gone: youngGone, gone_share: young.length ? Math.round(100 * youngGone / young.length) / 100 : null },
       scaling: survivors.filter(r => r.variants > P.get(r.id).variants).map(r => ({ page: r.page, id: r.id, url: url(r.id), variants_prev: P.get(r.id).variants, variants_curr: r.variants })).sort((a, b) => (b.variants_curr - b.variants_prev) - (a.variants_curr - a.variants_prev)).slice(0, 25),
-      pages: { new: newPages.slice(0, 25), gone: gonePages.slice(0, 25), grew: grew.slice(0, 25) }
+      pages: { new: newPages.slice(0, 25), gone: gonePages.slice(0, 25), grew: grew.slice(0, 25) },
+      dynamics
     };
   }
 

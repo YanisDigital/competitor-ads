@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.10.2] - 2026-09-30
+
+### Added
+- Hypotheses from dynamics: `diff.json` gets a `dynamics` block.
+  `scaling_hooks`/`scaling_examples` (hooks and ads that gained creative
+  variants), `failed_hooks` (hooks over-represented among young tests that
+  disappeared vs the survivors; only from confident stops, and only with 20+
+  young tests and 5+ gone, otherwise `failed_hooks_enough_data` is false),
+  `new_entrants` (new advertisers with 2+ ads: formats, hooks, example) and
+  `format_shift` (moves of at least 5 points). Hooks are counted per
+  advertiser with `advertisers`, `top_share` and `strength`, like in the
+  single-snapshot hypotheses. `compare.js` uses the newer snapshot's preset
+  for niche hooks and prints a dynamics summary.
+- `SKILL.md`: rules for writing hypotheses from dynamics (follow what is
+  being scaled, avoid or invert what failed, watch new entrants), with the same
+  honesty rules; such hypotheses are marked `"source": "dynamics"`.
+
 ## [0.10.1] - 2026-09-30
 
 ### Added
