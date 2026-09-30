@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0] - 2026-09-30
+
+### Added
+- Excel export: `scripts/export_xlsx.py <snapshot-folder>` writes
+  `report.xlsx` (summary with COUNTIF formulas, all ads, all advertisers,
+  long-running ads, page networks, and a "Changes" sheet when `diff.json`
+  exists). Needs `openpyxl`, never installed silently.
+- `scripts/report.js`: rebuilds the full report for a snapshot from its
+  `ads.csv` using `collector.js` and the snapshot's preset, so the export
+  (and any future tool) always uses the current report logic instead of a
+  possibly outdated `report.json`.
+
 ## [0.5.1] - 2026-09-30
 
 ### Changed

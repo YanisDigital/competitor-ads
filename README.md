@@ -102,6 +102,15 @@ pages that appeared, vanished or grew. An ad missing from the second run only
 counts as confidently stopped if its query was re-run and returned fewer
 than 90 ads; otherwise it may just have dropped out of the top of the results.
 
+## Excel export
+
+Ask Claude "save the last snapshot to Excel", or run
+`python plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/export_xlsx.py out/<preset>/<date>`.
+It writes `report.xlsx` into that folder: a summary sheet (formulas), all
+ads with links to the creatives, all advertisers (local/platform flags,
+shared sites), long-running ads, page networks and, if you compared
+snapshots, a "Changes" sheet. Needs `pip install openpyxl`.
+
 ## Requirements
 
 - **Browser mode**: a browser tool in your Claude session (built-in browser,
