@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.8.1] - 2026-09-30
+
+Fixes an overstatement in the hypotheses inputs found while writing the
+first real hypotheses: lift was counted over ads, so one advertiser running
+many copies looked like a niche trend (in a live US run, each "winning" hook
+came from 2-4 advertisers, one of them dominating).
+
+### Changed
+- `hypothesis_inputs.winner_hooks` and `underused_hooks` are counted per
+  advertiser, with pages that share a site merged into one. Each hook now has
+  `advertisers`, `top_advertiser`, `top_share`, `strength`
+  (`strong`: 5+ advertisers and none above 50%; `moderate`: 3+ and none above
+  70%; else `weak`), `circular` (the hook's words appear in the run's own
+  search queries) and up to 3 `examples` (advertiser, ad link, text).
+  `winner_hooks` are ranked by strength first.
+- `SKILL.md` hypothesis rules use these fields: a `weak` hook is one
+  competitor's habit, not a niche trend; circular hooks are not used; every
+  hypothesis states its signal strength and cites examples; a broad pattern
+  is the control of a test, not an empty niche.
+- `hypotheses.json` may carry `signal_strength`; the Excel "Гипотезы" sheet
+  has a matching column.
+
 ## [0.8.0] - 2026-09-30
 
 ### Added

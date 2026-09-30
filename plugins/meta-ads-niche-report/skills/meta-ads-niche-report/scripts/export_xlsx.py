@@ -240,7 +240,7 @@ def main() -> None:
     if hyp_path.exists():
         hyps = json.loads(hyp_path.read_text(encoding="utf-8"))
         wh = wb.create_sheet("Гипотезы")
-        hcols = [("name", "Название", 26), ("angle", "Угол", 34), ("evidence", "Свидетельство из данных", 44),
+        hcols = [("name", "Название", 26), ("signal_strength", "Сила сигнала", 22), ("angle", "Угол", 34), ("evidence", "Свидетельство из данных", 44),
                  ("headline", "Заголовок", 30), ("primary_text", "Основной текст", 60), ("cta", "CTA", 14),
                  ("destination", "Куда ведёт", 28), ("format", "Формат креатива", 34), ("test", "Что тестируем", 30),
                  ("metric", "Метрика", 20), ("risk", "Риски по политикам", 34), ("confirm_with_client", "Подтвердить у клиента", 34)]

@@ -343,16 +343,38 @@
     const tally = (rs, f) => rs.reduce((m, r) => (m[f(r)] = (m[f(r)] || 0) + 1, m), {});
     const top = (rs, f, n) => Object.entries(tally(rs, f)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ value: k, share: share(v, rs.length) }));
     const enough = longRows.length >= 5;
+    // A hook seen mostly at one advertiser is that advertiser's habit, not a
+    // niche trend, and pages sharing a site are one advertiser. So evidence is
+    // counted per advertiser (pages merged through store_groups).
+    const parent = {};
+    const find = x => { if (parent[x] === undefined) parent[x] = x; return parent[x] === x ? x : (parent[x] = find(parent[x])); };
+    for (const pgs of Object.values(bySite)) if (pgs.length >= 2) for (const q of pgs.slice(1)) parent[find(q)] = find(pgs[0]);
+    const kwText = [...new Set(rows.flatMap(r => r.kws || []))].map(k => k.toLowerCase());
+    const evidence = (re, rs) => {
+      const m = rs.filter(r => re.test(text(r)));
+      const byE = {};
+      m.forEach(r => { const e = find(r.page); byE[e] = (byE[e] || 0) + 1; });
+      const ents = Object.entries(byE).sort((x, y) => y[1] - x[1]);
+      const seenE = new Set();
+      const examples = [...m].sort((x, y) => (y.variants - x.variants) || (x.start - y.start))
+        .filter(r => !seenE.has(find(r.page)) && seenE.add(find(r.page))).slice(0, 3)
+        .map(r => ({ page: r.page, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }));
+      const advertisers = ents.length, top_share = m.length ? share(ents[0][1], m.length) : 0;
+      // strong: several unrelated advertisers, none dominating; weak: one or two, or one dominates
+      const strength = advertisers >= 5 && top_share <= 0.5 ? 'strong' : advertisers >= 3 && top_share <= 0.7 ? 'moderate' : 'weak';
+      return { ads: m.length, advertisers, top_advertiser: ents.length ? ents[0][0] : null, top_share, strength, circular: kwText.some(k => re.test(k)), examples };
+    };
+    const rank = { strong: 0, moderate: 1, weak: 2 };
     const hypothesis_inputs = {
       ads_analyzed: rows.length,
       long_running_ads: longRows.length,
       enough_long_ads: enough,
-      underused_hooks: Object.entries(freq).map(([hook, n]) => ({ hook, ads: n, share: share(n, rows.length) })).filter(h => h.share <= 0.05).sort((a, b) => a.share - b.share).slice(0, 8),
+      underused_hooks: Object.entries(freq).map(([hook, n]) => ({ hook, ads: n, share: share(n, rows.length), advertisers: evidence(hp[hook], rows).advertisers, circular: kwText.some(k => hp[hook].test(k)) })).filter(h => h.share <= 0.05).sort((x, y) => x.share - y.share).slice(0, 8),
       winner_hooks: !enough ? [] : Object.entries(hp).map(([hook, re]) => {
         const l = longRows.filter(r => re.test(text(r))).length, o = restRows.filter(r => re.test(text(r))).length;
         const ls = share(l, longRows.length), os = share(o, restRows.length);
-        return { hook, long_ads: l, long_share: ls, other_share: os, lift: os ? Math.round(10 * ls / os) / 10 : null };
-      }).filter(h => h.long_ads >= 3 && (h.lift === null || h.lift >= 1.3)).sort((a, b) => b.long_share - a.long_share).slice(0, 6),
+        return { hook, long_ads: l, long_share: ls, other_share: os, lift: os ? Math.round(10 * ls / os) / 10 : null, ...evidence(hp[hook], longRows) };
+      }).filter(h => h.long_ads >= 3 && (h.lift === null || h.lift >= 1.3)).sort((x, y) => (rank[x.strength] - rank[y.strength]) || (y.long_share - x.long_share)).slice(0, 6),
       winner_formats: enough ? top(longRows, r => r.fmt || '?', 3) : [],
       winner_ctas: enough ? top(longRows, r => r.cta || '(нет)', 3) : [],
       winner_doors: enough ? top(longRows, r => classifyDoor(r), 3) : [],

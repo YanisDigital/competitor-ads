@@ -384,6 +384,32 @@ test('hypothesis_inputs: hooks over-represented in long-running ads, under-used 
   assert.ok(h.underused_hooks.some(x => x.hook === 'срочность' && x.ads === 0));
 });
 
+test('hypothesis_inputs: strength counts advertisers (pages sharing a site merge), flags circular hooks, gives examples', () => {
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k');
+  const DAY = 86400;
+  const mk = (id, page, ageDays, body, link, kws) => ({ ...base, id, page, start: REFERENCE_NOW - ageDays * DAY, title: '', body, fmt: 'VIDEO', cta: 'Shop now', link, kws });
+  const rows = [
+    // "guarantee": 6 long ads, all from ONE store spread over 3 pages sharing shop.example
+    ...['A', 'B', 'C'].flatMap(p => [mk('g' + p + '1', 'Page ' + p, 200, 'money back guarantee', 'https://shop.example/x', ['gadget']), mk('g' + p + '2', 'Page ' + p, 210, 'money back guarantee', 'https://shop.example/x', ['gadget'])]),
+    // "reviews": 6 long ads from 6 unrelated stores
+    ...[1, 2, 3, 4, 5, 6].map(i => mk('r' + i, 'Store ' + i, 150, '5 star reviews from happy customers', 'https://s' + i + '.example', ['gadget'])),
+    // "free shipping" is in the query text itself -> circular
+    ...[1, 2, 3, 4, 5].map(i => mk('f' + i, 'Free ' + i, 150, 'free shipping', 'https://f' + i + '.example', ['free shipping deals'])),
+    ...Array.from({ length: 10 }, (_, i) => mk('y' + i, 'Young ' + i, 5, 'a plain gadget ad', 'https://y' + i + '.example', ['gadget']))
+  ];
+  const h = buildReport(rows, { now: REFERENCE_NOW, baseHooks: false, extraHooks: { guarantee: 'money back guarantee', reviews: 'reviews', 'free ship': 'free shipping' } }).hypothesis_inputs;
+  const by = name => h.winner_hooks.find(x => x.hook === name);
+  assert.equal(by('guarantee').advertisers, 1); // three pages, one store
+  assert.equal(by('guarantee').strength, 'weak');
+  assert.equal(by('reviews').advertisers, 6);
+  assert.equal(by('reviews').strength, 'strong');
+  assert.equal(by('reviews').examples.length, 3);
+  assert.match(by('reviews').examples[0].url, /ads\/library\/\?id=r\d/);
+  assert.equal(by('free ship').circular, true);
+  assert.equal(by('reviews').circular, false);
+  assert.equal(h.winner_hooks[0].hook, 'reviews'); // strong ranks above weak
+});
+
 test('hypothesis_inputs: too few long-running ads gives no winner claims', () => {
   const r = buildReport([normalizeAd(loadFixture('basic-ad.json'), 'k')], { now: REFERENCE_NOW });
   assert.equal(r.hypothesis_inputs.enough_long_ads, false);
