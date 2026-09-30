@@ -259,6 +259,29 @@ def main() -> None:
         wh.freeze_panes = "B2"
         wh.row_dimensions[1].height = 30
 
+    # ---- Test plan (only if plan_tests.js was run) ----
+    plan_path = folder / "test_plan.json"
+    if plan_path.exists():
+        tp = json.loads(plan_path.read_text(encoding="utf-8"))
+        wt = wb.create_sheet("План тестов")
+        header(wt, 1, ["#", "Гипотеза", "Балл", "Сила сигнала", "Факт клиента", "Трудоёмкость", "Тип переменной", "Блокеры"], [5, 60, 8, 14, 14, 13, 16, 60])
+        for i, r in enumerate(tp["ranked"], 2):
+            put(wt, i, [r["rank"], r["name"], r["score"], r["evidence_strength"], r["fit"], r["effort"], r["variable_type"], "; ".join(r["blockers"])])
+        r0 = len(tp["ranked"]) + 4
+        for i, t in enumerate(["Раунд", "Тесты (параллельно)", "Бюджет"], 1):
+            c = wt.cell(row=r0, column=i, value=t)
+            c.font, c.fill = f_head, fill_head
+        for rd in tp["plan"]["rounds"]:
+            r0 += 1
+            put(wt, r0, [rd["round"], "; ".join(f'{t["name"]} ({t["variable_type"]})' for t in rd["tests"]), rd["budget"]])
+        a = tp["plan"]["assumptions"]
+        r0 += 2
+        wt.cell(row=r0, column=1, value=(
+            f"Допущения: {a['variants_per_test']} варианта на тест, {a['events_per_variant']} событий оптимизации на вариант (ориентир Meta для фазы обучения, проверь), "
+            f"не меньше {a['min_days_per_round']} дней на раунд, целевой CPA {a['target_cpa'] if a['target_cpa'] is not None else 'неизвестен (добавь target_cpa в client.json)'}. "
+            "Балл = сила сигнала × готовность / трудоёмкость: он упорядочивает работу, а не предсказывает результат.")).font = f_note
+        wt.freeze_panes = "A2"
+
     # ---- Summary ----
     ws = wb.create_sheet("Сводка", 0)
     for col, w in zip("ABCD", (44, 14, 12, 60)):

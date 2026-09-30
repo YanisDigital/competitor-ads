@@ -16,7 +16,9 @@ import {
   siteFacts,
   compareAdVsSite,
   checkClientFit,
-  lintHypotheses
+  lintHypotheses,
+  prioritizeHypotheses,
+  planTests
 } from '../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/collector.js';
 
 // All fixtures are synthetic (invented names, invented numbers) — never
@@ -486,6 +488,43 @@ test('lintHypotheses: claims are checked against the client brief', () => {
   // a hook the client has not been asked about
   const unknown = codesOf({ ...goodHyp, primary_text: 'A free gift with your order.' }, { client: { price: 1 }, extraHooks: { 'бонус/подарок': 'free gift' }, baseHooks: false });
   assert.ok(unknown.includes('claims_unconfirmed_hook'));
+});
+
+test('prioritizeHypotheses: score = evidence x readiness / effort, blocked and lint errors demote', () => {
+  const client = { guarantee_days: 30, reviews_count: 0, has_copies: false };
+  const hyps = [
+    { name: 'A', hook: 'гарантия возврата', evidence_strength: 'strong', effort: 1, variable_type: 'creative' },
+    { name: 'B', hook: 'отзывы/звёзды', evidence_strength: 'strong', effort: 1, variable_type: 'creative' }, // reviews_count 0 -> blocked
+    { name: 'C', hook: 'бонус/подарок', evidence_strength: 'strong', effort: 1, variable_type: 'offer' },  // never asked -> unknown
+    { name: 'D', evidence_strength: 'moderate', effort: 3, variable_type: 'landing' },                     // no hook needed
+    { name: 'E', hook: 'гарантия возврата', evidence_strength: 'weak', variable_type: 'creative' }         // effort defaults to 2
+  ];
+  const r = prioritizeHypotheses(hyps, { client, lint: { A: { errors: 0 }, E: { errors: 1 } } });
+  const by = n => r.find(x => x.name === n);
+  assert.equal(by('A').score, 3);           // 3 * 1 / 1
+  assert.equal(by('B').score, 0);           // blocked
+  assert.equal(by('C').score, 1.5);         // 3 * 0.5 / 1
+  assert.equal(by('D').score, 0.67);        // 2 * 1 / 3
+  assert.equal(by('E').score, 0.25);        // 1 * 1 * 0.5 / 2
+  assert.deepEqual(r.map(x => x.name), ['A', 'C', 'D', 'E', 'B']);
+  assert.equal(by('A').launchable, true);
+  assert.equal(by('C').launchable, false);  // client fact not confirmed
+  assert.equal(by('E').blockers.length, 1); // lint error
+});
+
+test('planTests: rounds of distinct variable types, blocked excluded, budget only with a target CPA', () => {
+  const ranked = [
+    { rank: 1, name: 'A', variable_type: 'creative', score: 3, blockers: [], launchable: true },
+    { rank: 2, name: 'B', variable_type: 'creative', score: 2, blockers: [], launchable: true },
+    { rank: 3, name: 'C', variable_type: 'offer', score: 1, blockers: [], launchable: true },
+    { rank: 4, name: 'D', variable_type: 'landing', score: 0, blockers: ['client said this claim is not true'], launchable: false }
+  ];
+  const plan = planTests(ranked, { client: { target_cpa: 20 } });
+  assert.deepEqual(plan.rounds.map(r => r.tests.map(t => t.name)), [['A', 'C'], ['B']]); // B waits: same type as A
+  assert.deepEqual(plan.excluded, [{ name: 'D', reason: 'client said this claim is not true' }]);
+  assert.equal(plan.assumptions.per_test_budget, 2 * 50 * 20);
+  assert.equal(plan.rounds[0].budget, 2 * 2000);
+  assert.equal(planTests(ranked, { client: {} }).rounds[0].budget, null);
 });
 
 test('hypothesis_inputs: too few long-running ads gives no winner claims', () => {

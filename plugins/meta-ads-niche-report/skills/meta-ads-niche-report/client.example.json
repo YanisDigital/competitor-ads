@@ -7,12 +7,13 @@
   "price": 24.95,
   "currency": "USD",
   "landing_url": "https://example.com/products/stain-spray",
-
   "guarantee_days": 60,
   "free_shipping": false,
   "free_shipping_over": 50,
   "bonus": false,
-  "bundles": ["2 for $44.95"],
+  "bundles": [
+    "2 for $44.95"
+  ],
   "max_discount_pct": 20,
   "reviews_count": 312,
   "reviews_rating": 4.7,
@@ -21,7 +22,12 @@
   "real_deadline": false,
   "real_stock_limit": false,
   "personalization": false,
-
-  "usp": ["enzyme formula", "no scrubbing"],
-  "avoid": ["do not claim it removes stains permanently"]
+  "usp": [
+    "enzyme formula",
+    "no scrubbing"
+  ],
+  "avoid": [
+    "do not claim it removes stains permanently"
+  ],
+  "target_cpa": 18
 }

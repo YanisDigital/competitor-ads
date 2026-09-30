@@ -332,6 +332,64 @@
     });
   }
 
+  // ---- Prioritization and test plan ----------------------------------------
+  // score = evidence * readiness / effort.
+  //  evidence: hypothesis.evidence_strength (strong 3, moderate 2,
+  //    structural 2, weak or missing 1);
+  //  readiness: 1 if the client confirmed the hypothesis' hook (or it needs no
+  //    client fact), 0.5 if not asked yet, 0 if the client said it is not
+  //    true; halved again while the text has lint errors;
+  //  effort: hypothesis.effort 1 (text only), 2 (new creative), 3 (new page or
+  //    asset); default 2.
+  // opts: { client, lint: { [name]: { errors } } }.
+  function prioritizeHypotheses(hyps, opts = {}) {
+    const EV = { strong: 3, moderate: 2, structural: 2, weak: 1 };
+    const READY = { ready: 1, 'n/a': 1, unknown: 0.5, blocked: 0 };
+    const items = hyps.map((h, i) => {
+      const fit = h.hook ? checkClientFit(opts.client || null, [h.hook])[0].status : 'n/a';
+      const evidence = EV[h.evidence_strength] || 1;
+      const effort = [1, 2, 3].includes(+h.effort) ? +h.effort : 2;
+      const lintErrors = ((opts.lint || {})[h.name] || {}).errors || 0;
+      const blockers = [];
+      if (fit === 'blocked') blockers.push('client said this claim is not true');
+      if (fit === 'unknown') blockers.push('client fact not confirmed yet');
+      if (lintErrors) blockers.push(lintErrors + ' text error(s) to fix');
+      return {
+        name: h.name, hook: h.hook || null, variable_type: h.variable_type || 'creative', evidence_strength: h.evidence_strength || 'weak',
+        evidence, effort, fit, lint_errors: lintErrors,
+        score: Math.round(100 * evidence * READY[fit] * (lintErrors ? 0.5 : 1) / effort) / 100,
+        launchable: blockers.length === 0, blockers, _i: i
+      };
+    });
+    return items.sort((a, b) => (b.score - a.score) || (b.evidence - a.evidence) || (a._i - b._i))
+      .map(({ _i, ...it }, rank) => ({ rank: rank + 1, ...it }));
+  }
+
+  // Rounds of at most opts.maxParallel (default 2) tests with different
+  // variable types (creative / offer / landing / audience), so simultaneous
+  // tests don't confound each other. Tests the client blocked are excluded.
+  // Budget per test = variants (2) x events per variant x client.target_cpa;
+  // events default to 50 (Meta's usual learning-phase guideline of about 50
+  // optimization events per ad set per week; a rule of thumb, verify it) and
+  // is null when the target CPA is unknown.
+  function planTests(ranked, opts = {}) {
+    const client = opts.client || {};
+    const events = opts.events || 50, variants = 2, maxParallel = opts.maxParallel || 2;
+    const cpa = has(client.target_cpa) ? +client.target_cpa : null;
+    const perTest = cpa === null ? null : Math.round(variants * events * cpa);
+    const queue = ranked.filter(r => r.score > 0);
+    const excluded = ranked.filter(r => r.score === 0).map(r => ({ name: r.name, reason: r.blockers.join('; ') || 'score 0' }));
+    const rounds = [];
+    while (queue.length) {
+      const round = [];
+      for (let i = 0; i < queue.length && round.length < maxParallel;) {
+        if (round.every(t => t.variable_type !== queue[i].variable_type)) round.push(queue.splice(i, 1)[0]); else i++;
+      }
+      rounds.push({ round: rounds.length + 1, tests: round.map(t => ({ name: t.name, variable_type: t.variable_type, launchable: t.launchable, blockers: t.blockers })), budget: perTest === null ? null : perTest * round.length });
+    }
+    return { rounds, excluded, assumptions: { variants_per_test: variants, events_per_variant: events, target_cpa: cpa, per_test_budget: perTest, min_days_per_round: 7, max_parallel_tests: maxParallel } };
+  }
+
   // Aggregates normalized rows into the report shape consumed by SKILL.md's
   // Step 5-7. `opts.now` (unix seconds) lets tests pin "today" instead of
   // depending on the wall clock; defaults to Date.now() otherwise.
@@ -671,7 +729,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests };
   }
 
   return installResult;

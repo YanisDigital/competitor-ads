@@ -156,6 +156,18 @@ client said aren't true). Results go into `hypotheses_lint.json` and an
 "Автопроверка" column of the Excel sheet. These are heuristics, not Meta's
 review: Meta approves ads itself and its policies change.
 
+### Prioritization and test plan
+
+`scripts/plan_tests.js <snapshot>` ranks the hypotheses and builds a plan.
+Score = evidence strength x readiness / effort: readiness is 1 if the client
+confirmed the fact behind the hook, 0.5 if not asked yet, 0 if the client said
+it isn't true (text errors from the automatic check halve it). Tests run in
+rounds of at most 2 with different variable types (creative, offer, landing,
+audience); with `target_cpa` in `client.json` each round gets a budget
+(2 variants x 50 optimization events x CPA, a rule of thumb). Output:
+`test_plan.json` and a "План тестов" sheet. The score orders work; it does
+not predict results.
+
 ## Landing-page check
 
 Ask Claude "check the sites of the leaders", or run

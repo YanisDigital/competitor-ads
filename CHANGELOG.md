@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.1] - 2026-09-30
+
+### Added
+- Prioritization and test plan: `prioritizeHypotheses()` and `planTests()`
+  in `collector.js`, `scripts/plan_tests.js <snapshot>`. Score = evidence
+  strength x readiness / effort; readiness comes from the client brief
+  (confirmed 1, not asked 0.5, denied 0) and is halved by text lint errors.
+  Rounds of at most 2 parallel tests with different variable types; budget
+  per round = 2 variants x 50 optimization events x `client.target_cpa`
+  (a rule of thumb, null without a target CPA). Output `test_plan.json` and a
+  "План тестов" Excel sheet.
+- Optional hypothesis fields `hook`, `evidence_strength`, `effort`,
+  `variable_type`; optional `target_cpa` in `client.json`.
+
 ## [0.10.0] - 2026-09-30
 
 ### Added
