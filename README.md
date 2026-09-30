@@ -197,6 +197,20 @@ with links to the creatives, all advertisers (local/platform flags, shared
 sites), long-running ads, page networks and, if you compared snapshots, a
 "Changes" sheet.
 
+## HTML report (one file)
+
+Ask Claude "make an HTML report", or run
+`node plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/export_html.js out/<preset>/<date>`.
+You get `report.html`: a single self-contained file (no external files,
+fonts or scripts; charts are pure CSS; site screenshots are embedded) that you
+can email or open anywhere, including on a phone, and print. It has the
+summary, structure charts, advertisers, long-running ads, page networks, and,
+when the data exists, the site check, hypotheses with the test plan, and
+changes between snapshots. It never includes `client.json`. A strict
+Content-Security-Policy blocks everything except its own inline styles, and
+all ad text is escaped, so a malicious ad cannot inject anything. Node.js is
+the only requirement.
+
 ## Requirements
 
 - **Browser mode**: a browser tool in your Claude session — nothing to install.

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.10.3] - 2026-09-30
+
+### Added
+- HTML report in one file: `scripts/export_html.js <snapshot>` writes
+  `report.html` with no external files, fonts or scripts (charts are CSS,
+  screenshots embedded as data URIs, a strict Content-Security-Policy). It
+  contains the summary, structure charts, advertisers, long-running ads, page
+  networks and, when the files exist, the site check, hypotheses with the lint
+  results and test plan, and changes between snapshots. `client.json` is
+  never included. All values are HTML-escaped and links are limited to
+  http(s), because ad text is written by third parties. Node.js only.
+
+### Changed
+- `report.js` also works as a module (`loadSnapshot()`); its CLI output is
+  unchanged.
+
 ## [0.10.2] - 2026-09-30
 
 ### Added
