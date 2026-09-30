@@ -10,7 +10,9 @@ import {
   resultCountOf,
   buildQueries,
   buildReport,
-  toCsv
+  toCsv,
+  parseCsv,
+  diffSnapshots
 } from '../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/collector.js';
 
 // All fixtures are synthetic (invented names, invented numbers) — never
@@ -278,6 +280,59 @@ test('local detection: an address is a strong signal, one "visit us" is not', ()
     { ...base, id: '4', page: 'Online', cta: 'Shop now', title: '', body: 'Another great gadget' }
   ];
   assert.deepEqual(buildReport(rows, { now: REFERENCE_NOW }).local_pages, ['Dealer']);
+});
+
+test('parseCsv is the inverse of toCsv, including the formula-injection prefix', () => {
+  const base = normalizeAd(loadFixture('basic-ad.json'), 'k1');
+  const rows = [{ ...base, kws: ['k1', 'k2'], title: '=SUM(1)', body: 'Say "hi", ok' }];
+  const back = parseCsv(toCsv(rows));
+  assert.equal(back.length, 1);
+  assert.equal(back[0].id, base.id);
+  assert.equal(back[0].title, '=SUM(1)');
+  assert.equal(back[0].body, 'Say "hi", ok');
+  assert.deepEqual(back[0].kws, ['k1', 'k2']);
+  assert.equal(back[0].start, Math.floor(base.start / 86400) * 86400);
+});
+
+test('diffSnapshots: new, stopped (with confidence), survived, scaling, page changes', () => {
+  const DAY = 86400, T0 = REFERENCE_NOW, T1 = T0 + 14 * DAY;
+  const mk = (id, page, ageDays, variants, kws) => ({ id, page, start: T0 - ageDays * DAY, variants, kws, title: 't' + id, body: '' });
+  const prev = [
+    mk('a', 'Store A', 5, 1, ['q1']),      // young test, still running
+    mk('b', 'Store B', 3, 1, ['q1']),      // young test, gone, q1 re-run unsaturated -> high
+    mk('c', 'Store C', 200, 2, ['q2']),    // old, gone, q2 NOT re-run -> low
+    mk('d', 'Store D', 100, 1, ['q1'])     // old, survives and gains variants
+  ];
+  const curr = [
+    mk('a', 'Store A', 19, 1, ['q1']),
+    mk('d', 'Store D', 114, 4, ['q1']),
+    mk('e', 'Store E', 1, 1, ['q1']),
+    mk('f', 'Store E', 1, 1, ['q1']),
+    mk('g', 'Store E', 1, 1, ['q1']),
+    mk('h', 'Store E', 1, 1, ['q1'])
+  ];
+  const d = diffSnapshots(prev, curr, { prevTs: T0, currTs: T1, cap: 90 });
+  assert.equal(d.interval_days, 14);
+  assert.equal(d.survived, 2);
+  assert.equal(d.new_ads.count, 4);
+  assert.equal(d.stopped.count, 2);
+  assert.equal(d.stopped.high_confidence, 1);
+  assert.equal(d.stopped.top.find(s => s.id === 'b').confidence, 'high');
+  assert.equal(d.stopped.top.find(s => s.id === 'c').confidence, 'low');
+  assert.deepEqual(d.young_tests, { ads: 2, gone: 1, gone_share: 0.5 });
+  assert.deepEqual(d.scaling.map(s => [s.id, s.variants_prev, s.variants_curr]), [['d', 1, 4]]);
+  assert.deepEqual(d.pages.new, [{ page: 'Store E', ads: 4 }]);
+  assert.deepEqual(d.pages.gone, ['Store B']);
+});
+
+test('diffSnapshots: a saturated re-run cannot prove an ad stopped', () => {
+  const DAY = 86400, T0 = REFERENCE_NOW;
+  const prev = [{ id: 'x', page: 'P', start: T0 - 5 * DAY, variants: 1, kws: ['q'], title: '', body: '' }];
+  const curr = Array.from({ length: 95 }, (_, i) => ({ id: 'n' + i, page: 'Q' + i, start: T0, variants: 1, kws: ['q'], title: '', body: '' }));
+  const d = diffSnapshots(prev, curr, { prevTs: T0, currTs: T0 + 7 * DAY, cap: 90 });
+  assert.equal(d.stopped.count, 1);
+  assert.equal(d.stopped.high_confidence, 0);
+  assert.equal(d.young_tests.ads, 0);
 });
 
 test('toCsv escapes quotes and collapses newlines, one line per row', () => {

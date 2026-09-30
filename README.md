@@ -81,6 +81,21 @@ CLI: `python scrape.py --preset beauty --city-uk Одеса --city-ru Одесс
 add a niche, copy any preset JSON, change `id`, `services`, `extra_hooks`
 and `noise`, and drop it into the same folder.
 
+## Monitoring: compare two snapshots
+
+Run `scrape.py` twice with the same preset/queries (say, a week or two
+apart, into different `--out` folders), then:
+
+```bash
+node plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/compare.js out/week1 out/week2
+```
+
+It writes `out/week2/diff.json`: new ads, stopped ads, how many young tests
+(<30 days old) disappeared, ads that gained creative variants (scaling), and
+pages that appeared, vanished or grew. An ad missing from the second run only
+counts as confidently stopped if its query was re-run and returned fewer
+than 90 ads; otherwise it may just have dropped out of the top of the results.
+
 ## Requirements
 
 - **Browser mode**: a browser tool in your Claude session (built-in browser,

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0] - 2026-09-30
+
+### Added
+- Snapshot comparison: `scripts/compare.js <older> <newer>` writes
+  `diff.json` (new ads, stopped ads, share of young tests that disappeared,
+  ads that gained creative variants, pages that appeared/vanished/grew).
+  Logic is `diffSnapshots()` in `collector.js`; `parseCsv()` reads an
+  `ads.csv` back (inverse of `toCsv`, undoes the formula-injection prefix).
+- A missing ad is only a confident stop if one of its queries was re-run and
+  returned fewer than 90 ads; otherwise it may have dropped out of the top
+  of the results (the library shows ~120 ads per query).
+- `scrape.py` writes `run.json` (date, country, queries, preset) next to
+  the report, used as the snapshot date.
+
 ## [0.4.3] - 2026-09-29
 
 ### Added

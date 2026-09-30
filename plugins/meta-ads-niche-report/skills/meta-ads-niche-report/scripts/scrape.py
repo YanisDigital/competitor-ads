@@ -32,6 +32,7 @@ import json
 import re
 import sys
 import unicodedata
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -216,6 +217,11 @@ async def run(args, keywords: list[str]) -> None:
     csv_path = out_dir / "ads.csv"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     csv_path.write_text(csv_text, encoding="utf-8")
+    (out_dir / "run.json").write_text(
+        json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": keywords,
+                    "preset": args.preset}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
     print()
     print(

@@ -327,6 +327,73 @@
     return [cols.join(',')].concat(lines).join('\n');
   }
 
+  // Inverse of toCsv: reads an ads.csv back into rows shaped like the store.
+  // Undoes the formula-injection quote prefix. Fields never contain newlines
+  // (toCsv collapses whitespace), so a line-based parse is safe.
+  function parseCsv(text) {
+    const lines = String(text).replace(/^﻿/, '').split(/\r?\n/).filter(Boolean);
+    const cols = lines[0].split(',');
+    const field = v => (/^'[=+\-@]/.test(v) ? v.slice(1) : v);
+    return lines.slice(1).map(l => {
+      const v = [...l.matchAll(/"((?:[^"]|"")*)"/g)].map(m => field(m[1].replace(/""/g, '"')));
+      const o = {};
+      cols.forEach((k, i) => { o[k] = v[i]; });
+      o.start = Date.parse(o.start + 'T00:00:00Z') / 1000;
+      o.variants = +o.variants || 1;
+      o.kws = (o.kws || '').split('; ').filter(Boolean);
+      return o;
+    });
+  }
+
+  // Compares two snapshots (arrays of rows) of the same queries, taken at
+  // opts.prevTs and opts.currTs (unix seconds). An ad missing from the newer
+  // snapshot is NOT necessarily stopped: the library shows only the top of
+  // each result list (~120 ads). A stop is "high" confidence only if one of
+  // the ad's queries was re-run and that run was not saturated (fewer than
+  // opts.cap ads), i.e. it would have listed the ad if it were still active.
+  function diffSnapshots(prev, curr, opts = {}) {
+    const cap = opts.cap || 90;
+    const interval_days = Math.round((opts.currTs - opts.prevTs) / 86400);
+    const P = new Map(prev.map(r => [r.id, r]));
+    const C = new Map(curr.map(r => [r.id, r]));
+    const kwCount = rows => { const m = {}; rows.forEach(r => (r.kws || []).forEach(k => { m[k] = (m[k] || 0) + 1; })); return m; };
+    const kwCurr = kwCount(curr);
+    const ageAtPrev = r => Math.round((opts.prevTs - r.start) / 86400);
+    const url = id => 'https://www.facebook.com/ads/library/?id=' + id;
+    const snip = r => ((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' ').slice(0, 140);
+    const reliable = r => (r.kws || []).some(k => k in kwCurr && kwCurr[k] < cap);
+
+    const stopped = prev.filter(r => !C.has(r.id)).map(r => ({
+      page: r.page, id: r.id, url: url(r.id), age_at_prev: ageAtPrev(r), variants: r.variants,
+      confidence: reliable(r) ? 'high' : 'low', text: snip(r)
+    }));
+    const stoppedHigh = stopped.filter(s => s.confidence === 'high');
+    const fresh = curr.filter(r => !P.has(r.id));
+    const survivors = curr.filter(r => P.has(r.id));
+
+    // Young tests (< 30 days old at the first snapshot) that are gone vs still running.
+    const young = prev.filter(r => ageAtPrev(r) < 30 && reliable(r));
+    const youngGone = young.filter(r => !C.has(r.id)).length;
+
+    const count = rows => rows.reduce((m, r) => (m[r.page] = (m[r.page] || 0) + 1, m), {});
+    const pp = count(prev), pc = count(curr);
+    const highIds = new Set(stoppedHigh.map(s => s.id));
+    const gonePages = Object.keys(pp).filter(p => !(p in pc) && prev.filter(r => r.page === p).every(r => highIds.has(r.id)));
+    const newPages = Object.keys(pc).filter(p => !(p in pp)).map(p => ({ page: p, ads: pc[p] })).sort((a, b) => b.ads - a.ads);
+    const grew = Object.keys(pc).filter(p => p in pp && pc[p] - pp[p] >= 3).map(p => ({ page: p, prev: pp[p], curr: pc[p] })).sort((a, b) => (b.curr - b.prev) - (a.curr - a.prev));
+
+    return {
+      interval_days,
+      prev_ads: prev.length, curr_ads: curr.length,
+      survived: survivors.length,
+      new_ads: { count: fresh.length, top: fresh.sort((a, b) => b.variants - a.variants).slice(0, 25).map(r => ({ page: r.page, id: r.id, url: url(r.id), variants: r.variants, text: snip(r) })) },
+      stopped: { count: stopped.length, high_confidence: stoppedHigh.length, top: stopped.sort((a, b) => (a.confidence === b.confidence ? 0 : a.confidence === 'high' ? -1 : 1) || b.variants - a.variants).slice(0, 25) },
+      young_tests: { ads: young.length, gone: youngGone, gone_share: young.length ? Math.round(100 * youngGone / young.length) / 100 : null },
+      scaling: survivors.filter(r => r.variants > P.get(r.id).variants).map(r => ({ page: r.page, id: r.id, url: url(r.id), variants_prev: P.get(r.id).variants, variants_curr: r.variants })).sort((a, b) => (b.variants_curr - b.variants_prev) - (a.variants_curr - a.variants_prev)).slice(0, 25),
+      pages: { new: newPages.slice(0, 25), gone: gonePages.slice(0, 25), grew: grew.slice(0, 25) }
+    };
+  }
+
   // ==========================================================================
   // Browser glue — installs window.__mai, intercepts fetch/XHR, drives
   // scroll. Skipped entirely outside a browser (e.g. when required in Node
@@ -408,7 +475,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots };
   }
 
   return installResult;
