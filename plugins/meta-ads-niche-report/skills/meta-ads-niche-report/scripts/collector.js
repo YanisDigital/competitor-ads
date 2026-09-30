@@ -264,6 +264,74 @@
     });
   }
 
+  // ---- Hypothesis text checks ----------------------------------------------
+  // Heuristics for commonly enforced ad-policy problems and for claims that the
+  // client has not confirmed. They flag, they do not certify: Meta reviews
+  // ads itself and its policies change, so the final check is Meta's
+  // Advertising Standards. Severity: error = fix before use, warn = review,
+  // info = good to know.
+  const HYP_REQUIRED = ['name', 'angle', 'evidence', 'headline', 'primary_text', 'cta', 'destination', 'test', 'metric', 'risk'];
+  const YOU = /\b(you|your|you're)\b|(^|[^а-яіїєґ])(вы|ваш\S*|ты|твой|твоя|у вас|у тебя|ви)(?![а-яіїєґ])/i;
+  const ATTR = /\b(overweight|obese|depress\w*|anxi\w*|diabet\w*|bald(?:ing)?|in debt|lonely|infertil\w*|impoten\w*)\b|(лишн\S+ вес|ожирен\S*|депресс\S*|тревожн\S*|диабет\S*|лыс\S*|облыс\S*|долг\S*|одинок\S*|бесплод\S*)/i;
+  const TEXT_RULES = [
+    { code: 'health_claim', severity: 'warn', re: /\b(cures?|cured|heals?|treats?|miracle|permanent(?:ly)?|100%\s*(?:effective|guaranteed)|guaranteed results?|clinically proven|doctor.recommended)\b|(вылеч\S*|излеч\S*|лечит|чудо\S*|навсегда|назавжди|гарантирован\S* результат|клинически доказан\S*)/i, message: 'Health/result claim: needs substantiation, and Meta restricts absolute or medical claims.' },
+    { code: 'before_after', severity: 'warn', re: /before\s*(?:and|&|\/|-)\s*after|до\s*(?:и|\/|-)\s*после|до\s*(?:і|\/|-)\s*після/i, message: 'Before/after wording: restricted, especially for health, weight and body.' },
+    { code: 'superlative', severity: 'warn', re: /(#\s?1\b|\bno\.?\s?1\b|\bbest\b|world'?s (?:best|first)|№\s?1|лучш\S+|найкращ\S+)/i, message: 'Superlative ("#1", "best"): needs proof you can show.' },
+    { code: 'meta_brand', severity: 'info', re: /\b(facebook|instagram|meta)\b/i, message: 'Mentions a Meta brand name; avoid implying endorsement.' }
+  ];
+  const nums = (t, re) => [...t.matchAll(re)].map(m => +String(m[1] || m[2]).replace(/,/g, ''));
+
+  // hyps: array of hypothesis objects (hypotheses.json). opts: { client,
+  // extraHooks, baseHooks }. Returns [{ name, errors, warnings, findings:
+  // [{severity, code, field, message}], visible_text }].
+  function lintHypotheses(hyps, opts = {}) {
+    const client = opts.client || null;
+    const hooks = hookPatterns(opts);
+    const SKIP_CLAIM_CHECK = new Set(['персонализация', 'TikTok/вирусность']); // regexes too broad to read as a claim
+    return hyps.map((h, i) => {
+      const f = [];
+      const add = (severity, code, field, message) => f.push({ severity, code, field, message });
+      const name = h.name || 'hypothesis #' + (i + 1);
+      for (const k of HYP_REQUIRED) {
+        const v = h[k];
+        if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)) add('error', 'missing_field', k, 'Required field is empty.');
+      }
+      const head = String(h.headline || ''), body = String(h.primary_text || '');
+      const all = head + ' ' + body;
+      if (head.length > 40) add('warn', 'headline_long', 'headline', 'Headline is ' + head.length + ' characters; about 40 is recommended, longer gets cut off.');
+      if (body.length > 125) add('info', 'primary_text_truncated', 'primary_text', 'Only about the first 125 characters show before "See more": the hook and the offer should be inside them.');
+      const ph = all.match(/\[[^\]]+\]/g);
+      if (ph) add(client ? 'warn' : 'info', 'placeholder', 'headline/primary_text', 'Unfilled placeholders: ' + [...new Set(ph)].join(', ') + (client ? ' (client.json is present: fill them or ask).' : '.'));
+      const letters = head.replace(/[^A-Za-zА-Яа-яІіЇїЄєҐґ]/g, '');
+      if (letters.length >= 8 && head.replace(/[^A-ZА-ЯІЇЄҐ]/g, '').length / letters.length > 0.6) add('warn', 'all_caps', 'headline', 'Headline is mostly capital letters.');
+      if ((all.match(/!/g) || []).length > 3) add('warn', 'exclamation', 'primary_text', 'More than 3 exclamation marks.');
+      if (YOU.test(all) && ATTR.test(all)) add('error', 'personal_attributes', 'headline/primary_text', 'Addresses the viewer with a personal attribute (weight, health, debt, ...): ads must not imply you know it.');
+      for (const r of TEXT_RULES) if (r.re.test(all)) add(r.severity, r.code, 'headline/primary_text', r.message);
+      if (/(today only|last day|ends tonight|only \d+ left|hurry|только сегодня|последний день|осталось \d+|лише сьогодні|залишилось \d+)/i.test(all) && !(client && (client.real_deadline === true || client.real_stock_limit === true))) {
+        add('warn', 'urgency', 'headline/primary_text', 'Urgency wording without a confirmed real deadline or stock limit (client.json real_deadline / real_stock_limit).');
+      }
+      if (client) {
+        const t = all.toLowerCase();
+        if (/guarantee|money.?back|refund|return|гарант|возврат|повернен/i.test(t)) {
+          for (const d of nums(t, /(\d+)[\s-]*(?:day|дн|дней|дня|днів)/gi)) if (has(client.guarantee_days) && d > client.guarantee_days) add('error', 'guarantee_days_overstated', 'primary_text', 'States a ' + d + '-day guarantee, client.json confirms ' + client.guarantee_days + '.');
+        }
+        for (const r of nums(t, /(\d(?:\.\d)?)\s*(?:★|⭐|stars?\b|\/5|out of 5)|rated\s*(\d(?:\.\d)?)/gi)) if (has(client.reviews_rating) && r > client.reviews_rating + 0.05) add('error', 'rating_overstated', 'headline/primary_text', 'States a rating of ' + r + ', client.json confirms ' + client.reviews_rating + '.');
+        for (const n of nums(t, /([\d,]{2,})\+?\s*(?:reviews|customers|happy customers|buyers|отзыв\S*|покупател\S*|клиент\S*)/gi)) if (has(client.reviews_count) && n > client.reviews_count) add('error', 'reviews_overstated', 'headline/primary_text', 'States ' + n + ' reviews/customers, client.json confirms ' + client.reviews_count + '.');
+        for (const d of nums(t, /(\d{1,2})\s*%\s*off/gi).concat(nums(t, /(?:скидк\S*|знижк\S*)\s*(?:до\s*)?(\d{1,2})\s*%/gi))) if (has(client.max_discount_pct) && d > client.max_discount_pct) add('error', 'discount_overstated', 'headline/primary_text', 'Offers ' + d + '% off, client.json allows at most ' + client.max_discount_pct + '%.');
+        const allowed = [client.price, client.free_shipping_over, ...(client.bundles || []).flatMap(b => nums(String(b), /\$\s?(\d+(?:\.\d+)?)/g))].filter(has);
+        for (const price of nums(all, /\$\s?(\d+(?:\.\d+)?)/g)) if (allowed.length && !allowed.some(a => Math.abs(a - price) < 0.005)) add('warn', 'price_not_in_brief', 'headline/primary_text', 'Price $' + price + ' is not among the prices in client.json.');
+        const labels = Object.keys(hooks).filter(k => !SKIP_CLAIM_CHECK.has(k) && CLIENT_RULES[k] && hooks[k].test(t));
+        for (const fit of checkClientFit(client, labels)) {
+          if (fit.status === 'blocked') add('error', 'claims_blocked_hook', 'headline/primary_text', 'Text claims "' + fit.hook + '", which the client said is not true.');
+          else if (fit.status === 'unknown') add('warn', 'claims_unconfirmed_hook', 'headline/primary_text', 'Text claims "' + fit.hook + '" but client.json does not confirm it (' + fit.missing.join(', ') + ').');
+        }
+      }
+      const rank = { error: 0, warn: 1, info: 2 };
+      f.sort((a, b) => rank[a.severity] - rank[b.severity]);
+      return { name, errors: f.filter(x => x.severity === 'error').length, warnings: f.filter(x => x.severity === 'warn').length, findings: f, visible_text: body.slice(0, 125) };
+    });
+  }
+
   // Aggregates normalized rows into the report shape consumed by SKILL.md's
   // Step 5-7. `opts.now` (unix seconds) lets tests pin "today" instead of
   // depending on the wall clock; defaults to Date.now() otherwise.
@@ -603,7 +671,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses };
   }
 
   return installResult;

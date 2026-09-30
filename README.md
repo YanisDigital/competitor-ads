@@ -144,6 +144,18 @@ sorts the snapshot's hooks into usable, blocked (the client said it isn't
 true) and "still to ask", and hypotheses use the confirmed facts verbatim
 instead of placeholders. The file stays in `out/`, which is not published.
 
+### Automatic checks of the hypothesis texts
+
+`scripts/lint_hypotheses.js <snapshot>` checks `hypotheses.json` before you
+use it: required fields, headline length (~40 characters), the ~125
+characters visible before "See more", unfilled placeholders, risky wording
+(personal attributes, medical or absolute claims, before/after, superlatives,
+all caps, fake urgency) and, with `client.json`, promises the client has not
+confirmed (guarantee days, rating, review count, discount, prices, hooks the
+client said aren't true). Results go into `hypotheses_lint.json` and an
+"Автопроверка" column of the Excel sheet. These are heuristics, not Meta's
+review: Meta approves ads itself and its policies change.
+
 ## Landing-page check
 
 Ask Claude "check the sites of the leaders", or run

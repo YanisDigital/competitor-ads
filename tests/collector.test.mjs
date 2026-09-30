@@ -15,7 +15,8 @@ import {
   diffSnapshots,
   siteFacts,
   compareAdVsSite,
-  checkClientFit
+  checkClientFit,
+  lintHypotheses
 } from '../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/collector.js';
 
 // All fixtures are synthetic (invented names, invented numbers) — never
@@ -432,6 +433,59 @@ test('checkClientFit: free shipping over a threshold counts as ready; empty bund
   const fit = Object.fromEntries(checkClientFit(c, ['бесплатная доставка', 'BOGO/комплект']).map(x => [x.hook, x.status]));
   assert.equal(fit['бесплатная доставка'], 'ready');
   assert.equal(fit['BOGO/комплект'], 'blocked');
+});
+
+const goodHyp = {
+  name: 'H', angle: 'a', evidence: ['e'], headline: 'Rated 4.7 by 300+ customers', primary_text: 'Try it risk-free for 60 days.',
+  cta: 'Shop now', destination: 'site', test: 't', metric: 'CTR', risk: 'none', confirm_with_client: 'x'
+};
+const codesOf = (h, opts) => lintHypotheses([h], opts)[0].findings.map(f => f.code);
+
+test('lintHypotheses: a clean hypothesis passes, structural problems are flagged', () => {
+  assert.deepEqual(codesOf(goodHyp, {}), []);
+  const bad = { ...goodHyp, headline: 'A very long headline that is definitely longer than forty characters', cta: '', risk: undefined };
+  const codes = codesOf(bad, {});
+  assert.ok(codes.includes('headline_long'));
+  assert.equal(codes.filter(c => c === 'missing_field').length, 2); // cta and risk
+  const long = lintHypotheses([{ ...goodHyp, primary_text: 'x'.repeat(200) }])[0];
+  assert.ok(long.findings.some(f => f.code === 'primary_text_truncated'));
+  assert.equal(long.visible_text.length, 125);
+  // placeholders: info without a brief, warn with one
+  const ph = { ...goodHyp, headline: 'Save on [Product]' };
+  assert.equal(lintHypotheses([ph])[0].findings.find(f => f.code === 'placeholder').severity, 'info');
+  assert.equal(lintHypotheses([ph], { client: {} })[0].findings.find(f => f.code === 'placeholder').severity, 'warn');
+});
+
+test('lintHypotheses: risky wording (personal attributes, health, before/after, superlative, caps, urgency)', () => {
+  const t = text => codesOf({ ...goodHyp, primary_text: text });
+  assert.ok(t('Are you overweight? Try this today.').includes('personal_attributes'));
+  assert.ok(t('У вас лишний вес? Попробуйте.').includes('personal_attributes'));
+  assert.ok(!t('Overweight luggage? Not with this bag.').includes('personal_attributes')); // no second person
+  assert.ok(t('It cures back pain permanently.').includes('health_claim'));
+  assert.ok(t('See the before and after.').includes('before_after'));
+  assert.ok(t('The best gadget, #1 in the US.').includes('superlative'));
+  assert.ok(t('Last day! Hurry!').includes('urgency'));
+  assert.ok(!codesOf({ ...goodHyp, primary_text: 'Last day of our sale, ends Sunday.' }, { client: { real_deadline: true } }).includes('urgency'));
+  assert.ok(codesOf({ ...goodHyp, headline: 'AMAZING DEAL FOR YOUR HOME' }).includes('all_caps'));
+  assert.ok(t('Wow!!!! Amazing!').includes('exclamation'));
+});
+
+test('lintHypotheses: claims are checked against the client brief', () => {
+  const client = { guarantee_days: 30, reviews_rating: 4.5, reviews_count: 100, max_discount_pct: 20, price: 24.95, bundles: ['2 for $44.95'], free_shipping: false, free_shipping_over: 50, real_deadline: false, real_stock_limit: false, has_copies: false };
+  const t = (headline, primary_text) => codesOf({ ...goodHyp, headline, primary_text }, { client, extraHooks: { 'гарантия возврата': 'money.back|day guarantee' }, baseHooks: false });
+  assert.ok(t('Rated 4.9 by 50 customers', 'x').includes('rating_overstated'));
+  assert.ok(t('Rated 4.4 by 5,000 customers', 'x').includes('reviews_overstated'));
+  assert.ok(t('x', '60-day money-back guarantee').includes('guarantee_days_overstated'));
+  assert.ok(!t('x', '30-day money-back guarantee').includes('guarantee_days_overstated'));
+  assert.ok(t('50% off today', 'x').includes('discount_overstated'));
+  assert.ok(t('Only $19.99', 'x').includes('price_not_in_brief'));
+  assert.ok(!t('Only $24.95', 'or 2 for $44.95').includes('price_not_in_brief'));
+  // a hook the client said is not true
+  const blocked = codesOf({ ...goodHyp, primary_text: 'Free shipping on every order.' }, { client: { ...client, free_shipping: false, free_shipping_over: 0 }, extraHooks: { 'бесплатная доставка': 'free shipping' }, baseHooks: false });
+  assert.ok(blocked.includes('claims_blocked_hook'));
+  // a hook the client has not been asked about
+  const unknown = codesOf({ ...goodHyp, primary_text: 'A free gift with your order.' }, { client: { price: 1 }, extraHooks: { 'бонус/подарок': 'free gift' }, baseHooks: false });
+  assert.ok(unknown.includes('claims_unconfirmed_hook'));
 });
 
 test('hypothesis_inputs: too few long-running ads gives no winner claims', () => {

@@ -243,11 +243,16 @@ def main() -> None:
         hcols = [("name", "Название", 26), ("signal_strength", "Сила сигнала", 22), ("angle", "Угол", 34), ("evidence", "Свидетельство из данных", 44),
                  ("headline", "Заголовок", 30), ("primary_text", "Основной текст", 60), ("cta", "CTA", 14),
                  ("destination", "Куда ведёт", 28), ("format", "Формат креатива", 34), ("test", "Что тестируем", 30),
-                 ("metric", "Метрика", 20), ("risk", "Риски по политикам", 34), ("confirm_with_client", "Подтвердить у клиента", 34)]
+                 ("metric", "Метрика", 20), ("risk", "Риски по политикам", 34), ("confirm_with_client", "Подтвердить у клиента", 34), ("lint", "Автопроверка", 60)]
+        lint_path = folder / "hypotheses_lint.json"
+        lint = {}
+        if lint_path.exists():
+            for r in json.loads(lint_path.read_text(encoding="utf-8")).get("results", []):
+                lint[r["name"]] = "\n".join(f'[{f["severity"]}] {f["message"]}' for f in r["findings"] if f["severity"] != "info")
         header(wh, 1, [h[1] for h in hcols], [h[2] for h in hcols])
         for i, h in enumerate(hyps, 2):
             for c, (key, _, _) in enumerate(hcols, 1):
-                v = h.get(key, "")
+                v = lint.get(h.get("name"), "") if key == "lint" else h.get(key, "")
                 cell = wh.cell(row=i, column=c, value="; ".join(map(str, v)) if isinstance(v, list) else v)
                 cell.font = f_base
                 cell.alignment = Alignment(wrap_text=True, vertical="top")

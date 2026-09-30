@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.10.0] - 2026-09-30
+
+### Added
+- Automatic checks of ad-hypothesis texts: `lintHypotheses()` in
+  `collector.js` and `scripts/lint_hypotheses.js <snapshot>`. Checks required
+  fields, headline length (~40), visible primary text (~125 characters),
+  unfilled placeholders, risky wording (personal attributes, health/absolute
+  claims, before/after, superlatives, all caps, exclamation marks, urgency
+  without a real deadline or stock limit, Meta brand names) and, with a
+  `client.json`, claims the client has not confirmed (guarantee days, rating,
+  review count, discount, prices not in the brief, hooks marked blocked or
+  unknown). Output: `hypotheses_lint.json`; the script exits 1 when any
+  hypothesis has errors. The Excel "Гипотезы" sheet gets an "Автопроверка"
+  column.
+- `SKILL.md`: Claude runs the check before showing hypotheses, fixes every
+  error itself without rewording only to dodge a pattern, and tells the user
+  these are heuristics, not Meta's review.
+
 ## [0.9.0] - 2026-09-30
 
 ### Added
