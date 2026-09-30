@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.0] - 2026-09-30
+
+### Added
+- Client brief for ad hypotheses: `client.json` (template
+  `client.example.json`; `null` = not asked yet, `false`/`0` = not true).
+  `checkClientFit(client, hooks)` in `collector.js` marks each hook `ready`
+  (client confirmed the fact), `blocked` (client said it is not true),
+  `unknown` (with the fields still to ask) or `n/a`. `scripts/client_fit.js
+  <snapshot>` applies it to a snapshot's winning and under-used hooks and
+  lists the questions still open.
+- `SKILL.md`: before writing hypotheses Claude asks up to 5 questions, saves
+  `client.json`, writes hypotheses only for usable hooks, and substitutes
+  confirmed facts verbatim instead of placeholders; blocked claims are never
+  written.
+
 ## [0.8.1] - 2026-09-30
 
 Fixes an overstatement in the hypotheses inputs found while writing the

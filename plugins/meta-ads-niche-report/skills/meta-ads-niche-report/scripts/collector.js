@@ -232,6 +232,38 @@
     };
   }
 
+  // What a client must be able to say truthfully before an ad may use a hook.
+  // fields: client.json keys read; ok: fact confirmed; no: fact explicitly absent
+  // (null/undefined means "not asked yet"). Ads may only promise confirmed facts.
+  const has = v => v !== null && v !== undefined;
+  const CLIENT_RULES = {
+    'отзывы/звёзды': { fields: ['reviews_count', 'reviews_quotable'], ok: c => c.reviews_count > 0 && c.reviews_quotable === true, no: c => c.reviews_count === 0 || c.reviews_quotable === false },
+    'гарантия возврата': { fields: ['guarantee_days'], ok: c => c.guarantee_days > 0, no: c => c.guarantee_days === 0 },
+    'бесплатная доставка': { fields: ['free_shipping', 'free_shipping_over'], ok: c => c.free_shipping === true || c.free_shipping_over > 0, no: c => c.free_shipping === false && !(c.free_shipping_over > 0) },
+    'бонус/подарок': { fields: ['bonus'], ok: c => !!c.bonus, no: c => c.bonus === false || c.bonus === '' },
+    'BOGO/комплект': { fields: ['bundles'], ok: c => Array.isArray(c.bundles) && c.bundles.length > 0, no: c => Array.isArray(c.bundles) && c.bundles.length === 0 },
+    'оригинал/подделки': { fields: ['has_copies'], ok: c => c.has_copies === true, no: c => c.has_copies === false },
+    'скидка %': { fields: ['max_discount_pct'], ok: c => c.max_discount_pct > 0, no: c => c.max_discount_pct === 0 },
+    'срочность': { fields: ['real_deadline'], ok: c => c.real_deadline === true, no: c => c.real_deadline === false },
+    'ограниченный запас': { fields: ['real_stock_limit'], ok: c => c.real_stock_limit === true, no: c => c.real_stock_limit === false },
+    'персонализация': { fields: ['personalization'], ok: c => c.personalization === true, no: c => c.personalization === false }
+  };
+
+  // For each hook label: 'ready' (the client confirmed the fact), 'blocked'
+  // (the client said it is not true, so no ad may claim it), 'unknown' (not
+  // asked yet; missing lists the client.json fields to ask about) or 'n/a'
+  // (the hook needs no client fact).
+  function checkClientFit(client, hookLabels) {
+    const c = client || {};
+    return hookLabels.map(hook => {
+      const rule = CLIENT_RULES[hook];
+      if (!rule) return { hook, status: 'n/a', missing: [] };
+      if (rule.ok(c)) return { hook, status: 'ready', missing: [] };
+      if (rule.no(c)) return { hook, status: 'blocked', missing: [] };
+      return { hook, status: 'unknown', missing: rule.fields.filter(f => !has(c[f])) };
+    });
+  }
+
   // Aggregates normalized rows into the report shape consumed by SKILL.md's
   // Step 5-7. `opts.now` (unix seconds) lets tests pin "today" instead of
   // depending on the wall clock; defaults to Date.now() otherwise.
@@ -571,7 +603,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit };
   }
 
   return installResult;

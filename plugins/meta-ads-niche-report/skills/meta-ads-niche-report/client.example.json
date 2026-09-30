@@ -1,0 +1,27 @@
+{
+  "product": "Pet stain remover spray, 16 oz",
+  "category": "pet supplies",
+  "brand": "ExampleBrand",
+  "market": "US",
+  "language": "en",
+  "price": 24.95,
+  "currency": "USD",
+  "landing_url": "https://example.com/products/stain-spray",
+
+  "guarantee_days": 60,
+  "free_shipping": false,
+  "free_shipping_over": 50,
+  "bonus": false,
+  "bundles": ["2 for $44.95"],
+  "max_discount_pct": 20,
+  "reviews_count": 312,
+  "reviews_rating": 4.7,
+  "reviews_quotable": true,
+  "has_copies": false,
+  "real_deadline": false,
+  "real_stock_limit": false,
+  "personalization": false,
+
+  "usp": ["enzyme formula", "no scrubbing"],
+  "avoid": ["do not claim it removes stains permanently"]
+}

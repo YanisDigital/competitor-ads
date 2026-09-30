@@ -14,7 +14,8 @@ import {
   parseCsv,
   diffSnapshots,
   siteFacts,
-  compareAdVsSite
+  compareAdVsSite,
+  checkClientFit
 } from '../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/collector.js';
 
 // All fixtures are synthetic (invented names, invented numbers) — never
@@ -408,6 +409,29 @@ test('hypothesis_inputs: strength counts advertisers (pages sharing a site merge
   assert.equal(by('free ship').circular, true);
   assert.equal(by('reviews').circular, false);
   assert.equal(h.winner_hooks[0].hook, 'reviews'); // strong ranks above weak
+});
+
+test('checkClientFit: ready, blocked, unknown (with the missing fields) and n/a', () => {
+  const client = { guarantee_days: 30, reviews_count: 12, reviews_quotable: false, has_copies: false, bonus: null };
+  const fit = Object.fromEntries(checkClientFit(client, ['гарантия возврата', 'отзывы/звёзды', 'оригинал/подделки', 'бонус/подарок', 'срочность', 'что-то своё']).map(x => [x.hook, x]));
+  assert.equal(fit['гарантия возврата'].status, 'ready');
+  assert.equal(fit['отзывы/звёзды'].status, 'blocked'); // reviews exist but may not be quoted
+  assert.equal(fit['оригинал/подделки'].status, 'blocked');
+  assert.equal(fit['бонус/подарок'].status, 'unknown'); // null = not asked yet
+  assert.deepEqual(fit['бонус/подарок'].missing, ['bonus']);
+  assert.equal(checkClientFit({ bonus: false }, ['бонус/подарок'])[0].status, 'blocked'); // false = asked, there is none
+  assert.equal(fit['срочность'].status, 'unknown');
+  assert.deepEqual(fit['срочность'].missing, ['real_deadline']);
+  assert.equal(fit['что-то своё'].status, 'n/a');
+  // no client at all: everything that needs a fact is unknown
+  assert.equal(checkClientFit(null, ['гарантия возврата'])[0].status, 'unknown');
+});
+
+test('checkClientFit: free shipping over a threshold counts as ready; empty bundles list is blocked', () => {
+  const c = { free_shipping: false, free_shipping_over: 50, bundles: [] };
+  const fit = Object.fromEntries(checkClientFit(c, ['бесплатная доставка', 'BOGO/комплект']).map(x => [x.hook, x.status]));
+  assert.equal(fit['бесплатная доставка'], 'ready');
+  assert.equal(fit['BOGO/комплект'], 'blocked');
 });
 
 test('hypothesis_inputs: too few long-running ads gives no winner claims', () => {

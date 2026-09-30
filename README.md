@@ -131,6 +131,19 @@ so an ad missing from the second run may just have dropped out of the top. A
 stop counts as confident only if its query was re-run and returned fewer than
 90 ads.
 
+## Client brief for the hypotheses
+
+Ad hypotheses are only useful if they promise things the client can deliver.
+Before writing them, Claude asks up to 5 short questions (product and price,
+guarantee, reviews and whether they may be quoted, bonus/bundles/free
+shipping, copies on the market, real deadlines) and saves the answers to
+`client.json` (template:
+[client.example.json](plugins/meta-ads-niche-report/skills/meta-ads-niche-report/client.example.json);
+`null` = not asked yet, `false`/`0` = not true). `scripts/client_fit.js` then
+sorts the snapshot's hooks into usable, blocked (the client said it isn't
+true) and "still to ask", and hypotheses use the confirmed facts verbatim
+instead of placeholders. The file stays in `out/`, which is not published.
+
 ## Landing-page check
 
 Ask Claude "check the sites of the leaders", or run
