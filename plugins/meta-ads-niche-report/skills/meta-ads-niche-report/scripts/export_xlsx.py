@@ -25,6 +25,12 @@ from urllib.parse import parse_qs, urlparse
 
 HERE = Path(__file__).parent
 
+
+class F(str):
+    """A formula this script writes on purpose. Any other cell that starts
+    with "=" holds third-party text (ad copy, page names, hypotheses) and is
+    forced to plain text before saving, so it can never run as a formula."""
+
 try:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
@@ -96,9 +102,13 @@ def main() -> None:
         for i, w in enumerate(widths or [], 1):
             ws.column_dimensions[get_column_letter(i)].width = w
 
+    own_formulas = set()  # (sheet, row, column) of the formulas written via F()
+
     def put(ws, row, values):
         for c, v in enumerate(values, 1):
             ws.cell(row=row, column=c, value=v).font = f_base
+            if isinstance(v, F):
+                own_formulas.add((ws.title, row, c))
 
     wb = Workbook()
 
@@ -154,7 +164,7 @@ def main() -> None:
     header(wp, 1, pcols, [38, 11, 12, 12, 11, 22, 26, 36, 10, 10, 34, 14, 40])
     for i, pr in enumerate(page_rows, 2):
         vals = list(pr)
-        vals[1] = f"=COUNTIF('Объявления'!$C$2:$C${last_ad},A{i})"
+        vals[1] = F(f"=COUNTIF('Объявления'!$C$2:$C${last_ad},A{i})")
         put(wp, i, vals)
         wp.cell(row=i, column=13).hyperlink = pr[-1]
         wp.cell(row=i, column=13).font = f_link
@@ -307,12 +317,12 @@ def main() -> None:
 
     rng = lambda col: f"'Объявления'!${col}$2:${col}${last_ad}"
     section("Общее")
-    put(ws, row, ["Объявлений", f"=COUNTA({rng('A')})"])
+    put(ws, row, ["Объявлений", F(f"=COUNTA({rng('A')})")])
     total = f"$B${row}"
     row += 1
-    put(ws, row, ["Рекламодателей (страниц)", f"=COUNTA('Рекламодатели'!$A$2:$A${last_page})"])
+    put(ws, row, ["Рекламодателей (страниц)", F(f"=COUNTA('Рекламодатели'!$A$2:$A${last_page})")])
     row += 1
-    put(ws, row, ["Из них с одним объявлением", f"=COUNTIF('Рекламодатели'!$B$2:$B${last_page},1)", f"=B{row}/B{row-1}"])
+    put(ws, row, ["Из них с одним объявлением", F(f"=COUNTIF('Рекламодатели'!$B$2:$B${last_page},1)"), F(f"=B{row}/B{row-1}")])
     ws.cell(row=row, column=3).number_format = "0%"
     row += 2
 
@@ -320,7 +330,7 @@ def main() -> None:
         nonlocal row
         section(t)
         for label in items:
-            put(ws, row, [label, f"=COUNTIF({rng(col)},A{row})", f"=B{row}/{total}"])
+            put(ws, row, [label, F(f"=COUNTIF({rng(col)},A{row})"), F(f"=B{row}/{total}")])
             ws.cell(row=row, column=3).number_format = "0%"
             row += 1
         row += 1
@@ -330,14 +340,14 @@ def main() -> None:
     block("CTA (топ-8)", "H", [k for k, _ in Counter(r["cta"] or "(нет)" for r in rows).most_common(8)])
     section("Возраст объявления")
     for label, lo, hi in [("меньше 7 дней", 0, 6), ("7–30 дней", 7, 29), ("30–90 дней", 30, 89), ("90–365 дней", 90, 364), ("больше 365 дней", 365, 100000)]:
-        put(ws, row, [label, f'=COUNTIFS({rng("E")},">={lo}",{rng("E")},"<={hi}")', f"=B{row}/{total}"])
+        put(ws, row, [label, F(f'=COUNTIFS({rng("E")},">={lo}",{rng("E")},"<={hi}")'), F(f"=B{row}/{total}")])
         ws.cell(row=row, column=3).number_format = "0%"
         row += 1
     row += 1
     section("Хуки (по regex, значения из отчёта)")
     ws.cell(row=row - 1, column=4, value="Если слова хука входят в запросы, цифра круговая.").font = f_note
     for k, v in sorted(report.get("hook_freq", {}).items(), key=lambda kv: -kv[1]):
-        put(ws, row, [k, v, f"=B{row}/{total}"])
+        put(ws, row, [k, v, F(f"=B{row}/{total}")])
         ws.cell(row=row, column=3).number_format = "0%"
         row += 1
     row += 1
@@ -349,6 +359,11 @@ def main() -> None:
             put(ws, row, [label, pr.get(key)])
             row += 1
     ws.sheet_view.showGridLines = False
+    for sheet in wb:
+        for cells in sheet.iter_rows():
+            for c in cells:
+                if c.data_type == "f" and (sheet.title, c.row, c.column) not in own_formulas:
+                    c.data_type = "s"  # third-party text that starts with "="
     wb.calculation.fullCalcOnLoad = True
     wb.save(out_path)
     print(f"Saved: {out_path} ({len(rows)} ads, {len(page_rows)} advertisers)")

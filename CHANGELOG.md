@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.10.5] - 2026-10-01
+
+### Security
+- `export_xlsx.py`: text from third parties (ad copy, page names, hypotheses)
+  that starts with `=` could become a live formula in `report.xlsx`
+  (`parseCsv` removes the CSV quote prefix, and openpyxl treats `=...` as a
+  formula), e.g. `WEBSERVICE` sending cell contents to another host. Only the
+  workbook's own summary formulas are kept now; everything else is text.
+- `check_sites.py`: landing links come from ads, so only public http(s)
+  addresses are opened. Localhost, private networks, link-local and
+  cloud-metadata addresses, other schemes, and redirects or sub-requests
+  into them are blocked; downloads are off.
+
+### Changed
+- `.gitignore` also covers `client.json`, `report.xlsx`, `report.html`,
+  `sites.json`, `sites/`.
+- `references/browser-mode.md`: prefer the built-in browser or a profile that
+  is not signed in to Facebook; collecting through a personal Chrome ties the
+  activity to that account.
+- `CHANGELOG.md` no longer prints the phone-like number removed from fixtures.
+- Tests: `export_xlsx.test.mjs`, `check_sites.test.mjs` (55 in total).
+
 ## [0.10.4] - 2026-10-01
 
 ### Fixed
@@ -342,7 +364,7 @@ Security/privacy review of the published v0.2.0 repo and release.
   now prefixed with a quote, so Excel/Google Sheets treat it as text
   instead of evaluating it as a formula when `ads.csv` is opened.
 - `tests/fixtures/whatsapp-ad.json`: replaced a plausible-looking real
-  Ukrainian mobile number (`+380501234567`) with the same placeholder used
+  Ukrainian mobile number with the same placeholder used
   elsewhere in the fixtures (`380000000000`).
 - `examples/sample-report.md`: renamed advertisers to `Salon A`–`Salon J`
   (matching the fictional-name convention CLAUDE.md asked for) — a couple

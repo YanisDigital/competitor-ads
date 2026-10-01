@@ -10,6 +10,11 @@ touching SKILL.md if tool names change.
 If your session's tools are deferred, load them first with `ToolSearch`
 (query the server name, e.g. `mcp__claude-in-chrome__`, `max_results: 30`).
 
+**Privacy.** Prefer the built-in browser (or a Chrome profile that is not
+signed in to Facebook): the Ads Library needs no login, and collecting
+through a personal, signed-in Chrome ties automated activity to that
+account. Do not collect in a profile you cannot afford to have restricted.
+
 ## 1. Open the first search
 
 Build the URL and open it in a new tab (`preview_start` with `url`, or
