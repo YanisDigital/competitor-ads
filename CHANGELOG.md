@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.10.4] - 2026-10-01
+
+### Fixed
+- `scrape.py` collected nothing after the first query in headless Chromium:
+  the in-page search box returned "no ads match" and crashed the page by the
+  third search. Every query is now opened by its own URL, and records are
+  carried over with the new `window.__mai.load()`.
+- `collect()` re-read the first page's embedded JSON on every query and
+  credited those ads to each new query, which inflated per-query counts.
+
+### Added
+- Meta's "Rate limit exceeded" reply to "load more" requests is detected:
+  scrolling stops, `collect()` returns `rate_limited`, `scrape.py` prints
+  which queries hold only the first batch (~30 ads) and writes them to
+  `run.json` as `rate_limited_queries`. Nothing is worked around.
+- `beauty` preset: makeup (`макіяж` / `макияж`).
+- Tests for the browser glue (`tests/browser_glue.test.mjs`, 53 in total).
+
+### Changed
+- `SKILL.md` and troubleshooting: if a browser tool does not respond, report
+  it instead of waiting and retrying; do not run `scrape.py` in a cloud
+  container, where facebook.com is unreachable.
+
 ## [0.10.3] - 2026-09-30
 
 ### Added

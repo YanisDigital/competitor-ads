@@ -704,7 +704,10 @@
   function installBrowser() {
     if (typeof window === 'undefined') return null;
     if (window.__mai) return 'already installed: ' + Object.keys(window.__mai.store).length + ' ads in store';
-    const M = window.__mai = { ads: {}, store: {} };
+    // rateLimited counts "Rate limit exceeded" replies since the last collect():
+    // Meta sends them instead of the next page of results, so the query then
+    // holds only its first batch (~30 ads), not everything the Library counts.
+    const M = window.__mai = { ads: {}, store: {}, rateLimited: 0 };
     const walk = (o) => {
       if (!o || typeof o !== 'object') return;
       if (Array.isArray(o)) { o.forEach(walk); return; }
@@ -712,6 +715,7 @@
       for (const k in o) walk(o[k]);
     };
     const eat = (t) => {
+      if (t && t.includes('Rate limit exceeded')) M.rateLimited++;
       if (!t || !t.includes('ad_archive_id')) return;
       for (const line of t.split('\n')) { try { walk(JSON.parse(line)); } catch (e) {} }
     };
@@ -722,7 +726,14 @@
     // exists — the scan finds nothing at install time there. M.collect()
     // re-runs it on every call so that path still gets picked up once the
     // page has actually rendered, without duplicating this logic in Python.
-    const scanEmbeddedJson = () => document.querySelectorAll('script[type="application/json"]').forEach(s => eat(s.textContent));
+    // Each tag is eaten once: after an in-page search the first page's tags
+    // stay in the DOM, and re-reading them tagged old ads with the new query.
+    const seenScripts = new Set();
+    const scanEmbeddedJson = () => document.querySelectorAll('script[type="application/json"]').forEach(s => {
+      if (seenScripts.has(s)) return;
+      seenScripts.add(s);
+      eat(s.textContent);
+    });
     scanEmbeddedJson();
     const oo = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (m, u, ...r) {
@@ -746,6 +757,7 @@
       for (let i = 0; i < n && (idle < 4 || i < 5); i++) {
         window.scrollTo(0, document.body.scrollHeight);
         await new Promise(r => setTimeout(r, 1200));
+        if (M.rateLimited >= 2) break; // more scrolling only sends more refused requests
         const now = Object.keys(M.ads).length;
         idle = now > last ? 0 : idle + 1;
         last = now;
@@ -764,8 +776,21 @@
         n++;
       }
       M.ads = {};
+      const rateLimited = M.rateLimited > 0;
+      M.rateLimited = 0;
       const shown = resultCountOf(document.body.innerText);
-      return { kw, captured: n, library_says: shown, total_unique: Object.keys(M.store).length };
+      return { kw, captured: n, library_says: shown, total_unique: Object.keys(M.store).length, rate_limited: rateLimited };
+    };
+    // Restores records collected on earlier pages (scrape.py opens each query
+    // by URL, which starts a new page and a new __mai). Queries are merged.
+    M.load = (records) => {
+      let n = 0;
+      for (const [id, rec] of Object.entries(records || {})) {
+        const cur = M.store[id];
+        M.store[id] = cur ? { ...rec, kws: [...new Set([...(rec.kws || []), ...(cur.kws || [])])] } : rec;
+        n++;
+      }
+      return n + ' records loaded';
     };
     M.exclude = (names) => { let k = 0; for (const [id, r] of Object.entries(M.store)) if (names.includes(r.page)) { delete M.store[id]; k++; } return k + ' removed'; };
     M.buildQueries = buildQueries;

@@ -17,6 +17,31 @@ environment with a real, non-datacenter network path — a user's own
 machine (browser mode via Cowork/Claude in Chrome, or CLI mode via
 `scrape.py` run locally). There is no curl/fetch workaround; don't try one.
 
+## Browser tool does not respond
+
+If the browser extension or built-in browser call hangs or returns a
+connection error, do not retry it in a loop. Tell the user once (a
+permission prompt may be waiting in the app, or the extension may be
+off) and offer the other mode. Do not fall back to `scrape.py` inside a
+cloud container: Meta refuses those requests (see the 403 section).
+
+## `[rate-limited: first batch only]` / `rate_limited_queries` in run.json
+
+Meta answered the "load more" requests with `Rate limit exceeded`
+(GraphQL error 1675004), so those queries hold only the first batch of
+about 30 top ads, not the full count the Library shows. `collector.js`
+detects it and stops scrolling; nothing works around it. Tell the user
+the sample for those queries is partial; rerun later (the limit seems to
+build up over many runs in a short time) or collect in browser mode.
+
+## CLI mode: a later query says "no ads match" or the page shows "Something went wrong"
+
+Older `scrape.py` versions typed each query into the in-page search box.
+In headless Chromium that search returned no ads for queries that have
+results and crashed the page by the third search. The script now opens
+every query by its own URL and carries the collected records over with
+`window.__mai.load()`.
+
 ## `captured` stays well below `library_says`
 
 Normal in small amounts — the Library counts creative variants of the same
@@ -59,14 +84,6 @@ unresolved template with no per-card content, which does happen).
 The Ads Library's DOM structure changed. Re-run `find` for "Search by
 keyword" to get a fresh `ref` rather than reusing stale coordinates from
 earlier in the session — the page can reflow after a search.
-
-## CLI mode (`scrape.py`): search field not found
-
-Same underlying cause as above. `scrape.py` tries a short list of
-selectors (`SEARCH_INPUT_SELECTORS` at the top of the file) before giving
-up with a clear error; if the Library's markup changed, update that list.
-Run with `--headed` first to see what actually loaded before editing
-selectors blind.
 
 ## CLI mode: headless run returns nothing, or shows a login prompt
 

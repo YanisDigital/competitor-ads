@@ -43,12 +43,6 @@ COLLECTOR_JS = Path(__file__).parent / "collector.js"
 PRESETS_DIR = Path(__file__).parent.parent / "presets"
 EXPRESS_QUERIES = 3
 
-SEARCH_INPUT_SELECTORS = [
-    'input[type="search"]',  # live placeholder: "Search by keyword or advertiser", no aria-label
-    'input[placeholder*="Search by keyword"]',
-    'input[aria-label="Search by keyword"]',
-]
-
 LOGIN_MARKERS = ["log in to continue", "log into facebook", "войдите", "увійдіть"]
 CAPTCHA_MARKERS = ["security check", "checkpoint", "captcha", "перевірка безпеки", "проверка безопасности"]
 
@@ -131,21 +125,19 @@ async def detect_block(page) -> None:
         raise BlockedError("Meta showed a captcha/checkpoint. Stopping: this tool never bypasses captchas.")
 
 
-async def type_query(page, keyword: str) -> None:
-    for selector in SEARCH_INPUT_SELECTORS:
-        field = await page.query_selector(selector)
-        if field:
-            await field.click()
-            await field.fill("")
-            await field.fill(keyword)
-            await page.keyboard.press("Enter")
-            return
-    raise RuntimeError(
-        "Could not find the Ads Library search field (tried: "
-        f"{', '.join(SEARCH_INPUT_SELECTORS)}). The page layout may have "
-        "changed; try --headed to see what loaded, and update "
-        "SEARCH_INPUT_SELECTORS in scrape.py if needed."
-    )
+async def open_query(page, country: str, keyword: str) -> None:
+    """Open the Library URL for one query. Each query gets its own page load:
+    in headless Chromium the in-page search box returned "no ads match" for
+    queries that have results, and crashed the page by the third search."""
+    await page.goto(library_url(country, keyword), wait_until="domcontentloaded")
+    try:
+        await page.wait_for_load_state("networkidle", timeout=15000)
+    except Exception:
+        pass  # the Ads Library may never go fully idle; the fixed wait below covers it
+    await page.wait_for_timeout(3000)
+    await detect_block(page)
+    if not await page.evaluate("typeof window.__mai !== 'undefined'"):
+        sys.exit("window.__mai did not install. The Ads Library page structure may have changed.")
 
 
 async def run(args, keywords: list[str]) -> None:
@@ -177,33 +169,25 @@ async def run(args, keywords: list[str]) -> None:
             out_dir.mkdir(parents=True, exist_ok=True)
             print(f"Queries ({len(keywords)}): " + " | ".join(keywords))
 
-            print(f"[1/{len(keywords)}] opening Ads Library for: {keywords[0]}")
-            await page.goto(library_url(country, keywords[0]), wait_until="domcontentloaded")
-            try:
-                await page.wait_for_load_state("networkidle", timeout=15000)
-            except Exception:
-                pass  # the Ads Library may never go fully idle; the fixed wait below covers it
-            await page.wait_for_timeout(3000)
-            await detect_block(page)
-
-            installed = await page.evaluate("typeof window.__mai !== 'undefined'")
-            if not installed:
-                sys.exit("window.__mai did not install. The Ads Library page structure may have changed.")
-
+            store = {}  # records so far; every page load starts a fresh window.__mai
+            rate_limited = []  # queries where Meta refused "load more" (see collector.js)
             for i, kw in enumerate(keywords):
-                if i > 0:
-                    print(f"[{i + 1}/{len(keywords)}] searching: {kw}")
-                    await type_query(page, kw)
-                    await page.wait_for_timeout(4000)
-                    await detect_block(page)
+                print(f"[{i + 1}/{len(keywords)}] opening Ads Library for: {kw}")
+                await open_query(page, country, kw)
+                if store:
+                    await page.evaluate("(s) => window.__mai.load(s)", store)
 
                 await page.evaluate("window.__mai.scroll()")
                 summary = await page.evaluate("(kw) => window.__mai.collect(kw)", kw)
+                store = await page.evaluate("() => window.__mai.store")
                 print(
                     f"    captured={summary['captured']} "
                     f"library_says={summary['library_says']} "
                     f"total_unique={summary['total_unique']}"
+                    + ("  [rate-limited: first batch only]" if summary.get("rate_limited") else "")
                 )
+                if summary.get("rate_limited"):
+                    rate_limited.append(kw)
 
                 if i < len(keywords) - 1:
                     await asyncio.sleep(args.delay)
@@ -231,7 +215,7 @@ async def run(args, keywords: list[str]) -> None:
     csv_path.write_text(csv_text, encoding="utf-8")
     (out_dir / "run.json").write_text(
         json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": keywords,
-                    "preset": args.preset}, ensure_ascii=False, indent=2),
+                    "preset": args.preset, "rate_limited_queries": rate_limited}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -242,6 +226,12 @@ async def run(args, keywords: list[str]) -> None:
     )
     if report["ads"] == 0:
         print("No ads captured. If this is unexpected, retry with --headed to see what the browser actually loaded.")
+    if rate_limited:
+        print(
+            f"Meta rate-limited 'load more' on {len(rate_limited)} of {len(keywords)} queries: they hold only "
+            "the first batch (~30 top ads), not the full count the Library shows. Not worked around; "
+            "rerun later or use browser mode for fuller results (listed in run.json)."
+        )
     print(f"Saved: {report_path}")
     print(f"Saved: {csv_path}")
 
