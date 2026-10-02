@@ -8,6 +8,27 @@ No paid scraping API.
 
 Русская версия: [README.ru.md](README.ru.md)
 
+## Where it works (read this first)
+
+> **Uploading the zip to claude.ai is not enough.** Installing a skill installs
+> nothing else, and a plain chat cannot open facebook.com. Pick the setup that
+> matches how you use Claude.
+
+The skill reads the Ads Library on facebook.com, which Meta serves only to a
+real browser on a normal network (cloud containers get HTTP 403). So what
+matters is where Claude runs and which browser it can drive:
+
+| Where you use it | Works? | What you must set up |
+|---|---|---|
+| **Claude Code** (terminal) or the **Code tab of the desktop app** | Yes, everything: collection, site check, comparison, hypotheses tooling, Excel/HTML | One-time installs: Python 3.10+, `pip install playwright`, `python -m playwright install chromium`, Node.js (and `pip install openpyxl` for Excel). Claude asks before installing anything |
+| **Code tab or Cowork with the built-in browser** | Collection in browser mode | Nothing for the browser itself. The scripts (report, exports) still need Node.js |
+| **Chat in claude.ai or the desktop app, with the Claude in Chrome extension connected** | Collection and the report in browser mode only | Install the **Claude in Chrome** extension, sign in to the *same* account, make sure the browser shows as connected. A chat has no files or commands: no snapshot folders, site check, comparison or exports |
+| **Chat without a browser tool** (claude.ai or the desktop app chat tab, no extension) | **No.** Claude cannot reach facebook.com from its sandbox, and the skill stops and says so | Use the Code tab, or connect the extension |
+
+If a chat answers that no browser is connected, the skill is fine: the
+connection is missing. Switch to the Code tab, or fix the extension (installed,
+enabled, same account, Chrome restarted).
+
 ## What you get
 
 - **Who advertises**, how many ads, how long they've been running, where the
@@ -45,8 +66,9 @@ report (fictional data) in the 8-section format the skill produces.
 
 You never need a terminal: Claude runs the commands itself. That needs Claude
 Code or the **Code tab of the desktop app** (file and command access). In a
-plain chat only the browser-mode report works; snapshots, the site check,
-comparison, hypotheses tooling and exports need the Code tab.
+plain chat only the browser-mode report works, and only with a connected
+browser (see [Where it works](#where-it-works-read-this-first)); snapshots,
+the site check, comparison, hypotheses tooling and exports need the Code tab.
 
 ## How it works
 
@@ -76,7 +98,9 @@ real browser tool).
 
 Download `meta-ads-niche-report.zip` from the
 [latest release](https://github.com/YanisDigital/competitor-ads/releases/latest)
-and upload it in **Settings → Skills → Upload skill**.
+and upload it in **Settings → Skills → Upload skill**. This only adds the
+skill: for collection you still need a connected browser (see
+[Where it works](#where-it-works-read-this-first)).
 
 ### Claude Code
 
@@ -220,7 +244,10 @@ stop counts as confident only if its query was re-run and returned fewer than
 
 ## Requirements
 
-- **Browser mode**: a browser tool in your Claude session, nothing to install.
+- **Browser mode**: a browser tool *connected* to your Claude session: the
+  built-in browser of the desktop app / Cowork (nothing to install), or the
+  Claude in Chrome extension (install it and sign in to the same account).
+  A plain chat without either cannot collect.
 - **CLI mode and the site check**: Python 3.10+ and [Playwright](https://playwright.dev/python/):
   ```bash
   pip install playwright
