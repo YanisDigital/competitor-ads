@@ -202,6 +202,10 @@ async def run(args, keywords: list[str]) -> None:
                     report_opts["baseHooks"] = False
                 if preset.get("currency"):
                     report_opts["currency"] = preset["currency"]
+            if "currency" not in report_opts:  # no preset currency: use the country's (KZ: tenge)
+                country_currency = await page.evaluate("(c) => window.__mai.currencyForCountry(c)", country)
+                if country_currency:
+                    report_opts["currency"] = country_currency
             report = await page.evaluate("(opts) => window.__mai.report(opts)", report_opts)
             csv_text = await page.evaluate("() => window.__mai.csv()")
         except BlockedError as e:

@@ -12,7 +12,7 @@
 //   node report.js out/ecom-dropship-us/2026-09-30 [preset-id]
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings } = require('./collector.js');
+const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, currencyForCountry } = require('./collector.js');
 
 function loadSnapshot(dir, presetOverride) {
   const metaPath = path.join(dir, 'run.json');
@@ -39,6 +39,8 @@ function loadSnapshot(dir, presetOverride) {
     if (preset.base_hooks === false) opts.baseHooks = false;
     if (preset.online_only) opts.onlineOnly = true;
   }
+  // No preset currency: price the ads in the currency of the run's country (KZ: tenge).
+  if (!opts.currency && currencyForCountry(meta.country)) opts.currency = currencyForCountry(meta.country);
   const doors = Object.fromEntries(rows.map(r => [r.id, classifyDoor(r)]));
   const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
   const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};

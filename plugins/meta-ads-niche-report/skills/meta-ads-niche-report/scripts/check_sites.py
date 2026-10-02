@@ -91,7 +91,7 @@ async def run(args) -> None:
     report, meta = data["report"], data["meta"]
     preset_id = args.preset or meta.get("preset")
     preset = json.loads((PRESETS_DIR / f"{preset_id}.json").read_text(encoding="utf-8")) if preset_id and (PRESETS_DIR / f"{preset_id}.json").exists() else {}
-    fact_opts = {"currency": preset.get("currency", "UAH"), "extraHooks": preset.get("extra_hooks", {})}
+    fact_opts = {"currency": preset.get("currency") or "", "extraHooks": preset.get("extra_hooks", {})}
     if preset.get("base_hooks") is False:
         fact_opts["baseHooks"] = False
 
@@ -117,6 +117,8 @@ async def run(args) -> None:
         blank = await context.new_page()
         await blank.add_init_script(script=COLLECTOR_JS.read_text(encoding="utf-8"))
         await blank.goto("about:blank")  # collector.js is installed here; analysis stays in JS
+        if not fact_opts["currency"]:  # no preset currency: the run country's (KZ: tenge), else the UAH default
+            fact_opts["currency"] = await blank.evaluate("(c) => window.__mai.currencyForCountry(c)", meta.get("country")) or "UAH"
         try:
             for i, p in enumerate(chosen):
                 entry = {"page": p["page"], "ads": p["ads"], "landing": p["landing"], "library_url": p.get("library_url", "")}

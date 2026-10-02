@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.2] - 2026-10-02
+
+### Fixed
+- Prices for Kazakhstan were reported as UAH and tenge was not recognized.
+  The report, the site check and `scrape.py` now take the currency from the
+  preset, otherwise from the run's country (UA: UAH, KZ: KZT, US: USD;
+  unknown countries keep the UAH default), and prices are read in `₸`, `тг`,
+  `тенге`, `тнг` and `KZT`, including "X вместо Y" discount pairs. A preset
+  `currency` still wins.
+- Tests (`tests/currency.test.mjs`, 84 in total). The reports of three
+  existing snapshots are unchanged.
+
 ## [0.12.1] - 2026-10-02
 
 ### Fixed

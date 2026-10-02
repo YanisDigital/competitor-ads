@@ -187,16 +187,25 @@
   const num = s => +String(s).replace(/\s/g, '').replace(',', '.');
   const median = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
 
+  // Currency a country's ads are priced in (the report's price block, the site
+  // check). null for countries without a rule: callers then keep the UAH default.
+  const CURRENCY_BY_COUNTRY = { UA: 'UAH', KZ: 'KZT', US: 'USD' };
+  const currencyForCountry = c => CURRENCY_BY_COUNTRY[String(c || '').toUpperCase()] || null;
+
   // Prices, "was/instead of" discount pairs and "N% off" mentions in one text
-  // (already lowercased). currency: 'UAH' (default) or 'USD'.
+  // (already lowercased). currency: 'UAH' (default), 'USD' or 'KZT' (₸, тг, тенге).
   function priceHits(t, currency) {
     const amounts = currency === 'USD'
       ? [...t.matchAll(/\$\s?(\d{1,5}(?:[.,]\d{1,2})?)|(\d{1,5}(?:\.\d{1,2})?)\s?(?:usd|dollars?)\b/g)].map(m => num(m[1] || m[2])).filter(n => n >= 1 && n <= 10000)
-      : [...t.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*(?:грн|₴|uah|гривен|гривень)/g)].map(m => num(m[1])).filter(n => n >= 10 && n <= 100000);
+      : currency === 'KZT'
+        ? [...t.matchAll(/(\d[\d\s]{0,8}\d|\d)\s*(?:₸|тг(?![а-яё])|тенге|тнг|kzt)/g)].map(m => num(m[1])).filter(n => n >= 100 && n <= 50000000)
+        : [...t.matchAll(/(\d[\d\s]{0,6}\d|\d)\s*(?:грн|₴|uah|гривен|гривень)/g)].map(m => num(m[1])).filter(n => n >= 10 && n <= 100000);
     const pairs = currency === 'USD'
       ? [...t.matchAll(/\$\s?(\d+(?:\.\d+)?)\s*\(?\s*(?:instead of|was|reg\.?|regularly)\s*\$?\s?(\d+(?:\.\d+)?)/g)].map(m => [m[1], m[2]])
           .concat([...t.matchAll(/was\s*\$\s?(\d+(?:\.\d+)?)\s*[,—–-]?\s*now\s*(?:only\s*)?\$\s?(\d+(?:\.\d+)?)/g)].map(m => [m[2], m[1]]))
-      : [...t.matchAll(/(\d[\d\s]{0,6})\s*(?:грн|₴)?\s*\(?(?:замість|вместо|instead of)\s*(\d[\d\s]{0,6})/g)].map(m => [m[1], m[2]]);
+      : currency === 'KZT'
+        ? [...t.matchAll(/(\d[\d\s]{0,8})\s*(?:₸|тг|тенге)?\s*\(?(?:вместо|instead of)\s*(\d[\d\s]{0,8})/g)].map(m => [m[1], m[2]])
+        : [...t.matchAll(/(\d[\d\s]{0,6})\s*(?:грн|₴)?\s*\(?(?:замість|вместо|instead of)\s*(\d[\d\s]{0,6})/g)].map(m => [m[1], m[2]]);
     const discounts = [];
     for (const [n, o] of pairs) {
       const nw = num(n), old = num(o);
@@ -897,6 +906,7 @@
     };
     M.exclude = (names) => { let k = 0; for (const [id, r] of Object.entries(M.store)) if (names.includes(r.page)) { delete M.store[id]; k++; } return k + ' removed'; };
     M.buildQueries = buildQueries;
+    M.currencyForCountry = currencyForCountry;
     M.siteFacts = siteFacts;
     M.compareAdVsSite = compareAdVsSite;
     M.report = (opts = {}) => buildReport(Object.values(M.store), opts);
@@ -907,7 +917,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, seasonWarnings, snapshotWarnings, suggestQueries, queryLang };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang };
   }
 
   return installResult;
