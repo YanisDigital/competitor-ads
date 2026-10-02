@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.12.0] - 2026-10-02
+
+### Added
+- Report warnings (`warnings` in `report.js` output, a "Предупреждения" block
+  in the Excel summary and at the top of the HTML report): small sample (fewer
+  than 10 advertisers: findings are hypotheses, not trends), queries where
+  Meta refused "load more", queries with no ads, the preset's `seasons`
+  (windows as `MM-DD`, may wrap the new year) and its `policy` note.
+- Presets gained `seasons` / `policy` where they apply: `craft-beer-ua`
+  (Oktoberfest, New Year, alcohol), `beauty` (8 March, New Year), `dentistry`
+  (health claims), `fitness` (January, summer, weight claims), `auto-service`
+  (tyre seasons), `ecom-dropship-us` (Black Friday, Christmas gifts),
+  `infobiz-marketing` / `infobiz-beauty` (income claims).
+- `scripts/suggest_queries.js`: after curation keeps only the queries that
+  found at least one competitor, explains each dropped one (`no ads`,
+  `no competitors`), marks keepers that are mostly noise and prints a ready
+  `services` list (Russian-only variants go under `ru`, Latin and neutral
+  queries under `uk`; a service may have a single language).
+- Tests (`tests/warnings.test.mjs`, 78 in total).
+
+### Changed
+- `SKILL.md`: tell the user the warnings before any conclusion, be careful in
+  season, and keep presets by `suggest_queries.js` with the user's consent.
+- The reports of three existing snapshots are unchanged (checked before and
+  after); `warnings` is a new top-level field.
+
 ## [0.11.0] - 2026-10-02
 
 ### Added

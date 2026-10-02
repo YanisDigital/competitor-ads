@@ -44,7 +44,7 @@ def load_report(folder: Path):
         res = subprocess.run(["node", str(HERE / "report.js"), str(folder)], capture_output=True, encoding="utf-8", timeout=120)
         if res.returncode == 0 and res.stdout.strip():
             data = json.loads(res.stdout)
-            return data["report"], data["doors"], data["meta"], data.get("query_stats", [])
+            return data["report"], data["doors"], data["meta"], data.get("query_stats", []), data.get("warnings", [])
         print("warning: report.js failed, using report.json:", res.stderr.strip(), file=sys.stderr)
     except FileNotFoundError:
         print("warning: node not found, using report.json (door column will be empty)", file=sys.stderr)
@@ -52,7 +52,7 @@ def load_report(folder: Path):
     if not rp.exists():
         sys.exit("No node and no report.json: cannot build the report.")
     meta = json.loads((folder / "run.json").read_text(encoding="utf-8")) if (folder / "run.json").exists() else {}
-    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, []
+    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], []
 
 
 def domain(u: str) -> str:
@@ -79,7 +79,7 @@ def main() -> None:
         sys.exit(f"No ads.csv in {folder}")
     out_path = Path(args.out) if args.out else folder / "report.xlsx"
 
-    report, doors, meta, query_stats = load_report(folder)
+    report, doors, meta, query_stats, warnings = load_report(folder)
     with open(folder / "ads.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     # curation.json (hand-checked list of competitors) was applied by report.js: drop the same advertisers here
@@ -335,6 +335,14 @@ def main() -> None:
                     + (" " + curation["notes"] if curation.get("notes") else ""))
         ws["A5"].font = f_note
     row = 6
+    if warnings:
+        ws.cell(row=row, column=1, value="Предупреждения").font = f_bold
+        row += 1
+        for w in warnings:
+            c = ws.cell(row=row, column=1, value="• " + w["message"])
+            c.font = f_note
+            row += 1
+        row += 1
 
     def section(t):
         nonlocal row

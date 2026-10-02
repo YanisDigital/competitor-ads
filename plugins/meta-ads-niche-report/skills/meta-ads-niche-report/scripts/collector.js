@@ -311,6 +311,62 @@
     }));
   }
 
+  // ---- Warnings a reader must see next to the numbers -----------------------
+  // A preset may carry `seasons` ([{name, from:'MM-DD', to:'MM-DD', note}], the
+  // window may wrap the new year) and `policy` (a short note for niches Meta
+  // restricts, e.g. alcohol or health). Everything else comes from the data.
+  const SMALL_SAMPLE = 10; // advertisers; below this a "trend" is a few players
+
+  function seasonWarnings(ts, seasons) {
+    const d = new Date(ts * 1000);
+    const md = String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+    return (seasons || []).filter(s => (s.from <= s.to ? md >= s.from && md <= s.to : md >= s.from || md <= s.to))
+      .map(s => ({ name: s.name, note: s.note || '' }));
+  }
+
+  // info: { advertisers (after curation), queryStats, ts, preset }.
+  // Returns [{ code, severity, message }] in the report language (Russian).
+  function snapshotWarnings(info) {
+    const w = [];
+    const add = (code, severity, message) => w.push({ code, severity, message });
+    const stats = info.queryStats || [];
+    if (info.advertisers < SMALL_SAMPLE) add('small_sample', 'warn', 'В выборке только ' + info.advertisers + ' рекламодателей: выводы про хуки, форматы и «что работает» это гипотезы для проверки, а не тренд ниши.');
+    const limited = stats.filter(q => q.rate_limited);
+    if (limited.length) add('rate_limited', 'warn', 'Meta отказала в подгрузке следующих страниц по ' + limited.length + ' из ' + stats.length + ' запросов (' + limited.map(q => q.query).join(', ') + '): по ним только первая партия, около 30 самых показываемых объявлений, а не весь рынок.');
+    const empty = stats.filter(q => q.ads === 0);
+    if (empty.length) add('empty_queries', 'info', 'Запросы без единого объявления: ' + empty.map(q => q.query).join(', ') + '. Либо нишу так не ищут, либо формулировка не та.');
+    for (const s of seasonWarnings(info.ts, info.preset && info.preset.seasons)) add('seasonal', 'warn', 'Срез сделан в сезон «' + s.name + '»' + (s.note ? ': ' + s.note : '') + '. Часть рекламы временная, повтори срез после сезона и не принимай её за обычное состояние ниши.');
+    if (info.preset && info.preset.policy) add('policy', 'info', info.preset.policy);
+    return w;
+  }
+
+  // 'ru' if the query has letters or word endings only Russian uses (ы э ё ъ,
+  // -ое/-ый/-ой/-ая/-ие, a lone "с", a double "сс" as in "Одесса"), otherwise
+  // 'uk' (Latin and neutral words go to the first preset language). A guess:
+  // the result only groups the suggested preset services, a person reviews it.
+  const queryLang = q => (/[ыэёъ]|[а-я](ое|ый|ой|ая|ие)(\s|$)|(^|\s)с(\s|$)|[а-я]сс/i.test(q) ? 'ru' : 'uk');
+
+  // Query hygiene after curation: keep a query only if it found at least one
+  // competitor. `weak` marks keepers where under a quarter of the advertisers
+  // are competitors (mostly noise). preset_services is ready to paste into a
+  // preset; a service may have only one language.
+  function suggestQueries(stats) {
+    const curated = stats.some(q => q.relevant_advertisers !== null && q.relevant_advertisers !== undefined);
+    if (!curated) return { curated: false, keep: [], drop: [], preset_services: [], languages: [] };
+    const keep = [], drop = [];
+    for (const q of stats) {
+      if (q.ads === 0) drop.push({ query: q.query, reason: 'no ads' });
+      else if (!q.relevant_advertisers) drop.push({ query: q.query, reason: 'no competitors' });
+      else keep.push({ query: q.query, relevant_advertisers: q.relevant_advertisers, advertisers: q.advertisers, weak: q.relevant_advertisers / q.advertisers < 0.25 });
+    }
+    const langs = keep.map(k => queryLang(k.query));
+    return {
+      curated: true, keep, drop,
+      preset_services: keep.map((k, i) => ({ [langs[i]]: k.query })),
+      languages: ['uk', 'ru'].filter(l => langs.includes(l))
+    };
+  }
+
   // ---- Hypothesis text checks ----------------------------------------------
   // Heuristics for commonly enforced ad-policy problems and for claims that the
   // client has not confirmed. They flag, they do not certify: Meta reviews
@@ -851,7 +907,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, seasonWarnings, snapshotWarnings, suggestQueries, queryLang };
   }
 
   return installResult;

@@ -231,6 +231,20 @@ how many ads and advertisers it found and how many were real competitors, plus
 whether Meta refused "load more" (sheet "Запросы" in Excel, a section in HTML),
 so weak queries can be replaced.
 
+## Warnings and query hygiene
+
+The report carries a **Warnings** block (Excel summary, HTML top): small sample
+(under 10 advertisers: findings are hypotheses, not niche trends), queries
+where Meta refused "load more", queries that found nothing, a **season** from
+the preset (Oktoberfest, 8 March, Black Friday: part of the ads is temporary)
+and a **policy** note for niches Meta restricts (alcohol, health, weight,
+income claims). Presets may carry `seasons` (`from`/`to` as `MM-DD`) and
+`policy`.
+
+After curation, `node scripts/suggest_queries.js <snapshot>` keeps only the
+queries that found at least one competitor, explains each dropped one and
+prints a ready `services` list for the preset.
+
 ## Monitoring: compare two snapshots
 
 Run the same preset twice, a week or two apart (each run is saved to its own

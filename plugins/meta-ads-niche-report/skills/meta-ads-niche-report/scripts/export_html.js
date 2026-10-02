@@ -47,6 +47,8 @@ function buildHtml(m) {
   const out = [];
   out.push(`<h1>Ads Library: ${esc(title)}</h1><p class="mut">Дата сбора: ${esc(dateStr)}${meta.country ? ' · страна: ' + esc(meta.country) : ''}${meta.queries ? ' · запросов: ' + esc(meta.queries.length) : ''}. Снимок на дату сбора: библиотека отдаёт до ~120 объявлений на запрос (верх выдачи по охвату), это не весь рынок.</p>`);
   if (meta.queries && meta.queries.length) out.push(`<p class="mut">Запросы: ${meta.queries.map(q => chip(q)).join('')}</p>`);
+  const warnings = m.warnings || [];
+  if (warnings.length) out.push(`<h2>Предупреждения</h2>${warnings.map(w => `<div class="note">${esc(w.message)}</div>`).join('')}`);
   const cur = meta.curation;
   const types = (cur && cur.types) || {};
   if (cur) out.push(`<div class="note">Список рекламодателей проверен вручную (curation.json): убрано вручную ${esc(cur.excluded_ads)} объявл. от ${esc((cur.excluded_pages || []).length)} рекламодателей как не конкурентов, осталось ${esc(cur.kept_pages)}.${cur.notes ? ' ' + esc(cur.notes) : ''}</div>`);

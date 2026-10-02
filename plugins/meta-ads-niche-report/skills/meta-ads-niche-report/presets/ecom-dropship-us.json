@@ -31,5 +31,9 @@
     "оригинал/подделки": "knockoff|original|authentic|genuine",
     "персонализация": "personali[sz]ed|custom|engraved"
   },
-  "noise": ["hiring", "podcast", "webinar", "course", "coaching", "coach", "realty", "real estate", "mortgage", "insurance", "donate", "charity", "foundation", "campus", "for sale"]
+  "noise": ["hiring", "podcast", "webinar", "course", "coaching", "coach", "realty", "real estate", "mortgage", "insurance", "donate", "charity", "foundation", "campus", "for sale"],
+  "seasons": [
+    {"name": "Black Friday / Cyber Monday", "from": "11-10", "to": "12-02", "note": "скидки и дедлайны в рекламе временные, цены и офферы не типичны для обычного месяца"},
+    {"name": "Рождественские подарки", "from": "12-03", "to": "12-20", "note": "подарочные углы и доставка к празднику"}
+  ]
 }

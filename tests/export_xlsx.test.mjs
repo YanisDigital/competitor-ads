@@ -65,3 +65,23 @@ print(json.dumps({'ads': sorted(ads), 'adv': adv, 'q': q}, ensure_ascii=False))
   assert.deepEqual(out.q[1].slice(1), [2, 2, 1, 'да']); // q2: 2 ads, 2 advertisers, 1 competitor (Bath House dropped), rate-limited
   assert.equal(out.q[2][3], 0); // q3 found nothing
 });
+
+test('xlsx summary lists the report warnings (season, policy, small sample)', { skip: !hasOpenpyxl && 'openpyxl not installed' }, () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'xlsx-warn-'));
+  const base = { page_id: '1', fmt: 'image', variants: 1, cta: 'Learn more', link: 'https://x.example/', platforms: 'facebook', title: 't', body: 'b', start: 1_790_000_000, kws: ['q1'] };
+  writeFileSync(path.join(dir, 'ads.csv'), toCsv([{ ...base, id: '1', page: 'Brewery A' }]));
+  writeFileSync(path.join(dir, 'run.json'), JSON.stringify({ date: '2026-10-02T12:00:00Z', preset: 'craft-beer-ua', queries: ['q1'] }));
+  const res = py([SCRIPT, dir]);
+  assert.equal(res.status, 0, res.stderr);
+  const check = py(['-c', `
+import sys, json
+from openpyxl import load_workbook
+ws = load_workbook(sys.argv[1])['Сводка']
+print(json.dumps([c.value for c in ws['A'] if c.value and (str(c.value).startswith('•') or c.value == 'Предупреждения')], ensure_ascii=False))
+`, path.join(dir, 'report.xlsx')]);
+  const lines = JSON.parse(check.stdout);
+  assert.equal(lines[0], 'Предупреждения');
+  assert.ok(lines.some(l => /Октоберфест/.test(l)), 'season');
+  assert.ok(lines.some(l => /Алкоголь/.test(l)), 'policy');
+  assert.ok(lines.some(l => /только 1 рекламодателей/.test(l)), 'small sample');
+});
