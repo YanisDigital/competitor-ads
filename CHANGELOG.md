@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.11.0] - 2026-10-02
+
+### Added
+- `curation.json` next to `ads.csv`: a hand-checked list of the advertisers
+  that count (`include`, a whitelist whose values become advertiser types),
+  or that do not (`exclude`), plus `notes`. `report.js`, `export_xlsx.py` and
+  `export_html.js` build from the kept advertisers only and show the types
+  and a note on what was removed; names that match no advertiser are listed in
+  `meta.curation.not_found`. Without the file nothing changes (the reports of
+  three existing snapshots are identical before and after, only `query_stats` is new).
+- Per-query statistics (`query_stats`, sheet "Запросы" in Excel, a section in
+  the HTML report): ads and advertisers per query, how many advertisers are
+  real competitors after curation, and whether Meta refused "load more".
+  Shows which queries find competitors and which only bring noise.
+- Preset `craft-beer-ua` (Ukrainian craft beer, 11 queries chosen by which ones
+  found real competitors).
+- Tests for all of this (`tests/curation.test.mjs`, 66 in total).
+
+### Changed
+- `SKILL.md`: clean advertisers by meaning, not by keywords (a keyword filter
+  let a bath house with "beer unlimited" through), ask about doubtful ones,
+  save the decision in `curation.json`, use `query_stats` to replace weak
+  queries, and call small samples hypotheses, not trends.
+- `report.js` also prints `query_stats`.
+
 ## [0.10.5] - 2026-10-01
 
 ### Security

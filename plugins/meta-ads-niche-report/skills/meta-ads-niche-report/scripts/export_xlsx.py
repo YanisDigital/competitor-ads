@@ -44,7 +44,7 @@ def load_report(folder: Path):
         res = subprocess.run(["node", str(HERE / "report.js"), str(folder)], capture_output=True, encoding="utf-8", timeout=120)
         if res.returncode == 0 and res.stdout.strip():
             data = json.loads(res.stdout)
-            return data["report"], data["doors"], data["meta"]
+            return data["report"], data["doors"], data["meta"], data.get("query_stats", [])
         print("warning: report.js failed, using report.json:", res.stderr.strip(), file=sys.stderr)
     except FileNotFoundError:
         print("warning: node not found, using report.json (door column will be empty)", file=sys.stderr)
@@ -52,7 +52,7 @@ def load_report(folder: Path):
     if not rp.exists():
         sys.exit("No node and no report.json: cannot build the report.")
     meta = json.loads((folder / "run.json").read_text(encoding="utf-8")) if (folder / "run.json").exists() else {}
-    return json.loads(rp.read_text(encoding="utf-8")), {}, meta
+    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, []
 
 
 def domain(u: str) -> str:
@@ -79,9 +79,15 @@ def main() -> None:
         sys.exit(f"No ads.csv in {folder}")
     out_path = Path(args.out) if args.out else folder / "report.xlsx"
 
-    report, doors, meta = load_report(folder)
+    report, doors, meta, query_stats = load_report(folder)
     with open(folder / "ads.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
+    # curation.json (hand-checked list of competitors) was applied by report.js: drop the same advertisers here
+    curation = meta.get("curation") or {}
+    dropped = set(curation.get("excluded_pages", []))
+    if dropped:
+        rows = [r for r in rows if r["page"] not in dropped]
+    types = curation.get("types", {})
     ts = meta.get("ts") or (folder / "ads.csv").stat().st_mtime
     run_dt = datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None)
 
@@ -161,9 +167,15 @@ def main() -> None:
     wp = wb.create_sheet("Рекламодатели")
     pcols = ["Страница", "Объявлений", "Самое старое, дней", "Самое свежее, дней", "Макс. вариантов", "Форматы", "Двери", "Сайты",
              "Локальный", "Платформа", "Общий сайт с другими страницами", "Копии креативов на др. страницах", "Пример объявления"]
-    header(wp, 1, pcols, [38, 11, 12, 12, 11, 22, 26, 36, 10, 10, 34, 14, 40])
+    pwidths = [38, 11, 12, 12, 11, 22, 26, 36, 10, 10, 34, 14, 40]
+    if types:
+        pcols.append("Тип (ручная разметка)")
+        pwidths.append(34)
+    header(wp, 1, pcols, pwidths)
     for i, pr in enumerate(page_rows, 2):
         vals = list(pr)
+        if types:
+            vals.append(types.get(pr[0], ""))
         vals[1] = F(f"=COUNTIF('Объявления'!$C$2:$C${last_ad},A{i})")
         put(wp, i, vals)
         wp.cell(row=i, column=13).hyperlink = pr[-1]
@@ -202,6 +214,19 @@ def main() -> None:
     for g in report.get("store_groups", []):
         put(wn, r0, [g["site"], len(g["pages"]), None, None, "; ".join(g["pages"])])
         r0 += 1
+
+    # ---- Queries: which ones find competitors ----
+    if query_stats:
+        curated = any(q.get("relevant_advertisers") is not None for q in query_stats)
+        wq = wb.create_sheet("Запросы")
+        qcols = ["Запрос", "Объявлений", "Рекламодателей"] + (["Из них конкуренты (после ручной проверки)"] if curated else []) + ["Лимит Meta"]
+        header(wq, 1, qcols, [36, 12, 15] + ([20] if curated else []) + [14])
+        for i, q in enumerate(query_stats, 2):
+            put(wq, i, [q["query"], q["ads"], q["advertisers"]] + ([q["relevant_advertisers"]] if curated else []) + ["да" if q.get("rate_limited") else ""])
+        wq.cell(row=len(query_stats) + 3, column=1, value=(
+            "Лимит Meta: подгрузка следующих страниц отклонена, по запросу только первая партия (~30 объявлений). "
+            "Запросы с нулём рекламодателей или без конкурентов стоит заменить.")).font = f_note
+        wq.freeze_panes = "A2"
 
     # ---- Changes (only if compare.js was run) ----
     diff_path = folder / "diff.json"
@@ -304,6 +329,11 @@ def main() -> None:
     ws["A2"].font = ws["A3"].font = f_note
     ws["A4"] = "Запросы: " + " | ".join(queries)
     ws["A4"].font = f_note
+    if curation:
+        ws["A5"] = (f"Проверено вручную (curation.json): убрано {curation.get('excluded_ads', 0)} объявл. от "
+                    f"{len(curation.get('excluded_pages', []))} рекламодателей как не конкурентов, осталось {curation.get('kept_pages', 0)}."
+                    + (" " + curation["notes"] if curation.get("notes") else ""))
+        ws["A5"].font = f_note
     row = 6
 
     def section(t):

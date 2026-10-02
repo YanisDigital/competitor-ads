@@ -153,6 +153,7 @@ listed, it builds the queries itself.
 | Dropshipping / Shopify stores selling to the US | `ecom-dropship-us` | English, country US, prices in $, no city, product-level queries |
 | Online courses: targeting, SMM, marketing | `infobiz-marketing` | Ukrainian/Russian, no city |
 | Courses for beauty professionals | `infobiz-beauty` | Ukrainian/Russian, no city |
+| Craft beer (breweries, beer shops), Ukraine | `craft-beer-ua` | Ukrainian, no city; broad queries ("on tap", "gift") bring noise, review advertisers by hand |
 
 CLI: `python scrape.py --preset beauty --city-uk Одеса --city-ru Одесса`
 (`--express` for a 3-query quick look, `--max-queries`, `--list-presets`).
@@ -210,6 +211,25 @@ The hypotheses section is built to avoid overclaiming:
   competitors scale), hooks over-represented among young tests that
   disappeared (only from confident stops and with enough data), what new
   advertisers bring, and how the format mix moved.
+
+## Curating advertisers and judging queries
+
+Library queries match ad **text**, so results contain non-competitors (a bath
+house that mentions beer, glassware shops, event organizers). The skill asks
+Claude to read the advertisers and saves the decision in `curation.json` next
+to `ads.csv`:
+
+```json
+{ "include": { "Brewery A": "Producer", "Shop B": "Beer shop" },
+  "exclude": ["Page name"], "notes": "who was removed and why" }
+```
+
+`include` is a whitelist (its values become a "Type" column), `exclude` a
+blacklist. The report, Excel and HTML are then built from the kept advertisers
+only; without the file nothing changes. The report also lists, **per query**,
+how many ads and advertisers it found and how many were real competitors, plus
+whether Meta refused "load more" (sheet "Запросы" in Excel, a section in HTML),
+so weak queries can be replaced.
 
 ## Monitoring: compare two snapshots
 

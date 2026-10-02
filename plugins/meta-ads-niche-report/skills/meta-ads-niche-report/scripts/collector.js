@@ -264,6 +264,53 @@
     });
   }
 
+  // ---- Hand curation of a snapshot ------------------------------------------
+  // Library searches match ad TEXT, so every query also returns advertisers that
+  // are not competitors (a bath house that mentions "beer", glassware shops,
+  // event organizers). Matching keywords cannot tell them apart; a person has to
+  // read the advertisers. curation.json (next to ads.csv) stores that decision:
+  //   { "include": { "Page name": "type" },   // whitelist; values are labels
+  //     "exclude": ["Page name"],             // or a blacklist
+  //     "types":   { "Page name": "type" },   // labels only
+  //     "notes": "free text" }
+  // Without the file nothing changes. Returns the kept rows plus what was
+  // removed, the labels and any names that match no advertiser (typos).
+  function applyCuration(rows, curation) {
+    const c = curation || {};
+    const include = c.include && typeof c.include === 'object' ? c.include : null;
+    const includeSet = include ? new Set(Object.keys(include)) : null;
+    const excludeSet = new Set(Array.isArray(c.exclude) ? c.exclude : []);
+    const types = { ...(c.types || {}), ...(include || {}) };
+    const keep = r => !excludeSet.has(r.page) && (!includeSet || includeSet.has(r.page));
+    const kept = rows.filter(keep);
+    const present = new Set(rows.map(r => r.page));
+    const named = [...new Set([...excludeSet, ...(includeSet || []), ...Object.keys(c.types || {})])];
+    return {
+      rows: kept,
+      excluded_ads: rows.length - kept.length,
+      excluded_pages: [...new Set(rows.filter(r => !keep(r)).map(r => r.page))].sort(),
+      types,
+      not_found: named.filter(p => !present.has(p))
+    };
+  }
+
+  // Per query: how many ads and advertisers it brought, how many advertisers
+  // survived curation (null when there was none) and whether Meta refused
+  // "load more" for it. Shows which queries find competitors and which only
+  // bring noise. opts: { queries (run order), rateLimited, curated }.
+  function queryStats(allRows, keptRows, opts = {}) {
+    const queries = [...new Set([...(opts.queries || []), ...allRows.flatMap(r => r.kws || [])])];
+    const limited = new Set(opts.rateLimited || []);
+    const pagesOf = (rows, q) => new Set(rows.filter(r => (r.kws || []).includes(q)).map(r => r.page));
+    return queries.map(q => ({
+      query: q,
+      ads: allRows.filter(r => (r.kws || []).includes(q)).length,
+      advertisers: pagesOf(allRows, q).size,
+      relevant_advertisers: opts.curated ? pagesOf(keptRows, q).size : null,
+      rate_limited: limited.has(q)
+    }));
+  }
+
   // ---- Hypothesis text checks ----------------------------------------------
   // Heuristics for commonly enforced ad-policy problems and for claims that the
   // client has not confirmed. They flag, they do not certify: Meta reviews
@@ -804,7 +851,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats };
   }
 
   return installResult;

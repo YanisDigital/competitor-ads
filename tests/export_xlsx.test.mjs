@@ -37,3 +37,31 @@ print(len(bad), formulas)
   assert.equal(bad, 0, 'attacker text became a formula');
   assert.ok(formulas > 0, 'the summary formulas must still be there');
 });
+
+test('xlsx export applies curation.json: only kept advertisers, a type column and a queries sheet', { skip: !hasOpenpyxl && 'openpyxl not installed' }, () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'xlsx-cur-'));
+  const base = { page_id: '1', fmt: 'image', variants: 1, cta: 'Learn more', link: 'https://x.example/', platforms: 'facebook', title: 't', body: 'b', start: 1_700_000_000 };
+  const rows = [
+    { ...base, id: '1', page: 'Brewery A', kws: ['q1'] }, { ...base, id: '2', page: 'Bath House', kws: ['q1', 'q2'] }, { ...base, id: '3', page: 'Shop B', kws: ['q2'] }
+  ];
+  writeFileSync(path.join(dir, 'ads.csv'), toCsv(rows));
+  writeFileSync(path.join(dir, 'run.json'), JSON.stringify({ date: new Date(1_700_000_000_000).toISOString(), queries: ['q1', 'q2', 'q3'], rate_limited_queries: ['q2'] }));
+  writeFileSync(path.join(dir, 'curation.json'), JSON.stringify({ include: { 'Brewery A': 'Производитель', 'Shop B': 'Магазин' } }));
+  const res = py([SCRIPT, dir]);
+  assert.equal(res.status, 0, res.stderr);
+  const check = py(['-c', `
+import sys, json
+from openpyxl import load_workbook
+wb = load_workbook(sys.argv[1])
+ads = [r[2] for r in wb['Объявления'].iter_rows(min_row=2, values_only=True)]
+adv = {r[0]: r[-1] for r in wb['Рекламодатели'].iter_rows(min_row=2, values_only=True)}
+q = [list(r) for r in wb['Запросы'].iter_rows(min_row=2, max_row=4, values_only=True)]
+print(json.dumps({'ads': sorted(ads), 'adv': adv, 'q': q}, ensure_ascii=False))
+`, path.join(dir, 'report.xlsx')]);
+  const out = JSON.parse(check.stdout);
+  assert.deepEqual(out.ads, ['Brewery A', 'Shop B']);
+  assert.deepEqual(out.adv, { 'Brewery A': 'Производитель', 'Shop B': 'Магазин' });
+  assert.deepEqual(out.q.map(r => r[0]), ['q1', 'q2', 'q3']);
+  assert.deepEqual(out.q[1].slice(1), [2, 2, 1, 'да']); // q2: 2 ads, 2 advertisers, 1 competitor (Bath House dropped), rate-limited
+  assert.equal(out.q[2][3], 0); // q3 found nothing
+});

@@ -47,6 +47,9 @@ function buildHtml(m) {
   const out = [];
   out.push(`<h1>Ads Library: ${esc(title)}</h1><p class="mut">Дата сбора: ${esc(dateStr)}${meta.country ? ' · страна: ' + esc(meta.country) : ''}${meta.queries ? ' · запросов: ' + esc(meta.queries.length) : ''}. Снимок на дату сбора: библиотека отдаёт до ~120 объявлений на запрос (верх выдачи по охвату), это не весь рынок.</p>`);
   if (meta.queries && meta.queries.length) out.push(`<p class="mut">Запросы: ${meta.queries.map(q => chip(q)).join('')}</p>`);
+  const cur = meta.curation;
+  const types = (cur && cur.types) || {};
+  if (cur) out.push(`<div class="note">Список рекламодателей проверен вручную (curation.json): убрано вручную ${esc(cur.excluded_ads)} объявл. от ${esc((cur.excluded_pages || []).length)} рекламодателей как не конкурентов, осталось ${esc(cur.kept_pages)}.${cur.notes ? ' ' + esc(cur.notes) : ''}</div>`);
 
   const single = pct(r.single_ad_advertisers, r.advertisers);
   const video = pct((r.formats || {}).VIDEO || 0, total);
@@ -66,10 +69,19 @@ function buildHtml(m) {
   out.push('</div><p class="mut">Хуки считаются регулярными выражениями по тексту объявления. Хук, слова которого входят в ваши же поисковые запросы, круговой.</p>');
 
   out.push('<h2>Кто рекламируется (топ)</h2>');
-  out.push(table(['Страница', 'Объявл.', 'Старейшее, дн.', 'Дверь', 'Сайты', 'Пометки'], (r.top_pages || []).map(p => [
-    link(p.library_url, p.page), esc(p.ads), esc(p.oldest_days), esc(p.doors), esc(p.sites),
+  const hasTypes = Object.keys(types).length > 0;
+  out.push(table(['Страница', ...(hasTypes ? ['Тип'] : []), 'Объявл.', 'Старейшее, дн.', 'Дверь', 'Сайты', 'Пометки'], (r.top_pages || []).map(p => [
+    link(p.library_url, p.page), ...(hasTypes ? [esc(types[p.page] || '')] : []), esc(p.ads), esc(p.oldest_days), esc(p.doors), esc(p.sites),
     (p.local ? chip('локальный', 'warn') : '') + (p.platform ? chip('платформа', 'warn') : '')
   ])));
+
+  if ((m.query_stats || []).length) {
+    const curated = m.query_stats.some(q => q.relevant_advertisers !== null);
+    out.push('<h2>Запросы: что нашли</h2><p class="mut">Какие запросы приводят конкурентов, а какие шум. ' + (curated ? 'Колонка «Из них конкуренты» после ручной проверки.' : 'Ручной проверки (curation.json) пока нет.') + ' «Лимит Meta»: подгрузка следующих страниц отклонена, по запросу только первая партия (~30 объявлений).</p>');
+    out.push(table(['Запрос', 'Объявл.', 'Рекламодателей', ...(curated ? ['Из них конкуренты'] : []), 'Лимит Meta'], m.query_stats.map(q => [
+      esc(q.query), esc(q.ads), esc(q.advertisers), ...(curated ? [esc(q.relevant_advertisers)] : []), q.rate_limited ? chip('лимит', 'warn') : ''
+    ])));
+  }
 
   if ((r.longrun || []).length) {
     out.push('<h2>Долгожители</h2><p class="mut">По числу вариантов креатива, затем по возрасту; не больше 2 на страницу. Долгий показ не гарантия эффективности.</p>');

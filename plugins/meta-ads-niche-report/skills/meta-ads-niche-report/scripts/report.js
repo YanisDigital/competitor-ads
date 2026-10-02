@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Rebuilds the full report for a snapshot folder from its ads.csv, using the
 // same code as the collector (collector.js) and the snapshot's preset
-// (run.json -> presets/<id>.json). As a CLI it prints {report, doors, meta} as
+// (run.json -> presets/<id>.json). If the folder has a curation.json (hand-made
+// list of advertisers to keep or drop, see applyCuration in collector.js) the
+// report is built from the kept advertisers only. As a CLI it prints
+// {report, doors, meta, query_stats} as
 // JSON to stdout; as a module it exports loadSnapshot(). Used by
 // export_xlsx.py and export_html.js so exports always reflect the current
 // report logic, even for folders scraped with an older version.
@@ -9,7 +12,7 @@
 //   node report.js out/ecom-dropship-us/2026-09-30 [preset-id]
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, buildReport, classifyDoor } = require('./collector.js');
+const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats } = require('./collector.js');
 
 function loadSnapshot(dir, presetOverride) {
   const metaPath = path.join(dir, 'run.json');
@@ -23,7 +26,11 @@ function loadSnapshot(dir, presetOverride) {
     if (fs.existsSync(p)) preset = JSON.parse(fs.readFileSync(p, 'utf8'));
   }
 
-  const rows = parseCsv(fs.readFileSync(path.join(dir, 'ads.csv'), 'utf8'));
+  const allRows = parseCsv(fs.readFileSync(path.join(dir, 'ads.csv'), 'utf8'));
+  const curationPath = path.join(dir, 'curation.json');
+  const curation = fs.existsSync(curationPath) ? JSON.parse(fs.readFileSync(curationPath, 'utf8')) : null;
+  const cur = applyCuration(allRows, curation);
+  const rows = cur.rows;
   const opts = { longDays: 90, now: ts };
   if (preset) {
     opts.extraHooks = preset.extra_hooks || {};
@@ -33,7 +40,9 @@ function loadSnapshot(dir, presetOverride) {
     if (preset.online_only) opts.onlineOnly = true;
   }
   const doors = Object.fromEntries(rows.map(r => [r.id, classifyDoor(r)]));
-  return { report: buildReport(rows, opts), doors, rows, meta: { ...meta, ts, preset_title: preset && preset.title } };
+  const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
+  const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
+  return { report: buildReport(rows, opts), doors, rows, query_stats: stats, meta: { ...meta, ts, preset_title: preset && preset.title, ...curationMeta } };
 }
 
 module.exports = { loadSnapshot };
@@ -44,6 +53,6 @@ if (require.main === module) {
     console.error('Usage: node report.js <snapshot-folder-with-ads.csv> [preset-id]');
     process.exit(1);
   }
-  const { report, doors, meta } = loadSnapshot(dir, process.argv[3]);
-  process.stdout.write(JSON.stringify({ report, doors, meta }));
+  const { report, doors, meta, query_stats } = loadSnapshot(dir, process.argv[3]);
+  process.stdout.write(JSON.stringify({ report, doors, meta, query_stats }));
 }
