@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.12.1] - 2026-10-02
+
+### Fixed
+- `craft-beer-ua` preset: the `policy` note named a real brewery as an
+  example; published files keep to fictional names only.
+
+### Changed
+- `.gitignore` also covers `curation.json`, `hypotheses*.json` and
+  `test_plan.json` outside `out/` (advertiser names, client facts).
+
 ## [0.12.0] - 2026-10-02
 
 ### Added

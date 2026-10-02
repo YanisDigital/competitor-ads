@@ -6,6 +6,9 @@ out/
 *.csv
 # client brief and generated reports can hold business data and third-party ad text
 client.json
+curation.json
+hypotheses*.json
+test_plan.json
 report.xlsx
 report.html
 sites.json

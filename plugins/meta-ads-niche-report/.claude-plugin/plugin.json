@@ -1,7 +1,7 @@
 {
   "name": "meta-ads-niche-report",
   "displayName": "Meta Ads Niche Report",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Collects active competitor ads from the Meta Ads Library by niche and city, and turns them into a report: who's advertising, where the ads lead, which hooks repeat, longest-running ads, and untapped angles.",
   "author": {
     "name": "YanisDigital"
