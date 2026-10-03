@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.5] - 2026-10-03
+
+### Fixed
+- `SKILL.md` named real advertisers as an example in the new "all ads of the
+  competitors" paragraph (added in 0.12.4); published files keep to fictional
+  or unnamed examples only.
+
 ## [0.12.4] - 2026-10-03
 
 ### Added
