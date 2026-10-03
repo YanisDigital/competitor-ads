@@ -30,12 +30,14 @@ import argparse
 import asyncio
 import json
 import re
+import subprocess
 import sys
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
+HERE = Path(__file__).parent
 MAX_KEYWORDS = 15
 DEFAULT_DELAY = 3.0
 DEFAULT_LONG_DAYS = 90
@@ -95,7 +97,46 @@ def library_url(country: str, query: str, exact: bool = False) -> str:
     )
 
 
+def page_library_url(country: str, page_id: str) -> str:
+    """Every active ad of one page (the Library's "view all ads" link)."""
+    return (
+        "https://www.facebook.com/ads/library/"
+        f"?active_status=active&ad_type=all&country={country}"
+        f"&view_all_page_id={page_id}&search_type=page&media_type=all"
+    )
+
+
+def pages_from_snapshot(folder) -> list[dict]:
+    """The advertisers that count in a snapshot (after its curation.json), with their page ids.
+
+    The selection is collector.js's (applyCuration, via report.js), not
+    re-implemented here. Page ids come from third-party data, so only digits
+    are accepted before they go into a URL."""
+    code = (
+        "const {loadSnapshot}=require(process.argv[1]);const s=loadSnapshot(process.argv[2]);const m=new Map();"
+        "for(const r of s.rows) if(!m.has(r.page)) m.set(r.page,r.page_id||'');"
+        "console.log(JSON.stringify([...m].map(([name,page_id])=>({page_id,name}))))"
+    )
+    try:
+        res = subprocess.run(["node", "-e", code, str(HERE / "report.js"), str(folder)], capture_output=True, encoding="utf-8", timeout=120)
+    except FileNotFoundError:
+        sys.exit("Node.js is required to read the snapshot.")
+    if res.returncode != 0:
+        sys.exit("Could not read the snapshot: " + res.stderr.strip()[:300])
+    pages = json.loads(res.stdout)
+    if not pages:
+        sys.exit("No advertisers left in that snapshot (check its curation.json).")
+    if any(not p["page_id"] for p in pages):
+        sys.exit("This snapshot has no page_id column (collected by an older version). Collect it again, then curate and retry.")
+    bad = [p["name"] for p in pages if not re.fullmatch(r"\d{1,25}", p["page_id"])]
+    if bad:
+        print("Skipping pages with an unexpected page_id: " + ", ".join(bad), file=sys.stderr)
+    return [p for p in pages if re.fullmatch(r"\d{1,25}", p["page_id"])]
+
+
 def read_keywords(args) -> list[str]:
+    if args.pages_of:
+        return []  # targets come from the snapshot inside run()
     if args.keywords_file:
         lines = Path(args.keywords_file).read_text(encoding="utf-8").splitlines()
         kws = [line.strip() for line in lines if line.strip()]
@@ -128,11 +169,11 @@ async def detect_block(page) -> None:
         raise BlockedError("Meta showed a captcha/checkpoint. Stopping: this tool never bypasses captchas.")
 
 
-async def open_query(page, country: str, keyword: str, exact: bool = False) -> None:
+async def open_query(page, country: str, keyword: str, exact: bool = False, url: str | None = None) -> None:
     """Open the Library URL for one query. Each query gets its own page load:
     in headless Chromium the in-page search box returned "no ads match" for
     queries that have results, and crashed the page by the third search."""
-    await page.goto(library_url(country, keyword, exact), wait_until="domcontentloaded")
+    await page.goto(url or library_url(country, keyword, exact), wait_until="domcontentloaded")
     try:
         await page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
@@ -149,6 +190,14 @@ async def run(args, keywords: list[str]) -> None:
     collector_src = COLLECTOR_JS.read_text(encoding="utf-8")
     preset = load_preset(args.preset) if args.preset else None
     country = args.country or (preset or {}).get("country") or "UA"
+    page_urls = {}  # label -> link, for --pages-of
+    if args.pages_of:
+        src_run = Path(args.pages_of) / "run.json"
+        if not args.country and src_run.exists():
+            country = json.loads(src_run.read_text(encoding="utf-8")).get("country") or country
+        pages = pages_from_snapshot(args.pages_of)[:MAX_KEYWORDS]
+        keywords = [f"page: {p['name']}" for p in pages]
+        page_urls = {f"page: {p['name']}": page_library_url(country, p["page_id"]) for p in pages}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=not args.headed)
@@ -176,7 +225,7 @@ async def run(args, keywords: list[str]) -> None:
             rate_limited = []  # queries where Meta refused "load more" (see collector.js)
             for i, kw in enumerate(keywords):
                 print(f"[{i + 1}/{len(keywords)}] opening Ads Library for: {kw}")
-                await open_query(page, country, kw, args.exact)
+                await open_query(page, country, kw, args.exact, page_urls.get(kw))
                 if store:
                     await page.evaluate("(s) => window.__mai.load(s)", store)
 
@@ -223,7 +272,8 @@ async def run(args, keywords: list[str]) -> None:
     (out_dir / "run.json").write_text(
         json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": keywords,
                     "preset": args.preset, "rate_limited_queries": rate_limited,
-                    "search_type": "exact_phrase" if args.exact else "any_words", "headed": bool(args.headed)}, ensure_ascii=False, indent=2),
+                    "search_type": "exact_phrase" if args.exact else "any_words", "headed": bool(args.headed),
+                    **({"pages_of": str(args.pages_of)} if args.pages_of else {})}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -257,6 +307,7 @@ def main() -> None:
     parser.add_argument("--city-uk", default="", dest="city_uk", help="City name in Ukrainian for preset queries")
     parser.add_argument("--city-ru", default="", dest="city_ru", help="City name in Russian for preset queries")
     parser.add_argument("--max-queries", type=int, default=12, dest="max_queries", help="Max preset-built queries (default: 12)")
+    parser.add_argument("--pages-of", dest="pages_of", help="Snapshot folder: collect ALL active ads of the advertisers that count there (curation.json applied), instead of keyword searches. Needs a snapshot with page ids (collected by v0.12.4 or newer)")
     parser.add_argument("--exact", action="store_true", help="Exact-phrase search (fewer off-niche ads); default matches the words anywhere in the ad")
     parser.add_argument("--express", action="store_true", help=f"Quick look: run only the first {EXPRESS_QUERIES} queries")
     parser.add_argument("--list-presets", action="store_true", dest="list_presets", help="List available niche presets and exit")
@@ -268,6 +319,8 @@ def main() -> None:
         return
     if args.max_queries > MAX_KEYWORDS:
         sys.exit(f"--max-queries above {MAX_KEYWORDS} is not allowed.")
+    if args.pages_of and not args.out:
+        sys.exit("--pages-of needs --out (a new snapshot folder), so the full page collection does not mix with the original snapshot.")
     keywords = read_keywords(args)  # validated before importing/launching Playwright
 
     asyncio.run(run(args, keywords))

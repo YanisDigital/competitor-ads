@@ -123,13 +123,21 @@ def main() -> None:
     wa.title = "Объявления"
     cols = ["ID", "Ссылка на объявление", "Страница", "Начало показа", "Дней на дату сбора", "Формат", "Вариантов", "CTA",
             "Дверь", "Домен", "Платформы", "Запрос", "Заголовок", "Текст"]
-    header(wa, 1, cols, [18, 34, 30, 13, 12, 12, 10, 16, 20, 26, 26, 22, 40, 90])
+    widths = [18, 34, 30, 13, 12, 12, 10, 16, 20, 26, 26, 22, 40, 90]
+    extra = bool(rows) and "cta_type" in rows[0]  # columns added in v0.12.4; older ads.csv files lack them
+    if extra:
+        cols += ["Тип кнопки", "Подпись ссылки", "Создано ИИ (пометка Meta)"]
+        widths += [18, 28, 16]
+    header(wa, 1, cols, widths)
     for i, r in enumerate(rows, 2):
         start = datetime.strptime(r["start"], "%Y-%m-%d")
         url = "https://www.facebook.com/ads/library/?id=" + r["id"]
-        put(wa, i, [r["id"], url, r["page"], start, (run_dt - start).days, r["fmt"] or "?", int(r["variants"] or 1),
-                    r["cta"] or "(нет)", doors.get(r["id"], ""), domain(r["link"]), r["platforms"].replace("|", ", "),
-                    r["kws"], r["title"], r["body"]])
+        values = [r["id"], url, r["page"], start, (run_dt - start).days, r["fmt"] or "?", int(r["variants"] or 1),
+                  r["cta"] or "(нет)", doors.get(r["id"], ""), domain(r["link"]), r["platforms"].replace("|", ", "),
+                  r["kws"], r["title"], r["body"]]
+        if extra:
+            values += [r.get("cta_type", ""), r.get("caption", ""), {"true": "да", "false": "нет"}.get(r.get("ai_made", ""), "")]
+        put(wa, i, values)
         wa.cell(row=i, column=2).hyperlink = url
         wa.cell(row=i, column=2).font = f_link
         wa.cell(row=i, column=4).number_format = "yyyy-mm-dd"
@@ -168,12 +176,21 @@ def main() -> None:
     pcols = ["Страница", "Объявлений", "Самое старое, дней", "Самое свежее, дней", "Макс. вариантов", "Форматы", "Двери", "Сайты",
              "Локальный", "Платформа", "Общий сайт с другими страницами", "Копии креативов на др. страницах", "Пример объявления"]
     pwidths = [38, 11, 12, 12, 11, 22, 26, 36, 10, 10, 34, 14, 40]
+    likes = {}
+    for r in rows:
+        if r.get("page_likes", "").isdigit():
+            likes[r["page"]] = max(likes.get(r["page"], 0), int(r["page_likes"]))
+    if likes:
+        pcols.append("Подписчиков страницы")
+        pwidths.append(14)
     if types:
         pcols.append("Тип (ручная разметка)")
         pwidths.append(34)
     header(wp, 1, pcols, pwidths)
     for i, pr in enumerate(page_rows, 2):
         vals = list(pr)
+        if likes:
+            vals.append(likes.get(pr[0]))
         if types:
             vals.append(types.get(pr[0], ""))
         vals[1] = F(f"=COUNTIF('Объявления'!$C$2:$C${last_ad},A{i})")

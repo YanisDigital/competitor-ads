@@ -123,6 +123,13 @@
       fmt: s.display_format || '',
       variants: node.collation_count || 1,
       ncards: cards.length,
+      // Size of the advertiser, the link caption, the language-independent
+      // button type, Meta's "digitally created media" flag and the profile link.
+      page_likes: Number.isFinite(s.page_like_count) ? s.page_like_count : null,
+      caption: s.caption || (cards[0] && cards[0].caption) || '',
+      cta_type: s.cta_type || (cards[0] && cards[0].cta_type) || '',
+      ai_made: typeof node.contains_digital_created_media === 'boolean' ? node.contains_digital_created_media : null,
+      page_url: s.page_profile_uri || '',
       kws: kw ? [kw] : []
     };
   }
@@ -517,7 +524,9 @@
     const cnt = a => a.reduce((m, k) => (m[k] = (m[k] || 0) + 1, m), {});
     const pages = {};
     for (const r of rows) {
-      const p = pages[r.page] || (pages[r.page] = { page: r.page, page_id: r.page_id, library_url: r.page_id ? 'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&view_all_page_id=' + r.page_id : '', ads: 0, oldest_days: 0, newest_days: Infinity, doors: new Set(), sites: new Set(), links: {}, cats: r.cats });
+      const p = pages[r.page] || (pages[r.page] = { page: r.page, page_id: r.page_id, library_url: r.page_id ? 'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&view_all_page_id=' + r.page_id : '', ads: 0, oldest_days: 0, newest_days: Infinity, doors: new Set(), sites: new Set(), links: {}, cats: r.cats, page_likes: null, page_url: '' });
+      if (Number.isFinite(r.page_likes)) p.page_likes = Math.max(p.page_likes || 0, r.page_likes);
+      if (!p.page_url && r.page_url) p.page_url = r.page_url;
       p.ads++;
       p.oldest_days = Math.max(p.oldest_days, age(r));
       p.newest_days = Math.min(p.newest_days, age(r));
@@ -656,6 +665,8 @@
       single_ad_advertisers: pageList.filter(p => p.ads === 1).length,
       doors: cnt(rows.map(classifyDoor)),
       ctas: cnt(rows.map(r => r.cta || '(нет)')),
+      cta_types: cnt(rows.map(r => r.cta_type).filter(Boolean)),
+      ai_made_ads: rows.filter(r => r.ai_made === true).length,
       platforms: cnt(rows.flatMap(r => (r.platforms || '').split('|').filter(Boolean))),
       formats: cnt(rows.map(r => r.fmt || '?')),
       age_buckets: buckets,
@@ -678,7 +689,7 @@
   // Serializes rows to CSV (quoted, internal quotes doubled, whitespace
   // collapsed so multi-line ad bodies stay on one CSV line).
   function toCsv(rows) {
-    const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body'];
+    const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body', 'page_id', 'page_likes', 'caption', 'cta_type', 'ai_made', 'page_url'];
     const esc = v => {
       let s = String(Array.isArray(v) ? v.join('; ') : (v ?? '')).replace(/\s+/g, ' ');
       // Ad text/page names/CTAs are untrusted third-party input. A value
@@ -705,6 +716,9 @@
       o.start = Date.parse(o.start + 'T00:00:00Z') / 1000;
       o.variants = +o.variants || 1;
       o.kws = (o.kws || '').split('; ').filter(Boolean);
+      // columns added later: files from older versions simply lack them
+      o.page_likes = o.page_likes === undefined || o.page_likes === '' ? null : +o.page_likes;
+      o.ai_made = o.ai_made === 'true' ? true : o.ai_made === 'false' ? false : null;
       return o;
     });
   }

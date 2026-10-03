@@ -59,7 +59,7 @@ function buildHtml(m) {
   const pr = r.prices || {};
   out.push(`<div class="cards">${[
     ['Объявлений', total], ['Рекламодателей', r.advertisers], ['С одним объявлением', single + '%'], ['Видео', video + '%'],
-    ['Старше 90 дней', old90 + '%'], ['Медиана цены (' + (pr.ads_with_price || 0) + ' объявл. с ценой)', pr.median === null || pr.median === undefined ? '-' : (pr.currency || '') + ' ' + pr.median]
+    ['Старше 90 дней', old90 + '%'], ...(r.ai_made_ads ? [['Создано ИИ (пометка Meta)', r.ai_made_ads]] : []), ['Медиана цены (' + (pr.ads_with_price || 0) + ' объявл. с ценой)', pr.median === null || pr.median === undefined ? '-' : (pr.currency || '') + ' ' + pr.median]
   ].map(([k, v]) => `<div class="card kpi"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('')}</div>`);
 
   out.push('<h2>Структура рекламы</h2><div class="grid">');
@@ -72,8 +72,9 @@ function buildHtml(m) {
 
   out.push('<h2>Кто рекламируется (топ)</h2>');
   const hasTypes = Object.keys(types).length > 0;
-  out.push(table(['Страница', ...(hasTypes ? ['Тип'] : []), 'Объявл.', 'Старейшее, дн.', 'Дверь', 'Сайты', 'Пометки'], (r.top_pages || []).map(p => [
-    link(p.library_url, p.page), ...(hasTypes ? [esc(types[p.page] || '')] : []), esc(p.ads), esc(p.oldest_days), esc(p.doors), esc(p.sites),
+  const hasLikes = (r.top_pages || []).some(p => Number.isFinite(p.page_likes));
+  out.push(table(['Страница', ...(hasTypes ? ['Тип'] : []), ...(hasLikes ? ['Подписчики'] : []), 'Объявл.', 'Старейшее, дн.', 'Дверь', 'Сайты', 'Пометки'], (r.top_pages || []).map(p => [
+    link(p.library_url || p.page_url, p.page), ...(hasTypes ? [esc(types[p.page] || '')] : []), ...(hasLikes ? [num(p.page_likes)] : []), esc(p.ads), esc(p.oldest_days), esc(p.doors), esc(p.sites),
     (p.local ? chip('локальный', 'warn') : '') + (p.platform ? chip('платформа', 'warn') : '')
   ])));
 

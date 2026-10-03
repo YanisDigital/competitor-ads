@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.12.4] - 2026-10-03
+
+### Added
+- `scrape.py --pages-of <snapshot> --out <folder>`: collects every active ad of
+  the advertisers that count in a snapshot (its `curation.json` applied, by
+  collector.js) through the Library's "view all ads of a page" link, instead of
+  keyword searches. Up to 15 pages, country from the snapshot's `run.json`.
+  Page ids are digits-only before they enter a URL. On craft beer it found 11
+  ads for a brewery that keyword search had shown with 3, and 9 instead of 2
+  for another.
+- New per-ad fields, written to `ads.csv` (columns appended at the end, older
+  files still load): `page_id`, `page_likes` (advertiser page size), `caption`
+  (link caption), `cta_type` (button type, not translated), `ai_made` (Meta's
+  "digitally created media" flag) and `page_url` (profile link). The report
+  gains `cta_types` and `ai_made_ads`, and `top_pages` gains `page_likes` and
+  `page_url`; the Excel ads sheet and the HTML advertiser table show them when
+  the data has them (an "Подписчиков страницы" column, a "Создано ИИ" figure).
+- Tests (`tests/fields.test.mjs`, 96 in total). The old keys of the reports of
+  three existing snapshots are unchanged.
+
 ## [0.12.3] - 2026-10-03
 
 ### Added

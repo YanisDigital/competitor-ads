@@ -232,6 +232,17 @@ how many ads and advertisers it found and how many were real competitors, plus
 whether Meta refused "load more" (sheet "Запросы" in Excel, a section in HTML),
 so weak queries can be replaced.
 
+## All ads of the competitors
+
+Keyword search only sees the ads that match the query. Once the competitors are
+fixed in `curation.json`, `scrape.py --pages-of <snapshot> --out <new folder>`
+collects every active ad of those pages (up to 15; the country comes from the
+snapshot's `run.json`). It needs a snapshot made by 0.12.4 or newer, which has
+the `page_id` column. On craft beer this turned 3 ads into 11 for one brewery
+and 2 into 9 for another. New per-ad fields since 0.12.4: advertiser page
+size, link caption, language-independent button type, Meta's "digitally
+created media" flag and the profile link.
+
 ## Warnings and query hygiene
 
 The report carries a **Warnings** block (Excel summary, HTML top): small sample
