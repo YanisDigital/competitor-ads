@@ -84,11 +84,14 @@ def default_out_dir(name: str) -> Path:
     return candidate
 
 
-def library_url(country: str, query: str) -> str:
+def library_url(country: str, query: str, exact: bool = False) -> str:
+    # keyword_unordered matches the words anywhere in the ad text (more noise);
+    # keyword_exact_phrase only ads that contain the phrase as written.
+    search_type = "keyword_exact_phrase" if exact else "keyword_unordered"
     return (
         "https://www.facebook.com/ads/library/"
         f"?active_status=active&ad_type=all&country={country}"
-        f"&q={quote(query, safe='')}&search_type=keyword_unordered&media_type=all"
+        f"&q={quote(query, safe='')}&search_type={search_type}&media_type=all"
     )
 
 
@@ -125,11 +128,11 @@ async def detect_block(page) -> None:
         raise BlockedError("Meta showed a captcha/checkpoint. Stopping: this tool never bypasses captchas.")
 
 
-async def open_query(page, country: str, keyword: str) -> None:
+async def open_query(page, country: str, keyword: str, exact: bool = False) -> None:
     """Open the Library URL for one query. Each query gets its own page load:
     in headless Chromium the in-page search box returned "no ads match" for
     queries that have results, and crashed the page by the third search."""
-    await page.goto(library_url(country, keyword), wait_until="domcontentloaded")
+    await page.goto(library_url(country, keyword, exact), wait_until="domcontentloaded")
     try:
         await page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
@@ -173,7 +176,7 @@ async def run(args, keywords: list[str]) -> None:
             rate_limited = []  # queries where Meta refused "load more" (see collector.js)
             for i, kw in enumerate(keywords):
                 print(f"[{i + 1}/{len(keywords)}] opening Ads Library for: {kw}")
-                await open_query(page, country, kw)
+                await open_query(page, country, kw, args.exact)
                 if store:
                     await page.evaluate("(s) => window.__mai.load(s)", store)
 
@@ -219,7 +222,8 @@ async def run(args, keywords: list[str]) -> None:
     csv_path.write_text(csv_text, encoding="utf-8")
     (out_dir / "run.json").write_text(
         json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": keywords,
-                    "preset": args.preset, "rate_limited_queries": rate_limited}, ensure_ascii=False, indent=2),
+                    "preset": args.preset, "rate_limited_queries": rate_limited,
+                    "search_type": "exact_phrase" if args.exact else "any_words", "headed": bool(args.headed)}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -253,6 +257,7 @@ def main() -> None:
     parser.add_argument("--city-uk", default="", dest="city_uk", help="City name in Ukrainian for preset queries")
     parser.add_argument("--city-ru", default="", dest="city_ru", help="City name in Russian for preset queries")
     parser.add_argument("--max-queries", type=int, default=12, dest="max_queries", help="Max preset-built queries (default: 12)")
+    parser.add_argument("--exact", action="store_true", help="Exact-phrase search (fewer off-niche ads); default matches the words anywhere in the ad")
     parser.add_argument("--express", action="store_true", help=f"Quick look: run only the first {EXPRESS_QUERIES} queries")
     parser.add_argument("--list-presets", action="store_true", dest="list_presets", help="List available niche presets and exit")
     args = parser.parse_args()

@@ -156,7 +156,8 @@ listed, it builds the queries itself.
 | Craft beer (breweries, beer shops), Ukraine | `craft-beer-ua` | Ukrainian, no city; broad queries ("on tap", "gift") bring noise, review advertisers by hand |
 
 CLI: `python scrape.py --preset beauty --city-uk Одеса --city-ru Одесса`
-(`--express` for a 3-query quick look, `--max-queries`, `--list-presets`).
+(`--express` for a 3-query quick look, `--max-queries`, `--list-presets`,
+`--exact` for exact-phrase search: less noise but fewer competitors found).
 To add a niche, copy any preset JSON, change `id`, `services`,
 `extra_hooks` and `noise`, and drop it into the same folder. Presets may also
 set `country`, `currency`, `base_hooks` and `online_only` (drops local shops

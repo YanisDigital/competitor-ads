@@ -27,6 +27,11 @@ cloud container: Meta refuses those requests (see the 403 section).
 
 ## `[rate-limited: first batch only]` / `rate_limited_queries` in run.json
 
+A visible browser (`--headed`) does not lift it: checked on 2026-10-03 with
+the same three queries, all three were still limited. Browser mode inside a
+normal browser session was not limited in an earlier run; that is the only
+option seen to give fuller results so far.
+
 Meta answered the "load more" requests with `Rate limit exceeded`
 (GraphQL error 1675004), so those queries hold only the first batch of
 about 30 top ads, not the full count the Library shows. `collector.js`

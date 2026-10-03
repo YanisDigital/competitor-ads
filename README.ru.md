@@ -158,7 +158,8 @@ English version: [README.md](README.md)
 | Крафтовое пиво (пивоварни, магазины), Украина | `craft-beer-ua` | укр, без города; широкие запросы («на розлив», «в подарунок») дают шум, рекламодателей проверять вручную |
 
 CLI: `python scrape.py --preset beauty --city-uk Одеса --city-ru Одесса`
-(`--express` — быстрый срез из 3 запросов, `--max-queries`, `--list-presets`).
+(`--express` — быстрый срез из 3 запросов, `--max-queries`, `--list-presets`,
+`--exact` — поиск точной фразы: меньше шума, но и конкурентов находится меньше).
 Чтобы добавить нишу, скопируй любой пресет, поменяй `id`, `services`,
 `extra_hooks`, `noise` и положи в ту же папку. В пресете можно также задать
 `country`, `currency`, `base_hooks` и `online_only` (убирает локальные

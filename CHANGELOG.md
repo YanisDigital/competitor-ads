@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.3] - 2026-10-03
+
+### Added
+- `scrape.py --exact`: exact-phrase search (`search_type=keyword_exact_phrase`)
+  instead of any words. Opt-in: on three craft-beer queries it cut the noise
+  (390 results to 1 for "пиво на розлив") but found 2 of the 8 known
+  competitors instead of 5, because their ads do not contain the phrase
+  verbatim. `run.json` records `search_type` and `headed`.
+- Test for the search URL (`tests/scrape_url.test.mjs`, 85 in total).
+
+### Changed
+- Troubleshooting: `--headed` does not lift Meta's "load more" limit (checked
+  live on the same queries).
+
 ## [0.12.2] - 2026-10-02
 
 ### Fixed
