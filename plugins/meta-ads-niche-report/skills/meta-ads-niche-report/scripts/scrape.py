@@ -86,23 +86,49 @@ def default_out_dir(name: str) -> Path:
     return candidate
 
 
-def library_url(country: str, query: str, exact: bool = False) -> str:
+VALID_STATUSES = ("active", "inactive", "all")
+
+
+def validate_date(value: str) -> str:
+    """YYYY-MM-DD only: the value goes into a URL."""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d") if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) else sys.exit(f"Bad date {value!r}: use YYYY-MM-DD.")
+    except ValueError:
+        sys.exit(f"Bad date {value!r}: use YYYY-MM-DD.")
+
+
+def window_params(status: str = "active", date_from: str | None = None, date_to: str | None = None) -> str:
+    """Status and delivery-period part of a Library URL. The Library filters the
+    period by delivery (ads that ran in it), not by the day an ad started."""
+    if status not in VALID_STATUSES:
+        sys.exit(f"Bad --status {status!r}: use one of {', '.join(VALID_STATUSES)}.")
+    out = f"&active_status={status}"
+    if date_from:
+        out += f"&start_date[min]={validate_date(date_from)}"
+    if date_to:
+        out += f"&start_date[max]={validate_date(date_to)}"
+    return out
+
+
+def library_url(country: str, query: str, exact: bool = False, status: str = "active", date_from: str | None = None, date_to: str | None = None) -> str:
     # keyword_unordered matches the words anywhere in the ad text (more noise);
     # keyword_exact_phrase only ads that contain the phrase as written.
     search_type = "keyword_exact_phrase" if exact else "keyword_unordered"
     return (
         "https://www.facebook.com/ads/library/"
-        f"?active_status=active&ad_type=all&country={country}"
+        f"?ad_type=all&country={country}"
         f"&q={quote(query, safe='')}&search_type={search_type}&media_type=all"
+        + window_params(status, date_from, date_to)
     )
 
 
-def page_library_url(country: str, page_id: str) -> str:
+def page_library_url(country: str, page_id: str, status: str = "active", date_from: str | None = None, date_to: str | None = None) -> str:
     """Every active ad of one page (the Library's "view all ads" link)."""
     return (
         "https://www.facebook.com/ads/library/"
-        f"?active_status=active&ad_type=all&country={country}"
+        f"?ad_type=all&country={country}"
         f"&view_all_page_id={page_id}&search_type=page&media_type=all"
+        + window_params(status, date_from, date_to)
     )
 
 
@@ -169,11 +195,11 @@ async def detect_block(page) -> None:
         raise BlockedError("Meta showed a captcha/checkpoint. Stopping: this tool never bypasses captchas.")
 
 
-async def open_query(page, country: str, keyword: str, exact: bool = False, url: str | None = None) -> None:
+async def open_query(page, country: str, keyword: str, exact: bool = False, url: str | None = None, window: tuple = ("active", None, None)) -> None:
     """Open the Library URL for one query. Each query gets its own page load:
     in headless Chromium the in-page search box returned "no ads match" for
     queries that have results, and crashed the page by the third search."""
-    await page.goto(url or library_url(country, keyword, exact), wait_until="domcontentloaded")
+    await page.goto(url or library_url(country, keyword, exact, *window), wait_until="domcontentloaded")
     try:
         await page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
@@ -190,6 +216,8 @@ async def run(args, keywords: list[str]) -> None:
     collector_src = COLLECTOR_JS.read_text(encoding="utf-8")
     preset = load_preset(args.preset) if args.preset else None
     country = args.country or (preset or {}).get("country") or "UA"
+    window = (args.status, args.date_from, args.date_to)
+    window_params(*window)  # validates status and dates before any browser starts
     page_urls = {}  # label -> link, for --pages-of
     if args.pages_of:
         src_run = Path(args.pages_of) / "run.json"
@@ -197,7 +225,7 @@ async def run(args, keywords: list[str]) -> None:
             country = json.loads(src_run.read_text(encoding="utf-8")).get("country") or country
         pages = pages_from_snapshot(args.pages_of)[:MAX_KEYWORDS]
         keywords = [f"page: {p['name']}" for p in pages]
-        page_urls = {f"page: {p['name']}": page_library_url(country, p["page_id"]) for p in pages}
+        page_urls = {f"page: {p['name']}": page_library_url(country, p["page_id"], *window) for p in pages}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=not args.headed)
@@ -225,7 +253,7 @@ async def run(args, keywords: list[str]) -> None:
             rate_limited = []  # queries where Meta refused "load more" (see collector.js)
             for i, kw in enumerate(keywords):
                 print(f"[{i + 1}/{len(keywords)}] opening Ads Library for: {kw}")
-                await open_query(page, country, kw, args.exact, page_urls.get(kw))
+                await open_query(page, country, kw, args.exact, page_urls.get(kw), window)
                 if store:
                     await page.evaluate("(s) => window.__mai.load(s)", store)
 
@@ -272,7 +300,8 @@ async def run(args, keywords: list[str]) -> None:
     (out_dir / "run.json").write_text(
         json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": keywords,
                     "preset": args.preset, "rate_limited_queries": rate_limited,
-                    "search_type": "exact_phrase" if args.exact else "any_words", "headed": bool(args.headed),
+                    "search_type": "exact_phrase" if args.exact else "any_words", "headed": bool(args.headed), "status": args.status,
+                    **({"date_from": args.date_from} if args.date_from else {}), **({"date_to": args.date_to} if args.date_to else {}),
                     **({"pages_of": str(args.pages_of)} if args.pages_of else {})}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
@@ -308,6 +337,9 @@ def main() -> None:
     parser.add_argument("--city-ru", default="", dest="city_ru", help="City name in Russian for preset queries")
     parser.add_argument("--max-queries", type=int, default=12, dest="max_queries", help="Max preset-built queries (default: 12)")
     parser.add_argument("--pages-of", dest="pages_of", help="Snapshot folder: collect ALL active ads of the advertisers that count there (curation.json applied), instead of keyword searches. Needs a snapshot with page ids (collected by v0.12.4 or newer)")
+    parser.add_argument("--status", choices=VALID_STATUSES, default="active", help="active (default), inactive (stopped ads only) or all. Stopped ads show what competitors tried and switched off")
+    parser.add_argument("--date-from", dest="date_from", help="YYYY-MM-DD: only ads that were delivered on or after this day")
+    parser.add_argument("--date-to", dest="date_to", help="YYYY-MM-DD: only ads that were delivered on or before this day")
     parser.add_argument("--exact", action="store_true", help="Exact-phrase search (fewer off-niche ads); default matches the words anywhere in the ad")
     parser.add_argument("--express", action="store_true", help=f"Quick look: run only the first {EXPRESS_QUERIES} queries")
     parser.add_argument("--list-presets", action="store_true", dest="list_presets", help="List available niche presets and exit")

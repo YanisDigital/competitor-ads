@@ -55,6 +55,14 @@ def load_report(folder: Path):
     return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], []
 
 
+def days_shown(r, run_dt) -> int:
+    """Days an ad was shown: until the stop date for a stopped ad, until the collection date otherwise."""
+    start = datetime.strptime(r["start"], "%Y-%m-%d")
+    if r.get("active") == "false" and r.get("end"):
+        return (datetime.strptime(r["end"], "%Y-%m-%d") - start).days
+    return (run_dt - start).days
+
+
 def domain(u: str) -> str:
     try:
         x = urlparse(u)
@@ -128,15 +136,21 @@ def main() -> None:
     if extra:
         cols += ["Тип кнопки", "Подпись ссылки", "Создано ИИ (пометка Meta)"]
         widths += [18, 28, 16]
+    status_cols = bool(rows) and "end" in rows[0]  # added with stopped ads (v0.13.0)
+    if status_cols:
+        cols += ["Статус", "Остановлено"]
+        widths += [13, 13]
     header(wa, 1, cols, widths)
     for i, r in enumerate(rows, 2):
         start = datetime.strptime(r["start"], "%Y-%m-%d")
         url = "https://www.facebook.com/ads/library/?id=" + r["id"]
-        values = [r["id"], url, r["page"], start, (run_dt - start).days, r["fmt"] or "?", int(r["variants"] or 1),
+        values = [r["id"], url, r["page"], start, days_shown(r, run_dt), r["fmt"] or "?", int(r["variants"] or 1),
                   r["cta"] or "(нет)", doors.get(r["id"], ""), domain(r["link"]), r["platforms"].replace("|", ", "),
                   r["kws"], r["title"], r["body"]]
         if extra:
             values += [r.get("cta_type", ""), r.get("caption", ""), {"true": "да", "false": "нет"}.get(r.get("ai_made", ""), "")]
+        if status_cols:
+            values += ["остановлено" if r.get("active") == "false" else "активно", r.get("end", "")]
         put(wa, i, values)
         wa.cell(row=i, column=2).hyperlink = url
         wa.cell(row=i, column=2).font = f_link
@@ -159,7 +173,7 @@ def main() -> None:
     by_page = defaultdict(list)
     for r in rows:
         by_page[r["page"]].append(r)
-    age_of = lambda a: (run_dt - datetime.strptime(a["start"], "%Y-%m-%d")).days
+    age_of = lambda a: days_shown(a, run_dt)
     page_rows = []
     for page, ads in by_page.items():
         ages = [age_of(a) for a in ads]
@@ -201,6 +215,20 @@ def main() -> None:
     wp.freeze_panes = "B2"
     wp.auto_filter.ref = f"A1:{get_column_letter(len(pcols))}{last_page}"
     wp.row_dimensions[1].height = 45
+
+    # ---- Stopped ads (only when the run asked for them) ----
+    stopped = report.get("stopped") or {}
+    if stopped.get("ads"):
+        wsd = wb.create_sheet("Остановленные")
+        header(wsd, 1, ["Страница", "Дней показа", "Вариантов", "Формат", "Дверь", "Текст (начало)", "Ссылка"], [36, 11, 11, 12, 20, 90, 44])
+        for i, t in enumerate(stopped.get("top", []), 2):
+            put(wsd, i, [t["page"], t["run_days"], t["variants"], t["fmt"], t["door"], t["text"], t["url"]])
+            wsd.cell(row=i, column=7).hyperlink = t["url"]
+            wsd.cell(row=i, column=7).font = f_link
+        wsd.cell(row=len(stopped.get("top", [])) + 3, column=1, value=(
+            f"Остановлено {stopped['ads']} объявл. от {stopped['advertisers']} рекламодателей; медиана показа {stopped['median_run_days']} дн.; "
+            f"{stopped['short_lived']} остановлено меньше чем за 2 недели (похоже на тест, который не сработал). Долгий показ до остановки не значит, что объявление работало.")).font = f_note
+        wsd.freeze_panes = "A2"
 
     # ---- Longrun ----
     wl = wb.create_sheet("Долгожители")

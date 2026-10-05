@@ -232,6 +232,17 @@ how many ads and advertisers it found and how many were real competitors, plus
 whether Meta refused "load more" (sheet "Запросы" in Excel, a section in HTML),
 so weak queries can be replaced.
 
+## Stopped ads and delivery period
+
+`scrape.py --status all` (or `inactive`) also collects ads the Library no
+longer shows as active, and `--date-from` / `--date-to` (YYYY-MM-DD) limit the
+period in which ads were delivered (not the day an ad started). Stopped ads
+show what competitors tried and switched off: the report keeps them in their
+own block (days shown, how many died within two weeks, the longest runs; a
+"Stopped" sheet in Excel and a section in HTML), while age and long-runner
+statistics stay about ads that still run. A long run before stopping does not
+prove the ad worked.
+
 ## All ads of the competitors
 
 Keyword search only sees the ads that match the query. Once the competitors are

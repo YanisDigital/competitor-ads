@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.13.0] - 2026-10-05
+
+### Added
+- `scrape.py --status active|inactive|all` (default `active`) and
+  `--date-from` / `--date-to` (YYYY-MM-DD, validated before they go into the
+  URL): stopped ads and a delivery-period window, also for `--pages-of`. The
+  Library filters the period by delivery (ads that ran in it), not by start
+  day. `run.json` records `status` and the dates.
+- `ads.csv` gets an `end` column (stop date, filled only for stopped ads).
+- The report gains `status_counts` and a `stopped` block (ads, advertisers,
+  median days shown, how many stopped within two weeks, the longest runs),
+  a "Остановленные" sheet in Excel (plus "Статус" / "Остановлено" columns on
+  the ads sheet, and days shown measured to the stop date), a section in the
+  HTML report and a `stopped_included` warning.
+- Tests (`tests/status.test.mjs`, 105 in total).
+
+### Changed
+- Stopped ads no longer count as running: age buckets, per-page age, the
+  long-runner list and the hook comparison between long-runners and the rest
+  use only ads that still run, and `diffSnapshots` ignores stopped ads. Old
+  snapshots that happen to contain stopped ads change slightly for that
+  reason (the US dropshipping snapshot: 2 of 781 ads, one age bucket each);
+  nothing else in the reports of the three existing snapshots changed.
+- Known limit: the Excel summary's age formulas still cover every row of the
+  ads sheet, so stopped ads count there by their days shown.
+
 ## [0.12.5] - 2026-10-03
 
 ### Fixed

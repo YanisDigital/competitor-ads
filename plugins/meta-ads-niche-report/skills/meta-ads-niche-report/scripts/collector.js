@@ -28,6 +28,9 @@
   // Pure functions — no DOM/window access, safe to unit-test in Node.
   // ==========================================================================
 
+  // An ad the Library marks as no longer running (active_status inactive/all runs).
+  const isStoppedAd = r => r.active === false || r.active === 'false';
+
   const pick = (x) => (x && typeof x === 'object') ? (x.text || '') : (x || '');
 
   // Resolves an Ads Library link to a bare domain, unwrapping the
@@ -352,6 +355,7 @@
     const empty = stats.filter(q => q.ads === 0);
     if (empty.length) add('empty_queries', 'info', 'Запросы без единого объявления: ' + empty.map(q => q.query).join(', ') + '. Либо нишу так не ищут, либо формулировка не та.');
     for (const s of seasonWarnings(info.ts, info.preset && info.preset.seasons)) add('seasonal', 'warn', 'Срез сделан в сезон «' + s.name + '»' + (s.note ? ': ' + s.note : '') + '. Часть рекламы временная, повтори срез после сезона и не принимай её за обычное состояние ниши.');
+    if (info.stoppedAds > 0) add('stopped_included', 'info', 'В выборке ' + info.stoppedAds + ' остановленных объявлений: возраст, долгожители и хуки долгожителей считаются только по работающим, остановленные вынесены в отдельный блок (сколько дней показывались).');
     if (info.preset && info.preset.policy) add('policy', 'info', info.preset.policy);
     return w;
   }
@@ -521,6 +525,11 @@
     // Last occurrence wins, matching how window.__mai.store is written.
     rows = [...new Map(rows.map(r => [r.id, r])).values()];
     const age = r => Math.round((now - r.start) / 86400);
+    // Stopped ads (only present when the run asked for inactive ads) are reported in
+    // their own block: "days since it started" is meaningless for them, so every
+    // age statistic below is about the ads that still run.
+    const liveRows = rows.filter(r => !isStoppedAd(r));
+    const stoppedRows = rows.filter(isStoppedAd);
     const cnt = a => a.reduce((m, k) => (m[k] = (m[k] || 0) + 1, m), {});
     const pages = {};
     for (const r of rows) {
@@ -528,8 +537,10 @@
       if (Number.isFinite(r.page_likes)) p.page_likes = Math.max(p.page_likes || 0, r.page_likes);
       if (!p.page_url && r.page_url) p.page_url = r.page_url;
       p.ads++;
-      p.oldest_days = Math.max(p.oldest_days, age(r));
-      p.newest_days = Math.min(p.newest_days, age(r));
+      if (!isStoppedAd(r)) {
+        p.oldest_days = Math.max(p.oldest_days, age(r));
+        p.newest_days = Math.min(p.newest_days, age(r));
+      }
       p.doors.add(classifyDoor(r));
       const d = domainOf(r.link);
       if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d) && !AFFILIATE_LINKS.test(d)) {
@@ -561,20 +572,34 @@
     if (noiseWords.length) for (const r of rows) if (noiseWords.some(w => text(r).includes(w))) noiseCount[r.page] = (noiseCount[r.page] || 0) + 1;
     const noise_candidates = Object.entries(noiseCount).map(([page, ads]) => ({ page, ads_matching: ads, ads_total: pages[page].ads })).sort((a, b) => b.ads_matching - a.ads_matching);
     const buckets = { '<7': 0, '7-30': 0, '30-90': 0, '90-365': 0, '>365': 0 };
-    rows.forEach(r => { const a = age(r); buckets[a < 7 ? '<7' : a < 30 ? '7-30' : a < 90 ? '30-90' : a < 365 ? '90-365' : '>365']++; });
+    liveRows.forEach(r => { const a = age(r); buckets[a < 7 ? '<7' : a < 30 ? '7-30' : a < 90 ? '30-90' : a < 365 ? '90-365' : '>365']++; });
     const snip = r => ((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' ').slice(0, 160);
     // Max 2 longrun entries per advertiser, so one advertiser running many
     // copies of the same creative can't fill the whole list.
     const perPage = {};
     // Ranked by creative variants first (many variants of one ad = active
     // testing/scaling), then by age.
-    const longrun = rows.filter(r => age(r) >= longDays && !outOfNiche.has(r.page)).sort((a, b) => (b.variants - a.variants) || (a.start - b.start))
+    const longrun = liveRows.filter(r => age(r) >= longDays && !outOfNiche.has(r.page)).sort((a, b) => (b.variants - a.variants) || (a.start - b.start))
       .filter(r => (perPage[r.page] = (perPage[r.page] || 0) + 1) <= 2).slice(0, 25)
       .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, door: classifyDoor(r), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }));
     // One sample per advertiser: the oldest ad, i.e. the most battle-tested one.
     const seen = new Set();
-    const samples = rows.filter(r => !outOfNiche.has(r.page)).sort((a, b) => a.start - b.start)
+    const samples = liveRows.filter(r => !outOfNiche.has(r.page)).sort((a, b) => a.start - b.start)
       .filter(r => !seen.has(r.page) && seen.add(r.page)).slice(0, 35).map(r => ({ page: r.page, text: snip(r) }));
+    // Ads that stopped: how long they ran (end - start), the lower median, how many
+    // died within two weeks (a test that did not work) and the longest runs.
+    const runDays = r => Math.max(0, Math.round(((r.end || now) - r.start) / 86400));
+    const runs = stoppedRows.map(runDays);
+    const perStop = {};
+    const stopped = {
+      ads: stoppedRows.length,
+      advertisers: new Set(stoppedRows.map(r => r.page)).size,
+      median_run_days: median(runs),
+      short_lived: runs.filter(d => d < 14).length,
+      top: stoppedRows.filter(r => !outOfNiche.has(r.page)).sort((a, b) => runDays(b) - runDays(a))
+        .filter(r => (perStop[r.page] = (perStop[r.page] || 0) + 1) <= 2).slice(0, 15)
+        .map(r => ({ page: r.page, run_days: runDays(r), fmt: r.fmt, variants: r.variants, door: classifyDoor(r), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }))
+    };
     // Prices mentioned in ad text, in opts.currency (UAH by default, USD for
     // US presets); "X instead of Y" / "was X now Y" pairs and "N% off"
     // mentions give the typical discount.
@@ -604,7 +629,7 @@
       const key = text(r).replace(/[^a-zа-яіїєґ0-9]/g, '');
       if (key.length < 30) continue;
       const c = clusters[key.slice(0, 70)] || (clusters[key.slice(0, 70)] = { text: snip(r), pages: new Set(), ads: 0, oldest_days: 0 });
-      c.pages.add(r.page); c.ads++; c.oldest_days = Math.max(c.oldest_days, age(r));
+      c.pages.add(r.page); c.ads++; if (!isStoppedAd(r)) c.oldest_days = Math.max(c.oldest_days, age(r));
     }
     const creative_clusters = Object.values(clusters).filter(c => c.pages.size >= 2)
       .map(c => ({ ...c, pages: [...c.pages] })).sort((a, b) => b.pages.length - a.pages.length || b.oldest_days - a.oldest_days).slice(0, 15);
@@ -617,8 +642,8 @@
     // Evidence only; writing the hypotheses is Claude's job (see SKILL.md).
     const share = (n, d) => (d ? Math.round(100 * n / d) / 100 : 0);
     const hp = hookPatterns(opts);
-    const longRows = rows.filter(r => age(r) >= longDays && !outOfNiche.has(r.page));
-    const restRows = rows.filter(r => !(age(r) >= longDays && !outOfNiche.has(r.page)));
+    const longRows = liveRows.filter(r => age(r) >= longDays && !outOfNiche.has(r.page));
+    const restRows = liveRows.filter(r => !(age(r) >= longDays && !outOfNiche.has(r.page)));
     const tally = (rs, f) => rs.reduce((m, r) => (m[f(r)] = (m[f(r)] || 0) + 1, m), {});
     const top = (rs, f, n) => Object.entries(tally(rs, f)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ value: k, share: share(v, rs.length) }));
     const enough = longRows.length >= 5;
@@ -682,6 +707,8 @@
       prices,
       top_pages: pageList.slice(0, 15),
       longrun,
+      status_counts: { active: liveRows.length, stopped: stoppedRows.length },
+      stopped,
       samples
     };
   }
@@ -689,7 +716,7 @@
   // Serializes rows to CSV (quoted, internal quotes doubled, whitespace
   // collapsed so multi-line ad bodies stay on one CSV line).
   function toCsv(rows) {
-    const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body', 'page_id', 'page_likes', 'caption', 'cta_type', 'ai_made', 'page_url'];
+    const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body', 'page_id', 'page_likes', 'caption', 'cta_type', 'ai_made', 'page_url', 'end'];
     const esc = v => {
       let s = String(Array.isArray(v) ? v.join('; ') : (v ?? '')).replace(/\s+/g, ' ');
       // Ad text/page names/CTAs are untrusted third-party input. A value
@@ -698,7 +725,7 @@
       if (/^[=+\-@]/.test(s)) s = "'" + s;
       return '"' + s.replace(/"/g, '""') + '"';
     };
-    const lines = rows.map(r => cols.map(c => esc(c === 'start' ? new Date(r.start * 1000).toISOString().slice(0, 10) : r[c])).join(','));
+    const lines = rows.map(r => cols.map(c => esc(c === 'start' ? new Date(r.start * 1000).toISOString().slice(0, 10) : c === 'end' ? (isStoppedAd(r) && r.end ? new Date(r.end * 1000).toISOString().slice(0, 10) : '') : r[c])).join(','));
     return [cols.join(',')].concat(lines).join('\n');
   }
 
@@ -719,6 +746,7 @@
       // columns added later: files from older versions simply lack them
       o.page_likes = o.page_likes === undefined || o.page_likes === '' ? null : +o.page_likes;
       o.ai_made = o.ai_made === 'true' ? true : o.ai_made === 'false' ? false : null;
+      o.end = o.end ? Date.parse(o.end + 'T00:00:00Z') / 1000 : null; // only stopped ads carry a stop date
       return o;
     });
   }
@@ -730,6 +758,10 @@
   // the ad's queries was re-run and that run was not saturated (fewer than
   // opts.cap ads), i.e. it would have listed the ad if it were still active.
   function diffSnapshots(prev, curr, opts = {}) {
+    // Stopped ads (an inactive/all run) are not part of the "running now" feed that
+    // the comparison is about.
+    prev = prev.filter(r => !isStoppedAd(r));
+    curr = curr.filter(r => !isStoppedAd(r));
     const cap = opts.cap || 90;
     const interval_days = Math.round((opts.currTs - opts.prevTs) / 86400);
     const P = new Map(prev.map(r => [r.id, r]));

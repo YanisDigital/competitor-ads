@@ -45,7 +45,7 @@ function loadSnapshot(dir, presetOverride) {
   const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
   const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
   const report = buildReport(rows, opts);
-  const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset });
+  const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads });
   return { report, doors, rows, query_stats: stats, warnings, meta: { ...meta, ts, preset_title: preset && preset.title, ...curationMeta } };
 }
 

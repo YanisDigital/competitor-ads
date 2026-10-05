@@ -91,6 +91,12 @@ function buildHtml(m) {
     out.push(table(['Страница', 'Дней', 'Вариантов', 'Формат', 'Дверь', 'Текст'], r.longrun.map(l => [esc(l.page), esc(l.days), esc(l.variants), esc(l.fmt), esc(l.door), link(l.url, l.text)])));
   }
 
+  if (r.stopped && r.stopped.ads > 0) {
+    const st = r.stopped;
+    out.push('<h2>Остановленные объявления</h2><p class="mut">Объявления, которые Библиотека больше не показывает как активные: ' + esc(st.ads) + ' от ' + esc(st.advertisers) + ' рекламодателей. Медиана показа ' + esc(st.median_run_days) + ' дн.; ' + esc(st.short_lived) + ' остановлены меньше чем за 2 недели (похоже на тест, который не сработал). Долгий показ до остановки не говорит, что объявление работало хорошо.</p>');
+    if ((st.top || []).length) out.push(table(['Страница', 'Дней показа', 'Вариантов', 'Формат', 'Дверь', 'Текст'], st.top.map(t => [esc(t.page), esc(t.run_days), esc(t.variants), esc(t.fmt), esc(t.door), link(t.url, t.text)])));
+  }
+
   if ((r.creative_clusters || []).length || (r.store_groups || []).length) {
     out.push('<h2>Сети страниц</h2><div class="grid">');
     if (r.creative_clusters.length) out.push(`<section class="card"><h3>Один текст на разных страницах</h3>${r.creative_clusters.map(c => `<p><b>${esc(c.pages.length)} стр.</b>, старейшее ${esc(c.oldest_days)} дн.: ${esc(c.text)}<br><span class="mut">${esc(c.pages.join('; '))}</span></p>`).join('')}</section>`);
