@@ -131,3 +131,21 @@ print(json.dumps({'sheets': wb.sheetnames, 'head': head[-3:], 'days': {k: v['Ð”Ð
   assert.equal(out.days['4'], 300); // run length of the stopped ad, not days since it started
   assert.equal(out.days['1'], 200);
 });
+
+test('validate_country accepts a two-letter code (any case, upper-cased) and refuses anything else', () => {
+  const ok = py('import scrape; print(scrape.validate_country("kz"))');
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.equal(ok.stdout.trim(), 'KZ');
+  for (const bad of ['', 'KZK', 'K', 'U1', 'UA&q=x', 'UA;x', '../x']) {
+    const r = py('import scrape; scrape.validate_country(' + JSON.stringify(bad) + ')');
+    assert.notEqual(r.status, 0, 'should refuse ' + JSON.stringify(bad));
+  }
+});
+
+test('library links carry only a validated country', () => {
+  const r = py('import scrape; scrape.library_url("UA&q=x", "q")');
+  assert.notEqual(r.status, 0);
+  const ok = py('import scrape; print(scrape.page_library_url("ua", "123"))');
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /country=UA&/);
+});

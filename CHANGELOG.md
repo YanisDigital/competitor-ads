@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.1] - 2026-10-05
+
+### Fixed
+- `scrape.py` put the country code into the Library URL as given (from
+  `--country`, a preset or the `run.json` read by `--pages-of`). It is now
+  checked first: two letters, upper-cased, anything else stops the run.
+- A test used the name of a real brand; tests keep to invented names too.
+
 ## [0.13.0] - 2026-10-05
 
 ### Added

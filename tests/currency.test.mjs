@@ -20,7 +20,7 @@ test('currencyForCountry maps the countries we work in and returns null for unkn
 
 test('KZT: tenge prices in ₸, тг, тенге and KZT forms, and "вместо" discount pairs', () => {
   const rows = [
-    row('1', 'a', 'Набор Kabrita за 19 999 тенге'),
+    row('1', 'a', 'Набор Brand A за 19 999 тенге'),
     row('2', 'b', 'Пюре 1 200₸ в наличии'),
     row('3', 'c', 'Смесь 7 000 тг вместо 9 000 тг, доставка по Астане'),
     row('4', 'd', 'Каша 850 kzt'),

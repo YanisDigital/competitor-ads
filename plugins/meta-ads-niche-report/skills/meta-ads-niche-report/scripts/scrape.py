@@ -89,6 +89,14 @@ def default_out_dir(name: str) -> Path:
 VALID_STATUSES = ("active", "inactive", "all")
 
 
+def validate_country(value: str) -> str:
+    """Two-letter country code, upper-cased: the value goes into a URL (it may come from --country or a run.json)."""
+    code = str(value or "").strip().upper()
+    if not re.fullmatch(r"[A-Z]{2}", code):
+        sys.exit(f"Bad country {value!r}: use a two-letter code such as UA, KZ or US.")
+    return code
+
+
 def validate_date(value: str) -> str:
     """YYYY-MM-DD only: the value goes into a URL."""
     try:
@@ -114,6 +122,7 @@ def library_url(country: str, query: str, exact: bool = False, status: str = "ac
     # keyword_unordered matches the words anywhere in the ad text (more noise);
     # keyword_exact_phrase only ads that contain the phrase as written.
     search_type = "keyword_exact_phrase" if exact else "keyword_unordered"
+    country = validate_country(country)
     return (
         "https://www.facebook.com/ads/library/"
         f"?ad_type=all&country={country}"
@@ -123,7 +132,8 @@ def library_url(country: str, query: str, exact: bool = False, status: str = "ac
 
 
 def page_library_url(country: str, page_id: str, status: str = "active", date_from: str | None = None, date_to: str | None = None) -> str:
-    """Every active ad of one page (the Library's "view all ads" link)."""
+    """Every ad of one page (the Library's "view all ads" link)."""
+    country = validate_country(country)
     return (
         "https://www.facebook.com/ads/library/"
         f"?ad_type=all&country={country}"
@@ -215,14 +225,14 @@ async def run(args, keywords: list[str]) -> None:
 
     collector_src = COLLECTOR_JS.read_text(encoding="utf-8")
     preset = load_preset(args.preset) if args.preset else None
-    country = args.country or (preset or {}).get("country") or "UA"
+    country = validate_country(args.country or (preset or {}).get("country") or "UA")
     window = (args.status, args.date_from, args.date_to)
     window_params(*window)  # validates status and dates before any browser starts
     page_urls = {}  # label -> link, for --pages-of
     if args.pages_of:
         src_run = Path(args.pages_of) / "run.json"
         if not args.country and src_run.exists():
-            country = json.loads(src_run.read_text(encoding="utf-8")).get("country") or country
+            country = validate_country(json.loads(src_run.read_text(encoding="utf-8")).get("country") or country)
         pages = pages_from_snapshot(args.pages_of)[:MAX_KEYWORDS]
         keywords = [f"page: {p['name']}" for p in pages]
         page_urls = {f"page: {p['name']}": page_library_url(country, p["page_id"], *window) for p in pages}
