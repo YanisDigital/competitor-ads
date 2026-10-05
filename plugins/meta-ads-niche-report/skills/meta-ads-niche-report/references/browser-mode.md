@@ -24,6 +24,13 @@ Build the URL and open it in a new tab (`preview_start` with `url`, or
 https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=<COUNTRY>&q=<URL-encoded query>&search_type=keyword_unordered&media_type=all
 ```
 
+Optional filters, only when the user asked for them (and say which one you
+applied): `active_status=all|inactive`, `content_languages[0]=uk` (one index
+per language), `media_type=video|image_and_meme|meme` (plain `image` returns
+nothing), `sort_data[direction]=desc&sort_data[mode]=relevancy_monthly_grouped`
+and `start_date[min]=YYYY-MM-DD&start_date[max]=YYYY-MM-DD` (ads delivered in
+that period). Filters narrow the results.
+
 ## 2. Install the collector
 
 Read `scripts/collector.js` from this skill's folder in full, then execute

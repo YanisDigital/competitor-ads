@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.13.3] - 2026-10-05
+
+### Changed
+- `SKILL.md`: filters (language, media type, period, stopped ads) are switched
+  on only when the user names them, never silently, and Claude says which one
+  it applied and that it narrows the results. For two-language markets
+  (Ukraine, Kazakhstan) with queries in both languages it asks once, before
+  collecting, whether to collect both languages or one; both is the default.
+- `references/browser-mode.md` lists the same filters as Library URL
+  parameters.
+
 ## [0.13.2] - 2026-10-05
 
 ### Added
