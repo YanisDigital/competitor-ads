@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.13.2] - 2026-10-05
+
+### Added
+- `scrape.py --language uk ru` (language of the ad text, one or more two-letter
+  codes), `--media all|video|image|meme` and `--sort impressions|relevancy`.
+  Checked live: on one Ukrainian query 110 of ~170 ads were Ukrainian and 40
+  Russian; the Library's plain `image` value returns nothing, so `image` is
+  sent as `image_and_meme`; relevancy order gives a different top of the
+  results with the same ~30-ad limit per query. Values are validated before a
+  browser starts (language lower-cased and de-duplicated), the filters also
+  apply to `--pages-of`, and `run.json` records the ones in use.
+- Tests (`tests/filters.test.mjs`, 114 in total).
+
+### Changed
+- `media_type` now comes from the same validated parameter block as the status
+  and the period (`window_params`), no longer hard-coded in the two URL
+  builders.
+
 ## [0.13.1] - 2026-10-05
 
 ### Fixed

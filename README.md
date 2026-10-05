@@ -243,6 +243,13 @@ own block (days shown, how many died within two weeks, the longest runs; a
 statistics stay about ads that still run. A long run before stopping does not
 prove the ad worked.
 
+Further filters: `--language uk ru` (language of the ad text), `--media
+video|image|meme` (the Library's plain "image" returns nothing, so `image`
+is sent as image-and-meme) and `--sort relevancy` (instead of the Library's
+order by reach: a different top of the results, the same ~30-ad limit per
+query). Filters narrow the results, so do not compare such a snapshot with an
+unfiltered one.
+
 ## All ads of the competitors
 
 Keyword search only sees the ads that match the query. Once the competitors are

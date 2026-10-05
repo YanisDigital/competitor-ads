@@ -87,6 +87,9 @@ def default_out_dir(name: str) -> Path:
 
 
 VALID_STATUSES = ("active", "inactive", "all")
+# media filter: the Library's plain "image" value returns nothing, "image_and_meme" returns image ads
+MEDIA_PARAM = {"all": "all", "video": "video", "image": "image_and_meme", "meme": "meme"}
+VALID_SORTS = ("impressions", "relevancy")  # impressions is the Library's default order
 
 
 def validate_country(value: str) -> str:
@@ -105,12 +108,30 @@ def validate_date(value: str) -> str:
         sys.exit(f"Bad date {value!r}: use YYYY-MM-DD.")
 
 
-def window_params(status: str = "active", date_from: str | None = None, date_to: str | None = None) -> str:
-    """Status and delivery-period part of a Library URL. The Library filters the
-    period by delivery (ads that ran in it), not by the day an ad started."""
+def validate_language(value: str) -> str:
+    """Two-letter ad language code, lower-cased: the value goes into a URL."""
+    code = str(value or "").strip().lower()
+    if not re.fullmatch(r"[a-z]{2}", code):
+        sys.exit(f"Bad language {value!r}: use a two-letter code such as uk, ru or kk.")
+    return code
+
+
+def window_params(status: str = "active", date_from: str | None = None, date_to: str | None = None,
+                  language: list | None = None, media: str = "all", sort: str = "impressions") -> str:
+    """Status, delivery period, ad language, media type and sort order of a Library
+    URL. The Library filters the period by delivery (ads that ran in it), not by
+    the day an ad started; the language is the language of the ad text."""
     if status not in VALID_STATUSES:
         sys.exit(f"Bad --status {status!r}: use one of {', '.join(VALID_STATUSES)}.")
-    out = f"&active_status={status}"
+    if media not in MEDIA_PARAM:
+        sys.exit(f"Bad --media {media!r}: use one of {', '.join(MEDIA_PARAM)}.")
+    if sort not in VALID_SORTS:
+        sys.exit(f"Bad --sort {sort!r}: use one of {', '.join(VALID_SORTS)}.")
+    out = f"&active_status={status}&media_type={MEDIA_PARAM[media]}"
+    for i, code in enumerate(dict.fromkeys(validate_language(x) for x in (language or []))):
+        out += f"&content_languages[{i}]={code}"
+    if sort == "relevancy":
+        out += "&sort_data[direction]=desc&sort_data[mode]=relevancy_monthly_grouped"
     if date_from:
         out += f"&start_date[min]={validate_date(date_from)}"
     if date_to:
@@ -118,7 +139,8 @@ def window_params(status: str = "active", date_from: str | None = None, date_to:
     return out
 
 
-def library_url(country: str, query: str, exact: bool = False, status: str = "active", date_from: str | None = None, date_to: str | None = None) -> str:
+def library_url(country: str, query: str, exact: bool = False, status: str = "active", date_from: str | None = None, date_to: str | None = None,
+                language: list | None = None, media: str = "all", sort: str = "impressions") -> str:
     # keyword_unordered matches the words anywhere in the ad text (more noise);
     # keyword_exact_phrase only ads that contain the phrase as written.
     search_type = "keyword_exact_phrase" if exact else "keyword_unordered"
@@ -126,19 +148,20 @@ def library_url(country: str, query: str, exact: bool = False, status: str = "ac
     return (
         "https://www.facebook.com/ads/library/"
         f"?ad_type=all&country={country}"
-        f"&q={quote(query, safe='')}&search_type={search_type}&media_type=all"
-        + window_params(status, date_from, date_to)
+        f"&q={quote(query, safe='')}&search_type={search_type}"
+        + window_params(status, date_from, date_to, language, media, sort)
     )
 
 
-def page_library_url(country: str, page_id: str, status: str = "active", date_from: str | None = None, date_to: str | None = None) -> str:
+def page_library_url(country: str, page_id: str, status: str = "active", date_from: str | None = None, date_to: str | None = None,
+                     language: list | None = None, media: str = "all", sort: str = "impressions") -> str:
     """Every ad of one page (the Library's "view all ads" link)."""
     country = validate_country(country)
     return (
         "https://www.facebook.com/ads/library/"
         f"?ad_type=all&country={country}"
-        f"&view_all_page_id={page_id}&search_type=page&media_type=all"
-        + window_params(status, date_from, date_to)
+        f"&view_all_page_id={page_id}&search_type=page"
+        + window_params(status, date_from, date_to, language, media, sort)
     )
 
 
@@ -205,7 +228,7 @@ async def detect_block(page) -> None:
         raise BlockedError("Meta showed a captcha/checkpoint. Stopping: this tool never bypasses captchas.")
 
 
-async def open_query(page, country: str, keyword: str, exact: bool = False, url: str | None = None, window: tuple = ("active", None, None)) -> None:
+async def open_query(page, country: str, keyword: str, exact: bool = False, url: str | None = None, window: tuple = ("active", None, None, None, "all", "impressions")) -> None:
     """Open the Library URL for one query. Each query gets its own page load:
     in headless Chromium the in-page search box returned "no ads match" for
     queries that have results, and crashed the page by the third search."""
@@ -226,8 +249,8 @@ async def run(args, keywords: list[str]) -> None:
     collector_src = COLLECTOR_JS.read_text(encoding="utf-8")
     preset = load_preset(args.preset) if args.preset else None
     country = validate_country(args.country or (preset or {}).get("country") or "UA")
-    window = (args.status, args.date_from, args.date_to)
-    window_params(*window)  # validates status and dates before any browser starts
+    window = (args.status, args.date_from, args.date_to, args.language, args.media, args.sort)
+    window_params(*window)  # validates status, dates, language, media and sort before any browser starts
     page_urls = {}  # label -> link, for --pages-of
     if args.pages_of:
         src_run = Path(args.pages_of) / "run.json"
@@ -311,6 +334,8 @@ async def run(args, keywords: list[str]) -> None:
         json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": keywords,
                     "preset": args.preset, "rate_limited_queries": rate_limited,
                     "search_type": "exact_phrase" if args.exact else "any_words", "headed": bool(args.headed), "status": args.status,
+                    **({"language": args.language} if args.language else {}), **({"media": args.media} if args.media != "all" else {}),
+                    **({"sort": args.sort} if args.sort != "impressions" else {}),
                     **({"date_from": args.date_from} if args.date_from else {}), **({"date_to": args.date_to} if args.date_to else {}),
                     **({"pages_of": str(args.pages_of)} if args.pages_of else {})}, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -350,6 +375,9 @@ def main() -> None:
     parser.add_argument("--status", choices=VALID_STATUSES, default="active", help="active (default), inactive (stopped ads only) or all. Stopped ads show what competitors tried and switched off")
     parser.add_argument("--date-from", dest="date_from", help="YYYY-MM-DD: only ads that were delivered on or after this day")
     parser.add_argument("--date-to", dest="date_to", help="YYYY-MM-DD: only ads that were delivered on or before this day")
+    parser.add_argument("--language", nargs="+", metavar="CODE", help="Language of the ad text, one or more two-letter codes (uk ru kk ...); default: any")
+    parser.add_argument("--media", choices=tuple(MEDIA_PARAM), default="all", help="Media type: all (default), video, image (image and meme ads) or meme")
+    parser.add_argument("--sort", choices=VALID_SORTS, default="impressions", help="impressions (default, the Library's order) or relevancy")
     parser.add_argument("--exact", action="store_true", help="Exact-phrase search (fewer off-niche ads); default matches the words anywhere in the ad")
     parser.add_argument("--express", action="store_true", help=f"Quick look: run only the first {EXPRESS_QUERIES} queries")
     parser.add_argument("--list-presets", action="store_true", dest="list_presets", help="List available niche presets and exit")
