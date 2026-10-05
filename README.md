@@ -232,6 +232,21 @@ how many ads and advertisers it found and how many were real competitors, plus
 whether Meta refused "load more" (sheet "Запросы" in Excel, a section in HTML),
 so weak queries can be replaced.
 
+## EU reach and audience
+
+For ads delivered in the EU, Meta publishes the reach in people, the
+targeting (age, gender, countries) and the age/gender split of who was
+actually reached. It is not in the search results: the Library sends it when
+"See ad details" is opened on an ad. `python scripts/eu_details.py <snapshot>
+--limit 20` does that, one request per ad like a person clicking, only for the
+ads that count in the snapshot (curation applied; the longest-running ad of
+every advertiser first; at most 50 per run, with a pause). It writes
+`eu.json`; the report, Excel ("ЕС охват и аудитория" sheet) and HTML pick it
+up. Snapshots from non-EU countries stop with a message, a login wall or a
+captcha stops the run. Reach is people per ad: summing an advertiser's ads
+counts overlapping people twice (an upper bound). The "payer" can be a private
+person's name: do not publish that column.
+
 ## Links to the picture and the video
 
 `ads.csv` and the Excel ads sheet carry links to the creative itself: the

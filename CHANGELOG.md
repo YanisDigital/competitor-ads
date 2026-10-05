@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.13.5] - 2026-10-06
+
+### Added
+- `scripts/eu_details.py <snapshot> [--limit 20] [--delay 6]`: EU reach and
+  audience for ads delivered in the EU. Meta publishes the reach in people,
+  the targeting (age, gender, countries) and the age/gender split of who was
+  reached per country, but only when "See ad details" is opened on an ad, so
+  the script does that like a person clicking: one request per ad, English UI
+  (`locale en-US`), only for the ads that count in the snapshot (curation
+  applied), the longest-running ad of every advertiser first (`pickEuAds`),
+  at most 50 per run with a pause of at least 4 seconds. It writes `eu.json`
+  after every ad (a failed ad is skipped and can be retried; the click falls
+  back to a DOM click when an invisible layer covers the button). A snapshot
+  from a non-EU country, a login wall or a captcha stops the run.
+- collector.js: `isEuCountry`, `pickEuAds`, `parseEuDetails` (from the raw
+  response) and `euSummary` (per ad, per advertiser, overall age and gender
+  shares). `report.js` returns the summary as `eu` when `eu.json` exists.
+- Excel sheet "ЕС охват и аудитория" and an HTML section "ЕС: охват и
+  аудитория", only with data. Reach is people per ad: summing an advertiser's
+  ads counts overlapping people twice (an upper bound). The payer can be a
+  private person's name, so that column should not be published; `eu.json` is
+  in `.gitignore`.
+- Checked live on a German snapshot: 8 of 8 ads returned data.
+- Tests (`tests/eu.test.mjs`, 133 in total).
+
 ## [0.13.4] - 2026-10-05
 
 ### Added

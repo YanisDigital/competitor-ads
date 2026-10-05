@@ -8,6 +8,7 @@ out/
 client.json
 curation.json
 hypotheses*.json
+eu.json
 test_plan.json
 report.xlsx
 report.html

@@ -403,6 +403,125 @@
     };
   }
 
+  // ---- EU transparency (reach and audience of ads delivered in the EU) -------
+  // Meta publishes, for ads that were delivered in the EU, the total reach, the
+  // targeting (age, gender, places) and the age/gender split of who was actually
+  // reached, per country. The Library sends it only when "See ad details" is
+  // opened on an ad, one request per ad (scripts/eu_details.py does that); it is
+  // not in the search results. Reach is a number of people for that ad: adding
+  // ads of one advertiser counts overlapping people twice, so a sum is an upper
+  // bound, not an audience size.
+  const EU_COUNTRIES = new Set(['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE']);
+  const isEuCountry = c => EU_COUNTRIES.has(String(c || '').trim().toUpperCase());
+
+  // Which ads to open when only `limit` can be: the longest-running ad of every
+  // advertiser first (the one that proved itself), then each advertiser's next
+  // oldest, so a few big advertisers do not use up the whole budget.
+  function pickEuAds(rows, limit) {
+    const byPage = new Map();
+    for (const r of [...rows].sort((a, b) => a.start - b.start)) {
+      if (!byPage.has(r.page)) byPage.set(r.page, []);
+      byPage.get(r.page).push(r.id);
+    }
+    const queues = [...byPage.values()].sort((a, b) => 0); // insertion order = by each page's oldest ad
+    const out = [];
+    for (let round = 0; out.length < limit; round++) {
+      let any = false;
+      for (const q of queues) if (round < q.length && out.length < limit) { out.push(q[round]); any = true; }
+      if (!any) break;
+    }
+    return out;
+  }
+
+  // Turns the text of a Library response (JSON, one document per line) into a
+  // flat record, or null when the response holds no EU reach.
+  function parseEuDetails(text) {
+    let eu = null, payer = null;
+    const visit = o => {
+      if (!o || typeof o !== 'object') return;
+      if (Array.isArray(o)) { o.forEach(visit); return; }
+      if (!eu && Object.prototype.hasOwnProperty.call(o, 'eu_total_reach')) eu = o;
+      if (!payer && Array.isArray(o.payer_beneficiary_data) && o.payer_beneficiary_data.length) payer = o.payer_beneficiary_data[0];
+      for (const k in o) visit(o[k]);
+    };
+    for (const line of String(text || '').split('\n')) { try { visit(JSON.parse(line)); } catch (e) { /* not a JSON line */ } }
+    if (!eu || !Number.isFinite(eu.eu_total_reach)) return null;
+    const places = Array.isArray(eu.location_audience) ? eu.location_audience : [];
+    const breakdown = [];
+    for (const c of Array.isArray(eu.age_country_gender_reach_breakdown) ? eu.age_country_gender_reach_breakdown : []) {
+      for (const g of Array.isArray(c.age_gender_breakdowns) ? c.age_gender_breakdowns : []) {
+        breakdown.push({ country: c.country || '', age_range: g.age_range || '', male: +g.male || 0, female: +g.female || 0, unknown: +g.unknown || 0 });
+      }
+    }
+    return {
+      eu_total_reach: eu.eu_total_reach,
+      targets_eu: eu.targets_eu === true,
+      age_min: eu.age_audience && Number.isFinite(eu.age_audience.min) ? eu.age_audience.min : null,
+      age_max: eu.age_audience && Number.isFinite(eu.age_audience.max) ? eu.age_audience.max : null,
+      gender: typeof eu.gender_audience === 'string' ? eu.gender_audience : '',
+      locations: places.filter(p => !p.excluded).map(p => String(p.name || '')),
+      excluded_locations: places.filter(p => p.excluded).map(p => String(p.name || '')),
+      breakdown,
+      payer: payer && payer.payer ? String(payer.payer) : '',
+      beneficiary: payer && payer.beneficiary ? String(payer.beneficiary) : ''
+    };
+  }
+
+  // eu = parsed eu.json ({ ads: { [adId]: parseEuDetails() } }); rows = the ads
+  // that count (curation applied): data for other ads is ignored.
+  function euSummary(eu, rows) {
+    const empty = { ads: 0, per_ad: [], per_page: [], overall: { reach_sum: 0, age_share: {}, gender_share: {} } };
+    if (!eu || !eu.ads) return empty;
+    const pageOf = new Map(rows.map(r => [r.id, r.page]));
+    const AGE_ORDER = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+', 'Unknown'];
+    const r2 = x => Math.round(100 * x) / 100;
+    const totals = b => {
+      const age = {}, g = { male: 0, female: 0, unknown: 0 };
+      for (const x of b) { age[x.age_range] = (age[x.age_range] || 0) + x.male + x.female + x.unknown; g.male += x.male; g.female += x.female; g.unknown += x.unknown; }
+      return { age, g, all: g.male + g.female + g.unknown };
+    };
+    const perAd = [], overallAge = {}, overallG = { male: 0, female: 0, unknown: 0 };
+    for (const [id, d] of Object.entries(eu.ads)) {
+      if (!d || !pageOf.has(id)) continue;
+      const t = totals(d.breakdown || []);
+      const known = Object.entries(t.age).filter(([k]) => k !== 'Unknown').sort((a, b) => b[1] - a[1]);
+      perAd.push({
+        id, page: pageOf.get(id), reach: d.eu_total_reach, age_min: d.age_min, age_max: d.age_max, gender: d.gender, countries: d.locations || [],
+        top_age_range: known.length ? known[0][0] : '', top_age_share: known.length && t.all ? r2(known[0][1] / t.all) : null,
+        female_share: t.all ? r2(t.g.female / t.all) : null, male_share: t.all ? r2(t.g.male / t.all) : null,
+        payer: d.payer || '', beneficiary: d.beneficiary || '', url: 'https://www.facebook.com/ads/library/?id=' + id
+      });
+      for (const [k, v] of Object.entries(t.age)) overallAge[k] = (overallAge[k] || 0) + v;
+      for (const k of Object.keys(overallG)) overallG[k] += t.g[k];
+    }
+    const pages = new Map();
+    for (const a of perAd) {
+      const p = pages.get(a.page) || { page: a.page, ads: 0, reach_sum: 0, reach_max: 0, age_min: null, age_max: null, genders: new Set(), countries: new Set(), tops: {}, payers: new Set() };
+      p.ads++; p.reach_sum += a.reach; p.reach_max = Math.max(p.reach_max, a.reach);
+      if (a.age_min !== null) p.age_min = p.age_min === null ? a.age_min : Math.min(p.age_min, a.age_min);
+      if (a.age_max !== null) p.age_max = p.age_max === null ? a.age_max : Math.max(p.age_max, a.age_max);
+      if (a.gender) p.genders.add(a.gender);
+      a.countries.forEach(c => p.countries.add(c));
+      if (a.top_age_range) p.tops[a.top_age_range] = (p.tops[a.top_age_range] || 0) + 1;
+      if (a.payer) p.payers.add(a.payer);
+      pages.set(a.page, p);
+    }
+    const perPage = [...pages.values()].map(p => ({
+      page: p.page, ads: p.ads, reach_sum: p.reach_sum, reach_max: p.reach_max, age_min: p.age_min, age_max: p.age_max,
+      genders: [...p.genders], countries: [...p.countries], top_age_range: Object.entries(p.tops).sort((a, b) => b[1] - a[1])[0]?.[0] || '', payers: [...p.payers]
+    })).sort((a, b) => b.reach_sum - a.reach_sum);
+    const ageTotal = Object.values(overallAge).reduce((a, b) => a + b, 0), gTotal = overallG.male + overallG.female + overallG.unknown;
+    const age_share = {};
+    for (const k of [...AGE_ORDER, ...Object.keys(overallAge).filter(k => !AGE_ORDER.includes(k))]) if (overallAge[k]) age_share[k] = r2(overallAge[k] / ageTotal);
+    return {
+      ads: perAd.length, per_ad: perAd.sort((a, b) => b.reach - a.reach), per_page: perPage,
+      overall: {
+        reach_sum: perAd.reduce((s, a) => s + a.reach, 0), age_share,
+        gender_share: gTotal ? { male: r2(overallG.male / gTotal), female: r2(overallG.female / gTotal), unknown: r2(overallG.unknown / gTotal) } : {}
+      }
+    };
+  }
+
   // ---- Hypothesis text checks ----------------------------------------------
   // Heuristics for commonly enforced ad-policy problems and for claims that the
   // client has not confirmed. They flag, they do not certify: Meta reviews
@@ -969,6 +1088,9 @@
     M.exclude = (names) => { let k = 0; for (const [id, r] of Object.entries(M.store)) if (names.includes(r.page)) { delete M.store[id]; k++; } return k + ' removed'; };
     M.buildQueries = buildQueries;
     M.currencyForCountry = currencyForCountry;
+    M.parseEuDetails = parseEuDetails;
+    M.pickEuAds = pickEuAds;
+    M.isEuCountry = isEuCountry;
     M.siteFacts = siteFacts;
     M.compareAdVsSite = compareAdVsSite;
     M.report = (opts = {}) => buildReport(Object.values(M.store), opts);
@@ -979,7 +1101,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary };
   }
 
   return installResult;

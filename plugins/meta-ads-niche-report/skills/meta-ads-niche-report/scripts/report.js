@@ -12,7 +12,7 @@
 //   node report.js out/ecom-dropship-us/2026-09-30 [preset-id]
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, currencyForCountry } = require('./collector.js');
+const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, currencyForCountry, euSummary } = require('./collector.js');
 
 function loadSnapshot(dir, presetOverride) {
   const metaPath = path.join(dir, 'run.json');
@@ -44,9 +44,11 @@ function loadSnapshot(dir, presetOverride) {
   const doors = Object.fromEntries(rows.map(r => [r.id, classifyDoor(r)]));
   const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
   const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
+  const euPath = path.join(dir, 'eu.json'); // EU reach and audience, collected by eu_details.py
+  const eu = fs.existsSync(euPath) ? euSummary(JSON.parse(fs.readFileSync(euPath, 'utf8')), rows) : null;
   const report = buildReport(rows, opts);
   const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads });
-  return { report, doors, rows, query_stats: stats, warnings, meta: { ...meta, ts, preset_title: preset && preset.title, ...curationMeta } };
+  return { report, doors, rows, query_stats: stats, warnings, eu, meta: { ...meta, ts, preset_title: preset && preset.title, ...curationMeta } };
 }
 
 module.exports = { loadSnapshot };
@@ -57,6 +59,6 @@ if (require.main === module) {
     console.error('Usage: node report.js <snapshot-folder-with-ads.csv> [preset-id]');
     process.exit(1);
   }
-  const { report, doors, meta, query_stats, warnings } = loadSnapshot(dir, process.argv[3]);
-  process.stdout.write(JSON.stringify({ report, doors, meta, query_stats, warnings }));
+  const { report, doors, meta, query_stats, warnings, eu } = loadSnapshot(dir, process.argv[3]);
+  process.stdout.write(JSON.stringify({ report, doors, meta, query_stats, warnings, eu }));
 }

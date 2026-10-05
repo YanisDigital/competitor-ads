@@ -45,7 +45,7 @@ def load_report(folder: Path):
         res = subprocess.run(["node", str(HERE / "report.js"), str(folder)], capture_output=True, encoding="utf-8", timeout=120)
         if res.returncode == 0 and res.stdout.strip():
             data = json.loads(res.stdout)
-            return data["report"], data["doors"], data["meta"], data.get("query_stats", []), data.get("warnings", [])
+            return data["report"], data["doors"], data["meta"], data.get("query_stats", []), data.get("warnings", []), data.get("eu")
         print("warning: report.js failed, using report.json:", res.stderr.strip(), file=sys.stderr)
     except FileNotFoundError:
         print("warning: node not found, using report.json (door column will be empty)", file=sys.stderr)
@@ -53,7 +53,7 @@ def load_report(folder: Path):
     if not rp.exists():
         sys.exit("No node and no report.json: cannot build the report.")
     meta = json.loads((folder / "run.json").read_text(encoding="utf-8")) if (folder / "run.json").exists() else {}
-    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], []
+    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], [], None
 
 
 def days_shown(r, run_dt) -> int:
@@ -88,7 +88,7 @@ def main() -> None:
         sys.exit(f"No ads.csv in {folder}")
     out_path = Path(args.out) if args.out else folder / "report.xlsx"
 
-    report, doors, meta, query_stats, warnings = load_report(folder)
+    report, doors, meta, query_stats, warnings, eu = load_report(folder)
     with open(folder / "ads.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     # curation.json (hand-checked list of competitors) was applied by report.js: drop the same advertisers here
@@ -238,6 +238,41 @@ def main() -> None:
     wp.freeze_panes = "B2"
     wp.auto_filter.ref = f"A1:{get_column_letter(len(pcols))}{last_page}"
     wp.row_dimensions[1].height = 45
+
+    # ---- EU reach and audience (only when eu_details.py was run) ----
+    if eu and eu.get("ads"):
+        we = wb.create_sheet("ЕС охват и аудитория")
+        we.cell(row=1, column=1, value=("Данные Meta только для объявлений, показанных в ЕС. Охват это люди по каждому объявлению; сумма по объявлениям одного рекламодателя "
+                                        "считает пересекающихся людей дважды (верхняя граница). Возраст и пол охваченных это фактический состав, таргетинг это настройки рекламодателя.")).font = f_note
+        header(we, 3, ["Страница", "Объявл. с данными", "Охват, сумма", "Охват, макс.", "Возраст таргетинга", "Пол", "Страны таргетинга", "Главная возрастная группа", "Плательщик"], [38, 12, 13, 13, 14, 14, 36, 14, 40])
+        r0 = 4
+        for p in eu["per_page"]:
+            put(we, r0, [p["page"], p["ads"], p["reach_sum"], p["reach_max"], f'{p["age_min"]}-{p["age_max"]}' if p["age_min"] is not None else "",
+                         ", ".join(p["genders"]), ", ".join(p["countries"]), p["top_age_range"], "; ".join(p["payers"])])
+            r0 += 1
+        r0 += 1
+        we.cell(row=r0, column=1, value="По объявлениям").font = f_bold
+        r0 += 1
+        for i, t in enumerate(["Страница", "Охват", "Возраст таргетинга", "Пол таргетинга", "Главная группа", "Её доля", "Женщин среди охваченных", "Плательщик", "Ссылка"], 1):
+            c = we.cell(row=r0, column=i, value=t)
+            c.font, c.fill = f_head, fill_head
+        r0 += 1
+        for a in eu["per_ad"]:
+            put(we, r0, [a["page"], a["reach"], f'{a["age_min"]}-{a["age_max"]}' if a["age_min"] is not None else "", a["gender"], a["top_age_range"],
+                         a["top_age_share"], a["female_share"], a["payer"], a["url"]])
+            we.cell(row=r0, column=9).hyperlink = a["url"]
+            we.cell(row=r0, column=9).font = f_link
+            for col in (6, 7):
+                we.cell(row=r0, column=col).number_format = "0%"
+            r0 += 1
+        r0 += 1
+        we.cell(row=r0, column=1, value="Возраст охваченных, все объявления").font = f_bold
+        r0 += 1
+        for k, v in eu["overall"]["age_share"].items():
+            put(we, r0, [k, v])
+            we.cell(row=r0, column=2).number_format = "0%"
+            r0 += 1
+        we.freeze_panes = "A4"
 
     # ---- Stopped ads (only when the run asked for them) ----
     stopped = report.get("stopped") or {}
