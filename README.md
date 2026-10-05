@@ -232,6 +232,15 @@ how many ads and advertisers it found and how many were real competitors, plus
 whether Meta refused "load more" (sheet "Запросы" in Excel, a section in HTML),
 so weak queries can be replaced.
 
+## Links to the picture and the video
+
+`ads.csv` and the Excel ads sheet carry links to the creative itself: the
+full-size picture (the preview frame for a video) and the HD video (else SD),
+as "Картинка" / "Видео" hyperlinks. Meta serves them from its CDN with a signed
+address that stops working after a while (usually days), so open or download
+what you need right away; the stable link is the ad's own Library link. Only
+http(s) links are kept.
+
 ## Stopped ads and delivery period
 
 `scrape.py --status all` (or `inactive`) also collects ads the Library no

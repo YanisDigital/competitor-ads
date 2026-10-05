@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.13.4] - 2026-10-05
+
+### Added
+- Links to the creative itself: `ads.csv` gets `image_url` (the full-size
+  picture, the preview frame for a video) and `video_url` (HD, else SD),
+  taken from the snapshot and then from the first card (carousel and dynamic
+  ads). The Excel ads sheet shows them as "Картинка" / "Видео" hyperlinks, with
+  a comment on the header saying that Meta's CDN addresses are signed and stop
+  working after a while (usually days). Only http(s) links are kept. Checked
+  live: 7 of 7 ads had a picture link and 4 of 7 a video link.
+- Tests (`tests/media_links.test.mjs`, 122 in total).
+
+### Changed
+- Two older tests that matched the exact end of the CSV header now expect the
+  new columns.
+
 ## [0.13.3] - 2026-10-05
 
 ### Changed

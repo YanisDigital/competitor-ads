@@ -33,6 +33,7 @@ class F(str):
 
 try:
     from openpyxl import Workbook
+    from openpyxl.comments import Comment
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 except ImportError:
@@ -140,6 +141,11 @@ def main() -> None:
     if status_cols:
         cols += ["Статус", "Остановлено"]
         widths += [13, 13]
+    media_cols = bool(rows) and "image_url" in rows[0]  # added in v0.13.4: links to the picture and the video
+    if media_cols:
+        cols += ["Картинка", "Видео"]
+        widths += [11, 9]
+    media_start = len(cols) - 1  # 1-based column of "Картинка" when media_cols
     header(wa, 1, cols, widths)
     for i, r in enumerate(rows, 2):
         start = datetime.strptime(r["start"], "%Y-%m-%d")
@@ -151,11 +157,28 @@ def main() -> None:
             values += [r.get("cta_type", ""), r.get("caption", ""), {"true": "да", "false": "нет"}.get(r.get("ai_made", ""), "")]
         if status_cols:
             values += ["остановлено" if r.get("active") == "false" else "активно", r.get("end", "")]
+        shown = {"image": r.get("image_url", "") if media_cols else "", "video": r.get("video_url", "") if media_cols else ""}
+        shown = {k: v for k, v in shown.items() if v.lower().startswith(("http://", "https://"))}  # only real web links
+        if media_cols:
+            values += ["превью" if shown.get("video") and shown.get("image") else "картинка" if shown.get("image") else None,
+                       "видео" if shown.get("video") else None]
         put(wa, i, values)
+        for offset, key in ((0, "image"), (1, "video")):
+            if key in shown:
+                cell = wa.cell(row=i, column=media_start + offset)
+                cell.hyperlink = shown[key]
+                cell.font = f_link
         wa.cell(row=i, column=2).hyperlink = url
         wa.cell(row=i, column=2).font = f_link
         wa.cell(row=i, column=4).number_format = "yyyy-mm-dd"
     last_ad = len(rows) + 1
+    if media_cols:
+        note = Comment(
+            "Ссылки на картинки и видео выдаёт CDN Meta с подписью: они действуют ограниченное время (обычно дни). "
+            "Нужное открой или скачай сразу; потом ссылка перестанет работать, а объявление останется доступным по колонке «Ссылка на объявление».",
+            "meta-ads-niche-report")
+        note.width, note.height = 320, 120
+        wa.cell(row=1, column=media_start).comment = note
     wa.freeze_panes = "D2"
     wa.auto_filter.ref = f"A1:{get_column_letter(len(cols))}{last_ad}"
     wa.row_dimensions[1].height = 30

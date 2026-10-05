@@ -82,6 +82,21 @@
   // snapshot.body/title; the real text lives in snapshot.cards[], so when a
   // template placeholder is detected we substitute the first non-empty
   // card's text instead and record how many cards the ad has (ncards).
+  // Links to the creative itself: the full-size picture (for a video, its
+  // preview frame) and the HD video, else SD. Taken from the snapshot, then
+  // from the first card (carousel / dynamic ads). Meta serves them from a CDN
+  // with a signed, expiring address, so they are for a look now, not an
+  // archive. Only http(s) is kept: the value ends up in a spreadsheet link.
+  const httpOnly = u => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : '');
+  function mediaLinks(s, cards) {
+    const img = (s.images || [])[0] || {}, vid = (s.videos || [])[0] || {}, card = cards[0] || {};
+    return {
+      image_url: httpOnly(img.original_image_url) || httpOnly(img.resized_image_url) || httpOnly(vid.video_preview_image_url)
+        || httpOnly(card.original_image_url) || httpOnly(card.resized_image_url) || httpOnly(card.video_preview_image_url),
+      video_url: httpOnly(vid.video_hd_url) || httpOnly(vid.video_sd_url) || httpOnly(card.video_hd_url) || httpOnly(card.video_sd_url)
+    };
+  }
+
   function normalizeAd(node, kw) {
     const s = node.snapshot || {};
     const cards = Array.isArray(s.cards) ? s.cards : [];
@@ -133,6 +148,7 @@
       cta_type: s.cta_type || (cards[0] && cards[0].cta_type) || '',
       ai_made: typeof node.contains_digital_created_media === 'boolean' ? node.contains_digital_created_media : null,
       page_url: s.page_profile_uri || '',
+      ...mediaLinks(s, cards),
       kws: kw ? [kw] : []
     };
   }
@@ -716,7 +732,7 @@
   // Serializes rows to CSV (quoted, internal quotes doubled, whitespace
   // collapsed so multi-line ad bodies stay on one CSV line).
   function toCsv(rows) {
-    const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body', 'page_id', 'page_likes', 'caption', 'cta_type', 'ai_made', 'page_url', 'end'];
+    const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body', 'page_id', 'page_likes', 'caption', 'cta_type', 'ai_made', 'page_url', 'end', 'image_url', 'video_url'];
     const esc = v => {
       let s = String(Array.isArray(v) ? v.join('; ') : (v ?? '')).replace(/\s+/g, ' ');
       // Ad text/page names/CTAs are untrusted third-party input. A value
