@@ -53,7 +53,7 @@ test('validate_date accepts YYYY-MM-DD and refuses anything else', () => {
 
 test('CSV keeps the stop date of stopped ads and leaves it empty for active ones', () => {
   const csv = toCsv([ACTIVE_OLD, STOP_SHORT]);
-  assert.match(csv.split('\n')[0], /,end,image_url,video_url$/);
+  assert.match(csv.split('\n')[0], /,end,image_url,video_url,card_image_urls$/);
   const [a, s] = parseCsv(csv);
   assert.equal(a.end, null);
   assert.ok(Math.abs(Math.round((NOW - s.end) / DAY) - 30) <= 1); // the file keeps the date, not the time

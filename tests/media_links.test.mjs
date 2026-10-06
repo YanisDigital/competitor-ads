@@ -57,7 +57,7 @@ test('an ad with no media keeps both fields empty', () => {
 test('CSV round trip carries both links, and old files without the columns still load', () => {
   const rows = [normalizeAd(ad({ images: [{ original_image_url: 'https://cdn.example/full.jpg?a=1&b=2' }] }), 'q')];
   const csv = toCsv(rows);
-  assert.match(csv.split('\n')[0], /,image_url,video_url$/);
+  assert.match(csv.split('\n')[0], /,image_url,video_url,card_image_urls$/);
   const [back] = parseCsv(csv);
   assert.equal(back.image_url, 'https://cdn.example/full.jpg?a=1&b=2');
   assert.equal(back.video_url, '');

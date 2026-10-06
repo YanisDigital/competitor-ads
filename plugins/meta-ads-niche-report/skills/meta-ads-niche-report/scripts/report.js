@@ -4,7 +4,7 @@
 // (run.json -> presets/<id>.json). If the folder has a curation.json (hand-made
 // list of advertisers to keep or drop, see applyCuration in collector.js) the
 // report is built from the kept advertisers only. As a CLI it prints
-// {report, doors, meta, query_stats, warnings} as
+// {report, doors, meta, query_stats, warnings, eu, visuals} as
 // JSON to stdout; as a module it exports loadSnapshot(). Used by
 // export_xlsx.py and export_html.js so exports always reflect the current
 // report logic, even for folders scraped with an older version.
@@ -12,7 +12,7 @@
 //   node report.js out/ecom-dropship-us/2026-09-30 [preset-id]
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, currencyForCountry, euSummary } = require('./collector.js');
+const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, currencyForCountry, euSummary, creativesSummary } = require('./collector.js');
 
 function loadSnapshot(dir, presetOverride) {
   const metaPath = path.join(dir, 'run.json');
@@ -46,9 +46,15 @@ function loadSnapshot(dir, presetOverride) {
   const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
   const euPath = path.join(dir, 'eu.json'); // EU reach and audience, collected by eu_details.py
   const eu = fs.existsSync(euPath) ? euSummary(JSON.parse(fs.readFileSync(euPath, 'utf8')), rows) : null;
+  // Pictures downloaded by fetch_creatives.py (creatives/manifest.json) and the
+  // tags Claude wrote for them (creatives.json).
+  const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null);
+  const manifest = readJson(path.join(dir, 'creatives', 'manifest.json'));
+  const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
   const report = buildReport(rows, opts);
-  const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads });
-  return { report, doors, rows, query_stats: stats, warnings, eu, meta: { ...meta, ts, preset_title: preset && preset.title, ...curationMeta } };
+  const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads })
+    .concat(visuals ? visuals.warnings : []);
+  return { report, doors, rows, query_stats: stats, warnings, eu, visuals, meta: { ...meta, ts, preset_title: preset && preset.title, ...curationMeta } };
 }
 
 module.exports = { loadSnapshot };
@@ -59,6 +65,6 @@ if (require.main === module) {
     console.error('Usage: node report.js <snapshot-folder-with-ads.csv> [preset-id]');
     process.exit(1);
   }
-  const { report, doors, meta, query_stats, warnings, eu } = loadSnapshot(dir, process.argv[3]);
-  process.stdout.write(JSON.stringify({ report, doors, meta, query_stats, warnings, eu }));
+  const { report, doors, meta, query_stats, warnings, eu, visuals } = loadSnapshot(dir, process.argv[3]);
+  process.stdout.write(JSON.stringify({ report, doors, meta, query_stats, warnings, eu, visuals }));
 }

@@ -8,7 +8,9 @@ Needs openpyxl (`pip install openpyxl`; not installed silently). The report
 numbers come from collector.js via report.js (node), so this script does not
 reimplement any aggregation; it only lays the results out. If node is not
 available it falls back to the folder's report.json (some columns stay empty).
-If the folder has a diff.json (from compare.js) a "Changes" sheet is added.
+If the folder has a diff.json (from compare.js) a "Changes" sheet is added; with
+creatives/manifest.json (fetch_creatives.py) a "Creatives" sheet with thumbnails
+(embedded only when Pillow is installed) and a summary block of the tags.
 
 Summary counts are Excel formulas (COUNTIF over the ads sheet); Excel computes
 them when the file is opened.
@@ -45,7 +47,7 @@ def load_report(folder: Path):
         res = subprocess.run(["node", str(HERE / "report.js"), str(folder)], capture_output=True, encoding="utf-8", timeout=120)
         if res.returncode == 0 and res.stdout.strip():
             data = json.loads(res.stdout)
-            return data["report"], data["doors"], data["meta"], data.get("query_stats", []), data.get("warnings", []), data.get("eu")
+            return data["report"], data["doors"], data["meta"], data.get("query_stats", []), data.get("warnings", []), data.get("eu"), data.get("visuals")
         print("warning: report.js failed, using report.json:", res.stderr.strip(), file=sys.stderr)
     except FileNotFoundError:
         print("warning: node not found, using report.json (door column will be empty)", file=sys.stderr)
@@ -53,7 +55,7 @@ def load_report(folder: Path):
     if not rp.exists():
         sys.exit("No node and no report.json: cannot build the report.")
     meta = json.loads((folder / "run.json").read_text(encoding="utf-8")) if (folder / "run.json").exists() else {}
-    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], [], None
+    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], [], None, None
 
 
 def days_shown(r, run_dt) -> int:
@@ -88,7 +90,7 @@ def main() -> None:
         sys.exit(f"No ads.csv in {folder}")
     out_path = Path(args.out) if args.out else folder / "report.xlsx"
 
-    report, doors, meta, query_stats, warnings, eu = load_report(folder)
+    report, doors, meta, query_stats, warnings, eu, visuals = load_report(folder)
     with open(folder / "ads.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     # curation.json (hand-checked list of competitors) was applied by report.js: drop the same advertisers here
@@ -299,6 +301,48 @@ def main() -> None:
             value="Ранжирование: по числу вариантов креатива, потом по возрасту; не больше 2 объявлений на страницу; у онлайн-пресетов локальные бизнесы и платформы исключены.").font = f_note
     wl.freeze_panes = "A2"
 
+    # ---- Creatives (only when fetch_creatives.py was run) ----
+    if visuals and visuals.get("items"):
+        try:
+            import PIL  # noqa: F401  (openpyxl embeds pictures through Pillow)
+            from openpyxl.drawing.image import Image as XLImage
+        except ImportError:
+            XLImage = None
+        wv = wb.create_sheet("Креативы")
+        wv.cell(row=1, column=1, value=(
+            f"Что изображено на креативах: скачано {visuals['downloaded']}, размечено {visuals['labeled']} у {visuals['advertisers']} рекламодателей. "
+            "Видео оценены только по кадру-превью. Сводка по тегам на листе «Сводка»; сила сигнала считается по рекламодателям, как у хуков.")).font = f_note
+        tf = visuals.get("tag_fields", [])
+        vcols = ["Миниатюра", "Страница", "Вид", "Дней", "Долгожитель"] + [t["label"] for t in tf] + ["Заметка", "Объявление", "Файл"]
+        header(wv, 3, vcols, [18, 30, 12, 8, 11] + [16] * len(tf) + [40, 13, 30])
+        root = folder.resolve()
+        kind_names = {"image": "картинка", "carousel": "карусель", "video_preview": "кадр видео"}
+        for i, g in enumerate(visuals["items"], 4):
+            names = g.get("tag_names") or {}
+            put(wv, i, [None, g["page"], kind_names.get(g["kind"], g["kind"]), g["days"], "да" if g["long_running"] else ""]
+                + [names.get(t["field"], "") for t in tf] + [g.get("notes", "") if g.get("tags") else "не размечено", "объявление", (g.get("files") or [""])[0]])
+            for c in range(6, len(vcols) - 1):
+                wv.cell(row=i, column=c).alignment = Alignment(wrap_text=True, vertical="top")
+            wv.cell(row=i, column=len(vcols) - 1).hyperlink = g["url"]
+            wv.cell(row=i, column=len(vcols) - 1).font = f_link
+            if XLImage is None:
+                continue
+            for rel in (g.get("thumbs") or [])[:1] + (g.get("files") or [])[:1]:
+                p = (folder / rel).resolve()
+                if not p.is_relative_to(root) or not p.is_file() or p.suffix.lower() not in (".jpg", ".jpeg", ".png", ".gif"):
+                    continue  # stay inside the snapshot folder
+                try:
+                    img = XLImage(str(p))
+                except Exception:
+                    continue
+                w = 120
+                img.height, img.width = max(1, round(img.height * w / max(1, img.width))), w
+                img.anchor = f"A{i}"
+                wv.add_image(img)
+                wv.row_dimensions[i].height = max(wv.row_dimensions[i].height or 15, img.height * 0.75 + 4)
+                break
+        wv.freeze_panes = "C4"
+
     # ---- Networks ----
     wn = wb.create_sheet("Сети страниц")
     wn.cell(row=1, column=1, value="Один и тот же текст объявления на разных страницах").font = f_bold
@@ -492,6 +536,17 @@ def main() -> None:
         ws.cell(row=row, column=3).number_format = "0%"
         row += 1
     row += 1
+    if visuals and visuals.get("fields"):
+        section(f"Что на креативах (размечено {visuals['labeled']} у {visuals['advertisers']} рекламодателей)")
+        ws.cell(row=row - 1, column=4, value="Доля среди размеченных; рекламодатели и сила сигнала: weak = привычка одного-двух, не тренд.").font = f_note
+        for f in visuals["fields"]:
+            ws.cell(row=row, column=1, value=f["label"]).font = f_bold
+            row += 1
+            for x in f["values"]:
+                put(ws, row, ["   " + x["name"], x["creatives"], x["share"], f"{x['advertisers']} рекл." + (f" · {x['strength']}" if x.get("strength") else "") + (f" · долгожителей {x['long_running']}" if x["long_running"] else "")])
+                ws.cell(row=row, column=3).number_format = "0%"
+                row += 1
+        row += 1
     pr = report.get("prices")
     if pr:
         section(f"Цены ({pr.get('currency', '')}, только объявления с ценой в тексте)")

@@ -4,7 +4,8 @@
 // data: URIs, and a Content-Security-Policy forbids everything else). It also
 // contains no client.json data. Sections appear when their files exist:
 // sites.json (site check), hypotheses.json (+ hypotheses_lint.json,
-// test_plan.json), diff.json (changes).
+// test_plan.json), diff.json (changes), creatives/manifest.json (+ creatives.json:
+// what is on the pictures, with a gallery of thumbnails).
 //
 //   node export_html.js out/ecom-dropship-us/2026-09-30 [--out report.html] [--no-images]
 //
@@ -12,6 +13,7 @@
 // so all of it goes through esc(); links are limited to http(s).
 const fs = require('fs');
 const path = require('path');
+const { CREATIVE_TAGS } = require('./collector.js');
 
 const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const safeUrl = u => (/^https?:\/\//i.test(String(u || '')) ? esc(u) : '');
@@ -37,6 +39,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:1.6rem;margin:.2em
 a{color:var(--acc)}.chip{display:inline-block;max-width:100%;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:.78rem;margin:1px 2px 1px 0}.chip.error{color:var(--err);border-color:var(--err)}.chip.warn{color:var(--warn);border-color:var(--warn)}.chip.ok{color:var(--ok);border-color:var(--ok)}
 .note{background:var(--card);border-left:4px solid var(--warn);padding:8px 12px;border-radius:6px;margin:10px 0;font-size:.9rem}details{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin:8px 0}summary{cursor:pointer;font-weight:600}
 dl{margin:.4em 0;display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);gap:2px 12px}dt{color:var(--mut)}dd{margin:0;min-width:0;overflow-wrap:anywhere}@media(max-width:640px){dl{grid-template-columns:minmax(0,1fr)}dt{margin-top:.5em}}img.shot{max-width:100%;border:1px solid var(--line);border-radius:8px;margin-top:8px}
+.gal{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-top:12px}figure{margin:0;font-size:.85rem}img.cr{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:6px}
 @media print{body{background:#fff;color:#000}details{border:1px solid #999}details>*{display:block}details:not([open])>*:not(summary){display:block}.card,.tw{break-inside:avoid}}`;
 
 function buildHtml(m) {
@@ -89,6 +92,29 @@ function buildHtml(m) {
   if ((r.longrun || []).length) {
     out.push('<h2>Долгожители</h2><p class="mut">По числу вариантов креатива, затем по возрасту; не больше 2 на страницу. Долгий показ не гарантия эффективности.</p>');
     out.push(table(['Страница', 'Дней', 'Вариантов', 'Формат', 'Дверь', 'Текст'], r.longrun.map(l => [esc(l.page), esc(l.days), esc(l.variants), esc(l.fmt), esc(l.door), link(l.url, l.text)])));
+  }
+
+  const v = m.visuals;
+  if (v && v.items.length) {
+    const KIND = { image: 'картинка', carousel: 'карусель', video_preview: 'кадр видео' };
+    out.push('<h2>Креативы</h2><p class="mut">Что изображено на креативах конкурентов. Выборка: ' + esc(v.downloaded) + ' креативов (сначала долгожители, не больше 3 на рекламодателя), размечено ' + esc(v.labeled) + ' у ' + esc(v.advertisers) + ' рекламодателей. Видео оценены только по кадру-превью. Сила сигнала считается по рекламодателям, как у хуков: «weak» это привычка одного-двух конкурентов, а не тренд ниши.</p>');
+    if (v.fields.length) {
+      out.push('<div class="grid">' + v.fields.map(f => `<section class="card"><h3>${esc(f.label)}</h3>${f.values.map(x =>
+        `<div class="bar"><span class="bl">${esc(x.name)}</span><span class="bt"><i style="width:${Math.min(100, Math.round(100 * x.share))}%"></i></span><span class="bn">${esc(x.creatives)} <small>${esc(x.advertisers)} рекл.${x.strength ? ' · ' + esc(x.strength) : ''}${x.long_running ? ' · долгожит. ' + esc(x.long_running) : ''}</small></span></div>`).join('')}</section>`).join('') + '</div>');
+    }
+    // A label's tags as chips: "yes" booleans by their field name, "none" left out.
+    const tagChips = g => {
+      if (!g.tags) return chip('не размечено', 'warn');
+      return Object.entries(g.tags).map(([k, val]) => {
+        const t = CREATIVE_TAGS[k] || {};
+        if (typeof val === 'boolean') return val ? chip(t.label || k) : '';
+        return [].concat(val).filter(x => x !== 'none').map(x => chip((t.names || {})[x] || x)).join('');
+      }).join('');
+    };
+    out.push('<div class="gal">' + v.items.slice(0, 60).map(g => {
+      const src = m.images && (m.images[g.thumbs[0]] || m.images[g.files[0]]);
+      return `<figure class="card">${src ? `<img class="cr" alt="Креатив ${esc(g.page)}" src="${esc(src)}">` : '<div class="mut">нет миниатюры</div>'}<figcaption><b>${esc(g.page)}</b><br><span class="mut">${esc(KIND[g.kind] || g.kind)} · ${esc(g.days)} дн.${g.long_running ? ' · долгожитель' : ''}</span><br>${tagChips(g)}${g.notes ? `<br><span class="mut">${esc(g.notes)}</span>` : ''}<br>${link(g.url, 'объявление')}</figcaption></figure>`;
+    }).join('') + '</div>');
   }
 
   if (m.eu && m.eu.ads > 0) {
@@ -162,7 +188,7 @@ ${ln ? '<p>' + ln.findings.filter(f => f.severity !== 'info').map(f => chip(f.me
     if ((d.scaling || []).length) out.push(table(['Страница', 'Было', 'Стало', 'Ссылка'], d.scaling.map(s => [esc(s.page), esc(s.variants_prev), esc(s.variants_curr), link(s.url, 'объявление')])));
   }
 
-  out.push(`<hr><p class="mut">Сформировано ${esc(m.generated || '')}${m.version ? ' · meta-ads-niche-report ' + esc(m.version) : ''}. Данные: публичная Библиотека рекламы Meta, только текст объявлений. Инструмент не связан с Meta и Anthropic. Автоматический сбор может противоречить условиям Meta: ответственность за использование на пользователе.</p>`);
+  out.push(`<hr><p class="mut">Сформировано ${esc(m.generated || '')}${m.version ? ' · meta-ads-niche-report ' + esc(m.version) : ''}. Данные: публичная Библиотека рекламы Meta, ${m.visuals ? 'тексты и картинки объявлений' : 'только текст объявлений'}. Инструмент не связан с Meta и Anthropic. Автоматический сбор может противоречить условиям Meta: ответственность за использование на пользователе.</p>`);
 
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
@@ -193,6 +219,17 @@ if (require.main === module) {
       const f = path.resolve(dir, s.screenshot);
       if (!f.startsWith(root) || !/\.png$/i.test(f) || !fs.existsSync(f) || fs.statSync(f).size > 700 * 1024) continue; // stay inside the folder, PNG only, keep the file light
       model.images[s.screenshot] = 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
+    }
+    // Creative thumbnails (fetch_creatives.py), else the picture itself when it is small: same rules.
+    const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
+    for (const g of ((model.visuals && model.visuals.items) || []).slice(0, 60)) {
+      for (const rel of [g.thumbs[0], g.files[0]]) {
+        if (!rel) continue;
+        const f = path.resolve(dir, rel), mime = MIME[path.extname(f).toLowerCase()];
+        if (!f.startsWith(root) || !mime || !fs.existsSync(f) || fs.statSync(f).size > 250 * 1024) continue;
+        model.images[rel] = `data:${mime};base64,` + fs.readFileSync(f).toString('base64');
+        break;
+      }
     }
   }
   const out = outPath || path.join(dir, 'report.html');

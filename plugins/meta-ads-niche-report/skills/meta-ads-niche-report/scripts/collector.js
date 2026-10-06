@@ -87,13 +87,17 @@
   // from the first card (carousel / dynamic ads). Meta serves them from a CDN
   // with a signed, expiring address, so they are for a look now, not an
   // archive. Only http(s) is kept: the value ends up in a spreadsheet link.
+  // card_image_urls: the picture of every card (a carousel shows up to 5 at
+  // a glance), joined with " | ", for the creative analysis (selectCreatives).
   const httpOnly = u => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : '');
+  const MAX_CARDS = 5;
+  const cardImage = c => httpOnly(c && c.original_image_url) || httpOnly(c && c.resized_image_url) || httpOnly(c && c.video_preview_image_url);
   function mediaLinks(s, cards) {
     const img = (s.images || [])[0] || {}, vid = (s.videos || [])[0] || {}, card = cards[0] || {};
     return {
-      image_url: httpOnly(img.original_image_url) || httpOnly(img.resized_image_url) || httpOnly(vid.video_preview_image_url)
-        || httpOnly(card.original_image_url) || httpOnly(card.resized_image_url) || httpOnly(card.video_preview_image_url),
-      video_url: httpOnly(vid.video_hd_url) || httpOnly(vid.video_sd_url) || httpOnly(card.video_hd_url) || httpOnly(card.video_sd_url)
+      image_url: httpOnly(img.original_image_url) || httpOnly(img.resized_image_url) || httpOnly(vid.video_preview_image_url) || cardImage(card),
+      video_url: httpOnly(vid.video_hd_url) || httpOnly(vid.video_sd_url) || httpOnly(card.video_hd_url) || httpOnly(card.video_sd_url),
+      card_image_urls: cards.map(cardImage).filter(Boolean).slice(0, MAX_CARDS).join(' | ')
     };
   }
 
@@ -522,6 +526,177 @@
     };
   }
 
+  // How much a pattern is a niche trend rather than one advertiser's habit
+  // (hooks, dynamics, creative tags). strong: several unrelated advertisers,
+  // none dominating; weak: one or two, or one dominates.
+  const strengthOf = (advertisers, top_share) => (advertisers >= 5 && top_share <= 0.5 ? 'strong' : advertisers >= 3 && top_share <= 0.7 ? 'moderate' : 'weak');
+
+  // ---- Creatives (what is on the pictures) -----------------------------------
+  // Pictures are not read by this code: a sample is picked here
+  // (selectCreatives), downloaded by fetch_creatives.py into creatives/ with a
+  // manifest.json, looked at by Claude, who writes creatives.json with the
+  // tags below, checked by lintCreatives and summed up per advertiser by
+  // creativesSummary. Videos are judged by their preview frame only.
+  const CREATIVE_TAGS = {
+    subject: { label: 'Что в кадре', values: ['product', 'person_with_product', 'person', 'face_closeup', 'result_before_after', 'process', 'place', 'text_only'],
+      names: { product: 'товар', person_with_product: 'человек с товаром', person: 'человек / специалист в кадре', face_closeup: 'лицо крупно', result_before_after: 'результат / до-после', process: 'процесс работы', place: 'место / интерьер', text_only: 'только текст' } },
+    text_on_image: { label: 'Текст на картинке', values: ['none', 'headline', 'heavy'], names: { none: 'нет', headline: 'короткий заголовок', heavy: 'много текста' } },
+    price_on_image: { label: 'Цена на картинке', type: 'bool' },
+    offer_on_image: { label: 'Оффер на картинке', multi: true, values: ['discount', 'gift', 'free', 'deadline', 'none'], names: { discount: 'скидка', gift: 'подарок', free: 'бесплатно', deadline: 'срок акции', none: 'нет' } },
+    social_proof: { label: 'Соцдоказательство', multi: true, values: ['review', 'stars', 'numbers', 'none'], names: { review: 'отзыв', stars: 'звёзды / рейтинг', numbers: 'цифры клиентов', none: 'нет' } },
+    style: { label: 'Стиль', values: ['pro_photo', 'ugc_phone', 'template_graphic', 'meme', 'ai_generated'], names: { pro_photo: 'профессиональное фото', ugc_phone: 'UGC / съёмка на телефон', template_graphic: 'графика / шаблон', meme: 'мем', ai_generated: 'похоже на ИИ' } },
+    brand_visible: { label: 'Видно лого или название', type: 'bool' },
+    carousel_story: { label: 'Сюжет карусели', carouselOnly: true, values: ['catalog', 'steps', 'reviews', 'before_after'], names: { catalog: 'каталог товаров', steps: 'шаги / история', reviews: 'отзывы', before_after: 'до-после' } }
+  };
+  const BOOL_NAMES = { true: 'да', false: 'нет' };
+  const NOTES_MAX = 200;
+
+  // What to download for an ad: all cards of a carousel (DCO cards are
+  // alternatives, a viewer sees one), the preview frame of a video, else the picture.
+  function creativeMedia(r) {
+    const img = httpOnly(r.image_url || '');
+    const cards = String(r.card_image_urls || '').split(' | ').map(httpOnly).filter(Boolean).slice(0, MAX_CARDS);
+    if (/carousel/i.test(r.fmt || '') && cards.length >= 2) return { kind: 'carousel', urls: cards };
+    if (!img) return null;
+    return { kind: httpOnly(r.video_url || '') ? 'video_preview' : 'image', urls: [img] };
+  }
+
+  // The CDN signs each link (query string); the path names the file itself.
+  const mediaKey = u => { try { const x = new URL(u); return x.hostname + x.pathname; } catch (e) { return u; } };
+
+  // Which creatives to look at when only `limit` can be: running ads only,
+  // each picture once; per advertiser its long-running ads first (>= longDays),
+  // then the ones with more variants, then the older; advertisers take turns
+  // (most ads first), at most perAdvertiser each. rows: already curated.
+  function selectCreatives(rows, opts = {}) {
+    const limit = opts.limit || 60, perAdvertiser = opts.perAdvertiser || 3, longDays = opts.longDays || 90;
+    const now = opts.now || Date.now() / 1000;
+    const age = r => Math.round((now - r.start) / 86400);
+    const queues = new Map();
+    for (const r of rows) {
+      if (isStoppedAd(r)) continue;
+      const m = creativeMedia(r);
+      if (!m) continue;
+      if (!queues.has(r.page)) queues.set(r.page, []);
+      queues.get(r.page).push({ id: r.id, page: r.page, fmt: r.fmt || '', kind: m.kind, urls: m.urls, days: age(r), long_running: age(r) >= longDays, variants: +r.variants || 1 });
+    }
+    const order = [...queues.values()].sort((a, b) => b.length - a.length);
+    for (const q of order) q.sort((a, b) => (b.long_running - a.long_running) || (b.variants - a.variants) || (b.days - a.days));
+    const out = [], seen = new Set(), taken = new Map(), pos = new Map();
+    let moved = true;
+    while (out.length < limit && moved) {
+      moved = false;
+      for (const q of order) {
+        if (out.length >= limit) break;
+        const page = q[0].page;
+        if ((taken.get(page) || 0) >= perAdvertiser) continue;
+        let i = pos.get(page) || 0;
+        while (i < q.length && seen.has(mediaKey(q[i].urls[0]))) i++;
+        pos.set(page, i + 1);
+        if (i >= q.length) continue;
+        const { variants, ...item } = q[i];
+        seen.add(mediaKey(item.urls[0]));
+        taken.set(page, (taken.get(page) || 0) + 1);
+        out.push(item);
+        moved = true;
+      }
+    }
+    return out;
+  }
+
+  const labelList = labels => (Array.isArray(labels) ? labels : (labels && Array.isArray(labels.items) ? labels.items : []));
+
+  // Checks creatives.json against the vocabulary and the downloaded pictures
+  // (manifest.json). Returns { errors, warnings, findings: [{ id, severity, code, field, message }] }.
+  function lintCreatives(labels, manifest) {
+    const f = [];
+    const add = (id, severity, code, field, message) => f.push({ id, severity, code, field, message });
+    const ok = new Map(((manifest && manifest.items) || []).filter(i => i.status === 'ok').map(i => [String(i.id), i]));
+    const seen = new Set();
+    for (const l of labelList(labels)) {
+      const id = String(l && l.id);
+      if (seen.has(id)) { add(id, 'error', 'duplicate_id', 'id', 'This creative is labeled twice.'); continue; }
+      seen.add(id);
+      const item = ok.get(id);
+      if (!item) { add(id, 'error', 'unknown_id', 'id', 'No downloaded creative with this id in creatives/manifest.json.'); continue; }
+      for (const [field, t] of Object.entries(CREATIVE_TAGS)) {
+        const v = l[field];
+        const empty = v === undefined || v === null || v === '';
+        if (t.carouselOnly) {
+          if (item.kind !== 'carousel') { if (!empty) add(id, 'warn', 'carousel_story_not_carousel', field, 'Only carousels have a story; this creative is a ' + item.kind + '.'); }
+          else if (empty) add(id, 'warn', 'carousel_story_missing', field, 'A carousel: say what its cards tell.');
+          else if (!t.values.includes(v)) add(id, 'error', 'bad_value', field, 'Unknown value "' + v + '"; allowed: ' + t.values.join(', ') + '.');
+          continue;
+        }
+        if (empty || (t.multi && Array.isArray(v) && !v.length)) { add(id, 'error', 'missing_field', field, 'Required field is empty.'); continue; }
+        if (t.type === 'bool') { if (typeof v !== 'boolean') add(id, 'error', 'bad_type', field, 'Must be true or false.'); continue; }
+        const vals = t.multi ? (Array.isArray(v) ? v : [v]) : [v];
+        if (!t.multi && Array.isArray(v)) { add(id, 'error', 'bad_type', field, 'One value, not a list.'); continue; }
+        const bad = vals.filter(x => !t.values.includes(x));
+        if (bad.length) add(id, 'error', 'bad_value', field, 'Unknown value ' + bad.map(x => '"' + x + '"').join(', ') + '; allowed: ' + t.values.join(', ') + '.');
+        if (t.multi && vals.includes('none') && vals.length > 1) add(id, 'error', 'none_mixed', field, '"none" together with other values.');
+      }
+      if (l.notes !== undefined && typeof l.notes !== 'string') add(id, 'error', 'bad_type', 'notes', 'Notes must be text.');
+      else if (String(l.notes || '').length > NOTES_MAX) add(id, 'warn', 'notes_long', 'notes', 'Notes are ' + l.notes.length + ' characters; keep them under ' + NOTES_MAX + '.');
+      const known = new Set(['id', 'notes', ...Object.keys(CREATIVE_TAGS)]);
+      const extra = Object.keys(l).filter(k => !known.has(k));
+      if (extra.length) add(id, 'warn', 'unknown_field', extra.join(', '), 'Fields outside the vocabulary are ignored.');
+    }
+    for (const id of ok.keys()) if (!seen.has(id)) add(id, 'info', 'unlabeled', 'id', 'Downloaded but not labeled yet.');
+    const rank = { error: 0, warn: 1, info: 2 };
+    f.sort((a, b) => rank[a.severity] - rank[b.severity]);
+    return { errors: f.filter(x => x.severity === 'error').length, warnings: f.filter(x => x.severity === 'warn').length, findings: f };
+  }
+
+  // The "what is on the creatives" block: for every tag value, how many
+  // labeled creatives and advertisers have it, how concentrated it is
+  // (strength, as for hooks: counted per advertiser page) and how many of them
+  // are long-running; plus the gallery items and warnings. rows: curated ads
+  // (pictures of advertisers dropped later are left out). labels: creatives.json
+  // or null; manifest: creatives/manifest.json. opts: { now, longDays }.
+  function creativesSummary(rows, labels, manifest, opts = {}) {
+    const longDays = opts.longDays || 90, now = opts.now || Date.now() / 1000;
+    const byId = new Map(rows.map(r => [String(r.id), r]));
+    const all = (manifest && manifest.items) || [];
+    const items = all.filter(i => i.status === 'ok' && byId.has(String(i.id)));
+    const lab = new Map(labelList(labels).map(l => [String(l.id), l]));
+    const share = (n, d) => (d ? Math.round(100 * n / d) / 100 : 0);
+    const gallery = items.map(i => {
+      const r = byId.get(String(i.id));
+      const days = Math.round((now - r.start) / 86400);
+      const l = lab.get(String(i.id));
+      const tags = l ? Object.fromEntries(Object.keys(CREATIVE_TAGS).filter(k => l[k] !== undefined && l[k] !== null).map(k => [k, l[k]])) : null;
+      // The same tags in words, for tables: { field: 'name, name' }.
+      const tag_names = tags ? Object.fromEntries(Object.entries(tags).map(([k, val]) => [k, [].concat(val).map(x => (typeof x === 'boolean' ? BOOL_NAMES[x] : CREATIVE_TAGS[k].names[x] || String(x))).join(', ')])) : null;
+      return { id: String(i.id), page: r.page, kind: i.kind, fmt: r.fmt || '', days, long_running: !isStoppedAd(r) && days >= longDays,
+        url: 'https://www.facebook.com/ads/library/?id=' + r.id, files: i.files || [], thumbs: i.thumbs || [], tags, tag_names, notes: l && typeof l.notes === 'string' ? l.notes : '' };
+    });
+    const done = gallery.filter(g => g.tags);
+    const fields = Object.entries(CREATIVE_TAGS).map(([field, t]) => {
+      const pool = t.carouselOnly ? done.filter(g => g.kind === 'carousel') : done;
+      const values = (t.type === 'bool' ? [true, false] : t.values).map(value => {
+        const has = pool.filter(g => (t.multi ? [].concat(g.tags[field] || []) : [g.tags[field]]).includes(value));
+        const by = {};
+        has.forEach(g => { by[g.page] = (by[g.page] || 0) + 1; });
+        const ents = Object.entries(by).sort((a, b) => b[1] - a[1]);
+        const top_share = has.length ? share(ents[0][1], has.length) : 0;
+        return { value, name: t.type === 'bool' ? BOOL_NAMES[value] : t.names[value], creatives: has.length, share: share(has.length, pool.length), advertisers: ents.length,
+          // "none" / "no" is the absence of a device, not a pattern: no strength for it
+          top_advertiser: ents.length ? ents[0][0] : null, top_share, strength: value === 'none' || value === false ? null : strengthOf(ents.length, top_share), long_running: has.filter(g => g.long_running).length };
+      }).filter(v => v.creatives > 0).sort((a, b) => b.creatives - a.creatives);
+      return { field, label: t.label, labeled: pool.length, values };
+    }).filter(f => f.values.length);
+    const count = s => all.filter(i => i.status === s).length;
+    const advertisers = new Set(done.map(g => g.page)).size;
+    const failed = all.filter(i => ['expired', 'blocked', 'too_big', 'error'].includes(i.status)).length;
+    const warnings = [];
+    if (count('expired')) warnings.push({ code: 'creatives_expired', severity: 'warn', message: 'Не скачались ' + count('expired') + ' из ' + all.length + ' креативов: ссылки Meta на картинки уже не действуют. Собери срез заново и сразу запусти fetch_creatives.py.' });
+    if (items.length > done.length) warnings.push({ code: 'creatives_unlabeled', severity: 'info', message: 'Скачано ' + items.length + ' креативов, размечено ' + done.length + ': блок «Что на креативах» считается только по размеченным.' });
+    if (done.length && advertisers < SMALL_SAMPLE) warnings.push({ code: 'creatives_small', severity: 'warn', message: 'Креативы размечены у ' + advertisers + ' рекламодателей: частоты по картинкам это гипотезы, а не тренд ниши.' });
+    const tag_fields = Object.entries(CREATIVE_TAGS).map(([field, t]) => ({ field, label: t.label }));
+    return { selected: all.length, downloaded: items.length, expired: count('expired'), duplicates: count('duplicate'), failed, labeled: done.length, advertisers, tag_fields, fields, items: gallery, warnings };
+  }
+
   // ---- Hypothesis text checks ----------------------------------------------
   // Heuristics for commonly enforced ad-policy problems and for claims that the
   // client has not confirmed. They flag, they do not certify: Meta reviews
@@ -799,8 +974,7 @@
         .filter(r => !seenE.has(find(r.page)) && seenE.add(find(r.page))).slice(0, 3)
         .map(r => ({ page: r.page, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }));
       const advertisers = ents.length, top_share = m.length ? share(ents[0][1], m.length) : 0;
-      // strong: several unrelated advertisers, none dominating; weak: one or two, or one dominates
-      const strength = advertisers >= 5 && top_share <= 0.5 ? 'strong' : advertisers >= 3 && top_share <= 0.7 ? 'moderate' : 'weak';
+      const strength = strengthOf(advertisers, top_share);
       return { ads: m.length, advertisers, top_advertiser: ents.length ? ents[0][0] : null, top_share, strength, circular: kwText.some(k => re.test(k)), examples };
     };
     const rank = { strong: 0, moderate: 1, weak: 2 };
@@ -851,7 +1025,7 @@
   // Serializes rows to CSV (quoted, internal quotes doubled, whitespace
   // collapsed so multi-line ad bodies stay on one CSV line).
   function toCsv(rows) {
-    const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body', 'page_id', 'page_likes', 'caption', 'cta_type', 'ai_made', 'page_url', 'end', 'image_url', 'video_url'];
+    const cols = ['id', 'page', 'start', 'active', 'fmt', 'variants', 'cta', 'link', 'platforms', 'kws', 'title', 'body', 'page_id', 'page_likes', 'caption', 'cta_type', 'ai_made', 'page_url', 'end', 'image_url', 'video_url', 'card_image_urls'];
     const esc = v => {
       let s = String(Array.isArray(v) ? v.join('; ') : (v ?? '')).replace(/\s+/g, ' ');
       // Ad text/page names/CTAs are untrusted third-party input. A value
@@ -942,7 +1116,7 @@
       const e = Object.entries(by).sort((a, b) => b[1] - a[1]);
       const top_share = rs.length ? shareOf(e[0][1], rs.length) : 0;
       const advertisers = e.length;
-      return { advertisers, top_advertiser: e.length ? e[0][0] : null, top_share, strength: advertisers >= 5 && top_share <= 0.5 ? 'strong' : advertisers >= 3 && top_share <= 0.7 ? 'moderate' : 'weak' };
+      return { advertisers, top_advertiser: e.length ? e[0][0] : null, top_share, strength: strengthOf(advertisers, top_share) };
     };
     const goneYoung = young.filter(r => !C.has(r.id));
     const keptYoung = young.filter(r => C.has(r.id));
@@ -1101,7 +1275,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary };
   }
 
   return installResult;

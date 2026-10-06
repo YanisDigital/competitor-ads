@@ -14,6 +14,8 @@ report.xlsx
 report.html
 sites.json
 sites/
+creatives/
+creatives*.json
 
 node_modules/
 .venv/

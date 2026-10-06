@@ -21,6 +21,8 @@ below is read from one of those two, in `normalizeAd(node, kw)`
 | `fmt` | `snapshot.display_format` | e.g. `image`, `video`, `carousel`, `dco`. |
 | `variants` | `node.collation_count` | How many creative variants the Library folded into this one ad. Default `1`. |
 | `ncards` | `snapshot.cards.length` | `0` for a single-creative ad. |
+| `image_url` / `video_url` | `snapshot.images[0]` / `snapshot.videos[0]`, else the first card | Full-size picture (for a video, its preview frame) and the HD video, else SD. Signed CDN links that expire within days; http(s) only. |
+| `card_image_urls` | `snapshot.cards[]` (`original_image_url`, else `resized_image_url`, else `video_preview_image_url`) | Up to 5 card pictures joined with ` \| ` (since v0.14.0). `creativeMedia()` uses them for a carousel; DCO cards are alternatives, so a DCO ad gets one picture. |
 | `kws` | accumulated by `window.__mai.collect()` | Which search queries surfaced this ad; `normalizeAd` itself only sets the current one. |
 
 ## Derived fields (not read directly — computed)

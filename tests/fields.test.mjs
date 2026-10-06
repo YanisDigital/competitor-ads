@@ -40,7 +40,7 @@ test('normalizeAd tolerates ads that have none of the new fields', () => {
 test('CSV round trip carries page_id and the new fields; formula-like values stay text', () => {
   const rows = [normalizeAd(node({}, { caption: '=HYPERLINK("http://x.example")' }), 'q')];
   const csv = toCsv(rows);
-  assert.match(csv.split('\n')[0], /page_id,page_likes,caption,cta_type,ai_made,page_url,end,image_url,video_url$/);
+  assert.match(csv.split('\n')[0], /page_id,page_likes,caption,cta_type,ai_made,page_url,end,image_url,video_url,card_image_urls$/);
   const [back] = parseCsv(csv);
   assert.equal(back.page_id, '777');
   assert.equal(back.page_likes, 12345);
