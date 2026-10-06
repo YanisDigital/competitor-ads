@@ -1,0 +1,38 @@
+{
+  "product": "Daytime makeup (makeup artist)",
+  "category": "makeup artist",
+  "brand": "ExampleStudio",
+  "market": "UA",
+  "language": "uk",
+  "city": "Odesa",
+  "price": 1300,
+  "price_from": true,
+  "currency": "UAH",
+  "booking_url": "https://book.example/studio",
+  "address": "Example street 1, Odesa",
+  "experience_years": 5,
+  "portfolio_ready": true,
+  "first_visit_offer": false,
+  "installment": false,
+  "bonus": false,
+  "max_discount_pct": 10,
+  "reviews_count": 24,
+  "reviews_rating": 4.9,
+  "reviews_quotable": true,
+  "real_deadline": false,
+  "guarantee_days": null,
+  "avg_check": 1300,
+  "visits_per_year": 4,
+  "retention_months": 12,
+  "margin_pct": 50,
+  "booking_to_visit_pct": 70,
+  "target_cpa": 400,
+  "usp": [
+    "daylight makeup",
+    "online booking"
+  ],
+  "avoid": [
+    "do not promise the result lasts all day",
+    "do not address the viewer's looks"
+  ]
+}

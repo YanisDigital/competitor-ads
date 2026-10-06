@@ -19,7 +19,10 @@
     'дедлайн/ограничение': /(тільки до|только до|до \d{1,2}[.\s]|залишилось|осталось|обмежен|ограничен|limited time|last chance|only until)/,
     'рассрочка': /(розстроч|рассроч|частин|installment)/,
     'запись/бронь': /(запис|запиш|бронь|бронюй|book now|sign up)/,
-    'обучение/курсы': /(навчан|обучен|курс|\bcourse\b|training)/,
+    // "курс" is also a series of procedures ("на весь курс", "курс 6 процедур", "курс лазерної
+    // епіляції"): those are not training, so they are left out; "курс по таргету", "базовий курс",
+    // "запишись на курс" still count; "бути в курсі" (be aware) is not a course either.
+    'обучение/курсы': /(навчан|обучен|\bcourse\b|training|(?<!в\s)(?<!весь\s)(?<!повний\s)(?<!полный\s)(?<!фіксується на\s)(?<!фиксируется на\s)(?<!фіксуємо на\s)(?<!фиксируем на\s)курс(?!\s*(?:\d|процедур|сеанс|лазер|епіляц|эпиляц|лікуван|лечен)))/,
     'до/после': /(до і після|до и после|before.*after)/,
     'адрес/район': /(📍|вул\.|вулиц|ул\.|улиц|просп|пров\.|район|метро|адрес|адреса)/
   };
@@ -291,6 +294,42 @@
     'ограниченный запас': { fields: ['real_stock_limit'], ok: c => c.real_stock_limit === true, no: c => c.real_stock_limit === false },
     'персонализация': { fields: ['personalization'], ok: c => c.personalization === true, no: c => c.personalization === false }
   };
+
+  // Service businesses (salons, clinics, makeup artists): the hooks of the beauty-type presets
+  // and the facts behind them. Hooks that mean the same as an e-commerce one reuse its rule.
+  Object.assign(CLIENT_RULES, {
+    'опыт/годы': { fields: ['experience_years'], ok: c => c.experience_years > 0, no: c => c.experience_years === 0 },
+    'адрес/район': { fields: ['address'], ok: c => !!c.address, no: c => c.address === false },
+    'запись/бронь': { fields: ['booking_url'], ok: c => !!c.booking_url, no: c => c.booking_url === false },
+    'первый визит': { fields: ['first_visit_offer'], ok: c => !!c.first_visit_offer, no: c => c.first_visit_offer === false },
+    'портфолио/работы': { fields: ['portfolio_ready'], ok: c => c.portfolio_ready === true, no: c => c.portfolio_ready === false },
+    'рассрочка': { fields: ['installment'], ok: c => c.installment === true, no: c => c.installment === false },
+    'отзывы/рейтинг': CLIENT_RULES['отзывы/звёзды'],
+    'гарантия': CLIENT_RULES['гарантия возврата'],
+    'подарок/сертификат': CLIENT_RULES['бонус/подарок'],
+    'процент/скидка': CLIENT_RULES['скидка %'],
+    'акция': CLIENT_RULES['скидка %'],
+    'дедлайн/ограничение': CLIENT_RULES['срочность']
+  });
+
+  // What a client is worth to a service business, from the facts the brief asks for:
+  // avg_check (per visit), visits_per_year, retention_months, margin_pct (of revenue) and
+  // booking_to_visit_pct (how many bookings come to the visit). break_even_cpa_* is the most
+  // that one client (or one booking) may cost before the advertising loses money on the gross
+  // profit; a target CPA is set below it. null where a fact is missing; `missing` lists them.
+  function serviceEconomics(client) {
+    const c = client || {};
+    const n = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+    const [avg, visits, months, margin, show] = ['avg_check', 'visits_per_year', 'retention_months', 'margin_pct', 'booking_to_visit_pct'].map(f => n(c[f]));
+    const r2 = x => Math.round(100 * x) / 100;
+    const ltv = avg !== null && visits !== null && months !== null ? r2(avg * visits * months / 12) : null;
+    const gross = ltv !== null && margin !== null ? r2(ltv * margin / 100) : null;
+    return {
+      ltv, gross_profit_per_client: gross, break_even_cpa_client: gross,
+      break_even_cpa_booking: gross !== null && show !== null ? r2(gross * show / 100) : null,
+      missing: ['avg_check', 'visits_per_year', 'retention_months', 'margin_pct', 'booking_to_visit_pct'].filter(f => n(c[f]) === null)
+    };
+  }
 
   // For each hook label: 'ready' (the client confirmed the fact), 'blocked'
   // (the client said it is not true, so no ad may claim it), 'unknown' (not
@@ -1330,7 +1369,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

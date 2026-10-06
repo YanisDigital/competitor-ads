@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { checkClientFit } = require('./collector.js');
+const { checkClientFit, serviceEconomics } = require('./collector.js');
 
 const dir = process.argv[2];
 if (!dir || !fs.existsSync(path.join(dir, 'ads.csv'))) {
@@ -29,7 +29,22 @@ const QUESTIONS = {
   max_discount_pct: 'What is the largest discount in percent you can afford at your margin?',
   real_deadline: 'Do you run real time-limited sales with an actual end date?',
   real_stock_limit: 'Is stock actually limited (real numbers you can state)?',
-  personalization: 'Can the product be personalized (name, photo, custom text)?'
+  personalization: 'Can the product be personalized (name, photo, custom text)?',
+  // services (salons, clinics, makeup artists)
+  experience_years: 'How many years of professional experience (the real number, 0 if just starting)?',
+  address: 'What is the address or district where clients come to you (false if you work only online or at the client\'s home)?',
+  booking_url: 'What is the link where a client can book (false if there is none yet)?',
+  first_visit_offer: 'Is there a real offer for a first visit, and what exactly (false if none)?',
+  portfolio_ready: 'Do you have finished work you may show (photos with the clients\' permission)? true or false.',
+  installment: 'Is payment in installments possible? true or false.'
+};
+// What a client is worth: asked once for a service business, they set the ceiling for the price of a booking.
+const ECONOMICS_QUESTIONS = {
+  avg_check: 'What is the average check per visit (in the ad currency)?',
+  visits_per_year: 'How many times a year does a client usually come?',
+  retention_months: 'For how many months does a client typically keep coming?',
+  margin_pct: 'What share of the revenue is profit before advertising, in percent?',
+  booking_to_visit_pct: 'Out of 100 bookings, how many people actually come?'
 };
 
 const candidates = [process.argv[3], path.join(dir, 'client.json'), path.join(path.dirname(dir), 'client.json')].filter(Boolean);
@@ -45,6 +60,8 @@ for (const u of hi.underused_hooks) if (!hooks.some(h => h.hook === u.hook)) hoo
 const fit = checkClientFit(client, hooks.map(h => h.hook));
 const rows = hooks.map((h, i) => ({ ...h, status: fit[i].status, missing: fit[i].missing, ask: fit[i].missing.map(f => QUESTIONS[f]).filter(Boolean) }));
 const askFields = [...new Set(rows.flatMap(r => r.missing))];
+// Economics only when the brief started on them (a service business): an e-commerce brief never asked.
+const economics = client && ['avg_check', 'visits_per_year', 'retention_months', 'margin_pct', 'booking_to_visit_pct'].some(f => client[f] !== undefined && client[f] !== null) ? serviceEconomics(client) : null;
 
 console.log(JSON.stringify({
   client_file: clientPath || null,
@@ -52,5 +69,7 @@ console.log(JSON.stringify({
   usable_hooks: rows.filter(r => r.status === 'ready' && !r.circular).map(r => r.hook),
   blocked_hooks: rows.filter(r => r.status === 'blocked').map(r => r.hook),
   questions: askFields.map(f => ({ field: f, question: QUESTIONS[f] })).filter(q => q.question),
+  economics,
+  economics_questions: economics ? economics.missing.map(f => ({ field: f, question: ECONOMICS_QUESTIONS[f] })) : [],
   hooks: rows
 }, null, 2));

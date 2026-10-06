@@ -357,9 +357,20 @@ async def run(args, keywords: list[str]) -> None:
     print(f"Saved: {report_path}")
     print(f"Saved: {csv_path}")
     if args.creatives and report["ads"]:
-        # Picture links expire within days: download the creatives now (fetch_creatives.py picks and fetches them).
         print()
-        subprocess.run([sys.executable, str(HERE / "fetch_creatives.py"), str(out_dir), "--videos", "20"], check=False)
+        if creatives_step(out_dir) == "fetch":
+            # Picture links expire within days: download the creatives now (fetch_creatives.py picks and fetches them).
+            subprocess.run([sys.executable, str(HERE / "fetch_creatives.py"), str(out_dir), "--videos", "20"], check=False)
+        else:
+            print("Creatives: not downloaded yet. Searches match ad text, so the snapshot holds advertisers that are not competitors; "
+                  "pick the competitors first (curation.json next to ads.csv), then run: "
+                  f"python fetch_creatives.py {out_dir} --videos 20 (the picture links stay valid for a few days).")
+
+
+def creatives_step(out_dir: Path) -> str:
+    """'fetch' when the competitors are already chosen (curation.json next to ads.csv), else 'curate_first':
+    the creative sample is picked from the curated advertisers, so downloading before that wastes it on non-competitors."""
+    return "fetch" if (out_dir / "curation.json").exists() else "curate_first"
 
 
 def main() -> None:
@@ -383,7 +394,7 @@ def main() -> None:
     parser.add_argument("--media", choices=tuple(MEDIA_PARAM), default="all", help="Media type: all (default), video, image (image and meme ads) or meme")
     parser.add_argument("--sort", choices=VALID_SORTS, default="impressions", help="impressions (default, the Library's order) or relevancy")
     parser.add_argument("--exact", action="store_true", help="Exact-phrase search (fewer off-niche ads); default matches the words anywhere in the ad")
-    parser.add_argument("--creatives", action="store_true", help="After collecting, download the pictures of up to 60 creatives and cut up to 20 videos into frames for analysis (fetch_creatives.py; Meta's links expire within days)")
+    parser.add_argument("--creatives", action="store_true", help="After collecting, download the pictures of up to 60 creatives and cut up to 20 videos into frames for analysis (fetch_creatives.py; Meta's links expire within days). Only when curation.json (the chosen competitors) is already next to ads.csv; otherwise it prints the command to run after choosing them")
     parser.add_argument("--express", action="store_true", help=f"Quick look: run only the first {EXPRESS_QUERIES} queries")
     parser.add_argument("--list-presets", action="store_true", dest="list_presets", help="List available niche presets and exit")
     args = parser.parse_args()

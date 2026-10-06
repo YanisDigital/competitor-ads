@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.14.3] - 2026-10-06
+
+Four changes from trying the skill on a real case (makeup artists in Odesa).
+
+### Changed
+- `scrape.py --creatives` downloads the creatives only when `curation.json` is
+  already next to `ads.csv`; otherwise it prints the command to run after the
+  competitors are chosen. The creative sample is picked from the curated
+  advertisers, so downloading before that spent the 60 pictures on
+  non-competitors (courses, a real-estate developer, a cosmetics shop).
+  `SKILL.md` and both READMEs describe the order: collect, curate, download.
+- Hook "обучение/курсы": "курс" is also a series of procedures ("на весь
+  курс", "курс 6 процедур", "курс лазерної епіляції") and an idiom ("бути в
+  курсі"). Those no longer count; "курс по таргету", "базовий курс", "запишись
+  на курс", "навчання" still do. On the beauty snapshot the hook fell from 19
+  ads to 3.
+
+### Added
+- Preset `makeup` (makeup artists and visagists, uk/ru, city): 6 services that
+  all fit into the default 12 queries (макіяж, візажист, денний, вечірній,
+  весільний макіяж, макіяж і зачіска), hooks for occasion, staying power, hair
+  and visits to the client, seasons (8 March, prom, New Year) and a `policy`
+  note: permanent-makeup ads are a substitute, not visagists, so mark them in
+  `curation.json`. The `beauty` preset ran 12 queries and never reached its
+  7th service, makeup.
+- A client brief for service businesses (`client.service.example.json`):
+  experience, address, booking link, first-visit offer, portfolio, instalments.
+  Their hooks and the beauty hooks that mean the same as an e-commerce one
+  (reviews, discount, bonus, deadline, guarantee) now gate claims in
+  `lint_hypotheses.js`, `client_fit.js` and the test plan: a text that says
+  "запис онлайн" without a confirmed `booking_url` is flagged.
+- `serviceEconomics` in collector.js and an `economics` block in
+  `client_fit.js`: lifetime value (average check x visits per year x months
+  kept / 12), gross profit per client, and the break-even price of a client and
+  of a booking (with the share of bookings that come); `economics_questions`
+  lists what is missing. It is a ceiling for a target CPA, not a target.
+- Tests (`tests/trial_fixes.test.mjs`, 177 in total).
+
 ## [0.14.2] - 2026-10-06
 
 ### Fixed

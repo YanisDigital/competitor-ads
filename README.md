@@ -147,6 +147,7 @@ listed, it builds the queries itself.
 | Niche | Preset id | Notes |
 |---|---|---|
 | Beauty salons, nails, brows, lashes | `beauty` | Ukrainian/Russian, needs a city |
+| Makeup artists and visagists | `makeup` | Ukrainian/Russian, needs a city; permanent-makeup ads in the results are a substitute, mark them in `curation.json` |
 | Dental clinics | `dentistry` | Ukrainian/Russian, needs a city |
 | Gyms, fitness studios, trainers | `fitness` | Ukrainian/Russian, needs a city |
 | Car service, tires, detailing | `auto-service` | Ukrainian/Russian, needs a city |
@@ -193,6 +194,12 @@ The hypotheses section is built to avoid overclaiming:
   `null` = not asked yet, `false`/`0` = not true). `client_fit.js` sorts the
   hooks into usable, blocked (the client said it isn't true) and "still to
   ask"; hypotheses use confirmed facts verbatim instead of placeholders.
+  For service businesses (salons, clinics, makeup artists) there is
+  [client.service.example.json](plugins/meta-ads-niche-report/skills/meta-ads-niche-report/client.service.example.json):
+  experience, address, booking link, first-visit offer, portfolio, and the
+  economics (average check, visits per year, months kept, margin, booking-to-visit
+  rate), from which `client_fit.js` prints the lifetime value and the break-even
+  price of a client and of a booking: the ceiling for a target CPA.
 - **Automatic text checks** (`lint_hypotheses.js`): required fields, headline
   length (~40 characters), the ~125 characters visible before "See more",
   unfilled placeholders, risky wording (personal attributes, medical or
@@ -259,8 +266,8 @@ http(s) links are kept.
 ## What is on the creatives (pictures)
 
 Ad text is half of a creative. `python scripts/fetch_creatives.py <snapshot>`
-(or `scrape.py ... --creatives` right after collecting) downloads up to 60
-creatives: running ads of the advertisers that count (curation applied),
+(or `scrape.py ... --creatives`, which downloads only when `curation.json` is already there) downloads up to 60
+creatives: running ads of the advertisers that count (curation applied: choose the competitors first, then download),
 long-running ads first, at most 3 per advertiser, every picture once; a
 carousel brings up to 5 cards, a video its preview frame. It fetches only
 https links on Meta's image CDN, images only, up to 8 MB, one at a time, and
