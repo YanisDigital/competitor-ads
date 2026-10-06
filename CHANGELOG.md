@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.2] - 2026-10-06
+
+### Fixed
+- `classifyDoor` did not know buttons printed in another language. The Library
+  prints the call-to-action in the browser's language ("Надіслати
+  повідомлення"), so the English text rules missed it and a Direct ad linking
+  to instagram.com counted as an Instagram profile. On a Ukrainian-UI beauty
+  snapshot that moved 67 of 140 ads from "profile" to "Директ/Messenger". The
+  door now also reads `cta_type`, which does not depend on language
+  (`*MESSAGE*` is Direct/Messenger, `WHATSAPP*` is WhatsApp, `CALL*` is a call);
+  snapshots without `cta_type` behave as before. Tests: `tests/doors.test.mjs`.
+
 ## [0.14.1] - 2026-10-06
 
 ### Added

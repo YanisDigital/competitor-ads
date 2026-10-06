@@ -186,21 +186,25 @@
   function classifyDoor(rec) {
     const d = domainOf(rec.link);
     const cta = rec.cta || '';
+    // The Library prints the button in the browser's language ("Надіслати
+    // повідомлення"), so the English text rules below miss it; cta_type
+    // (INSTAGRAM_MESSAGE, WHATSAPP_MESSAGE, CALL_NOW, ...) does not depend on language.
+    const type = String(rec.cta_type || '');
     // Order matters. Off-platform messengers (wa.me, t.me) win over the
     // generic "Message" CTA. But a "Send message" CTA on an ad whose link is
     // just instagram.com/facebook.com is a Direct/Messenger ad: Meta fills
     // link_url with the profile URL there, so the domain alone would
     // misreport most small-business ads as "profile" ads.
-    if (d === 'wa.me' || d === 'api.whatsapp.com' || /whatsapp/i.test(cta)) return 'WhatsApp';
+    if (d === 'wa.me' || d === 'api.whatsapp.com' || /whatsapp/i.test(cta) || /WHATSAPP/.test(type)) return 'WhatsApp';
     if (d === 't.me') return /bot\/?$/i.test(unwrapUrl(rec.link).pathname) ? 'Telegram-бот' : 'Telegram';
-    if (d === 'm.me' || /message/i.test(cta)) return 'Директ/Messenger';
+    if (d === 'm.me' || /message/i.test(cta) || /MESSAGE/.test(type)) return 'Директ/Messenger';
     if (d === 'instagram.com') return 'Instagram-профиль';
     if (/^(facebook\.com|fb\.com|fb\.me)$/.test(d)) return 'Facebook-страница';
     if (MARKETPLACES.test(d)) return 'Маркетплейс';
     if (APP_STORES.test(d)) return 'Установка приложения';
     if (AFFILIATE_LINKS.test(d)) return 'Партнёрская ссылка';
     if (SHORT_LINKS.test(d)) return 'Короткая ссылка';
-    if (/call/i.test(cta)) return 'Звонок';
+    if (/call/i.test(cta) || /^CALL/.test(type)) return 'Звонок';
     if (d) return 'Сайт';
     return 'Без ссылки';
   }
