@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.14.1] - 2026-10-06
+
+### Added
+- Video analysis by frames. `fetch_creatives.py --videos N` (cap 30;
+  `scrape.py --creatives` uses 20) downloads the first N video creatives of
+  the selection (mp4/webm on Meta's CDN only, up to 60 MB) and cuts them into
+  frames with headless Chromium from Playwright, no ffmpeg: the page plays
+  the clip from a blob on a made-up origin and reaches nothing else. Frames
+  at 0, 1, 2, 3 s, the quarters and the end (`videoFramePlan` in
+  collector.js), a 4 x 2 storyboard with the times (Pillow), the video file
+  deleted afterwards. The manifest gets `video` (status ok, expired, blocked,
+  too_big, undecodable, error; duration, size, orientation via `aspectOf`,
+  frames, storyboard).
+- Video-only tags: `hook_type`, `video_format`, `subtitles`, `end_cta`;
+  `lintCreatives` requires them for videos with frames and warns on pictures.
+  `creativesSummary` counts them over videos only and adds `videos`
+  (length buckets, orientations); a warning lists videos that failed.
+- HTML gallery and Excel show the storyboard instead of the preview frame,
+  with the length and orientation; the summary has the video counts.
+- `creatives.js select --videos N`; `selectCreatives` keeps `video_url`.
+- Tests (`tests/video.test.mjs`, 166 in total), including a real decode:
+  Chromium records a short clip itself and the extractor cuts it.
+- Checked live on the beauty snapshot (Odesa): 20 of 20 real Meta videos
+  downloaded, decoded by Playwright's Chromium and cut into 6-8 frames
+  (5.6-65 s, 19 vertical and one square); the 20 storyboards and the 60
+  creatives were labeled with no lint errors, HTML (60 thumbnails, 20 wide
+  storyboards, no broken image) and Excel render.
+
 ## [0.14.0] - 2026-10-06
 
 ### Added

@@ -546,8 +546,41 @@
     social_proof: { label: 'Соцдоказательство', multi: true, values: ['review', 'stars', 'numbers', 'none'], names: { review: 'отзыв', stars: 'звёзды / рейтинг', numbers: 'цифры клиентов', none: 'нет' } },
     style: { label: 'Стиль', values: ['pro_photo', 'ugc_phone', 'template_graphic', 'meme', 'ai_generated'], names: { pro_photo: 'профессиональное фото', ugc_phone: 'UGC / съёмка на телефон', template_graphic: 'графика / шаблон', meme: 'мем', ai_generated: 'похоже на ИИ' } },
     brand_visible: { label: 'Видно лого или название', type: 'bool' },
-    carousel_story: { label: 'Сюжет карусели', carouselOnly: true, values: ['catalog', 'steps', 'reviews', 'before_after'], names: { catalog: 'каталог товаров', steps: 'шаги / история', reviews: 'отзывы', before_after: 'до-после' } }
+    carousel_story: { label: 'Сюжет карусели', carouselOnly: true, values: ['catalog', 'steps', 'reviews', 'before_after'], names: { catalog: 'каталог товаров', steps: 'шаги / история', reviews: 'отзывы', before_after: 'до-после' } },
+    // Video-only fields: labeled from the storyboard of a video's frames (fetch_creatives.py --videos).
+    hook_type: { label: 'Хук первых секунд', videoOnly: true, values: ['talking_person', 'result_first', 'text_hook', 'process', 'product', 'place'],
+      names: { talking_person: 'человек говорит в камеру', result_first: 'сразу результат', text_hook: 'вопрос / боль текстом', process: 'процесс', product: 'товар', place: 'место / интерьер' } },
+    video_format: { label: 'Формат ролика', videoOnly: true, values: ['talking_head', 'ugc_demo', 'slideshow', 'before_after', 'montage', 'animation'],
+      names: { talking_head: 'говорящая голова', ugc_demo: 'UGC-демонстрация', slideshow: 'слайд-шоу из фото', before_after: 'до-после', montage: 'монтаж сцен', animation: 'анимация / графика' } },
+    subtitles: { label: 'Субтитры или текст поверх', videoOnly: true, type: 'bool' },
+    end_cta: { label: 'Призыв или контакты в финале', videoOnly: true, type: 'bool' }
   };
+  // A manifest item whose video was cut into frames.
+  const hasFrames = item => !!(item && item.video && item.video.status === 'ok');
+
+  // Which moments of a video to look at: the hook (0-3 s), the quarters for
+  // the story, the last frame for the call to action; never past the end,
+  // never two frames closer than 0.4 s. duration in seconds.
+  function videoFramePlan(duration) {
+    const d = Number(duration);
+    if (!Number.isFinite(d) || d <= 0) return [{ t: 0, label: '0s' }];
+    const cand = [[0, '0s'], [1, '1s'], [2, '2s'], [3, '3s'], [d * 0.25, '25%'], [d * 0.5, '50%'], [d * 0.75, '75%']].filter(([t]) => t < d - 0.3);
+    const out = [];
+    for (const [t, label] of cand.sort((a, b) => a[0] - b[0])) if (!out.length || t - out[out.length - 1].t >= 0.4) out.push({ t: Math.round(t * 100) / 100, label });
+    if (!out.length) return [{ t: 0, label: '0s' }]; // a clip shorter than a third of a second
+    const end = Math.round((d - 0.25) * 100) / 100;
+    while (out.length > 1 && end - out[out.length - 1].t < 0.4) out.pop();
+    if (end - out[out.length - 1].t >= 0.4) out.push({ t: end, label: 'end' });
+    return out;
+  }
+
+  // Orientation as Meta's placements name it.
+  function aspectOf(w, h) {
+    if (!(w > 0 && h > 0)) return '';
+    const r = w / h;
+    return r < 0.7 ? '9:16' : r < 0.9 ? '4:5' : r <= 1.1 ? '1:1' : '16:9';
+  }
+  const durationBucket = d => (d < 15 ? '<15' : d < 30 ? '15-30' : d <= 60 ? '30-60' : '>60');
   const BOOL_NAMES = { true: 'да', false: 'нет' };
   const NOTES_MAX = 200;
 
@@ -558,7 +591,8 @@
     const cards = String(r.card_image_urls || '').split(' | ').map(httpOnly).filter(Boolean).slice(0, MAX_CARDS);
     if (/carousel/i.test(r.fmt || '') && cards.length >= 2) return { kind: 'carousel', urls: cards };
     if (!img) return null;
-    return { kind: httpOnly(r.video_url || '') ? 'video_preview' : 'image', urls: [img] };
+    const video = httpOnly(r.video_url || '');
+    return video ? { kind: 'video_preview', urls: [img], video_url: video } : { kind: 'image', urls: [img] };
   }
 
   // The CDN signs each link (query string); the path names the file itself.
@@ -578,7 +612,7 @@
       const m = creativeMedia(r);
       if (!m) continue;
       if (!queues.has(r.page)) queues.set(r.page, []);
-      queues.get(r.page).push({ id: r.id, page: r.page, fmt: r.fmt || '', kind: m.kind, urls: m.urls, days: age(r), long_running: age(r) >= longDays, variants: +r.variants || 1 });
+      queues.get(r.page).push({ id: r.id, page: r.page, fmt: r.fmt || '', kind: m.kind, urls: m.urls, ...(m.video_url ? { video_url: m.video_url } : {}), days: age(r), long_running: age(r) >= longDays, variants: +r.variants || 1 });
     }
     const order = [...queues.values()].sort((a, b) => b.length - a.length);
     for (const q of order) q.sort((a, b) => (b.long_running - a.long_running) || (b.variants - a.variants) || (b.days - a.days));
@@ -628,6 +662,10 @@
           else if (!t.values.includes(v)) add(id, 'error', 'bad_value', field, 'Unknown value "' + v + '"; allowed: ' + t.values.join(', ') + '.');
           continue;
         }
+        if (t.videoOnly && !hasFrames(item)) {
+          if (!empty) add(id, 'warn', 'video_tag_not_video', field, 'Only a video cut into frames gets this field; this creative has none.');
+          continue;
+        }
         if (empty || (t.multi && Array.isArray(v) && !v.length)) { add(id, 'error', 'missing_field', field, 'Required field is empty.'); continue; }
         if (t.type === 'bool') { if (typeof v !== 'boolean') add(id, 'error', 'bad_type', field, 'Must be true or false.'); continue; }
         const vals = t.multi ? (Array.isArray(v) ? v : [v]) : [v];
@@ -668,12 +706,17 @@
       const tags = l ? Object.fromEntries(Object.keys(CREATIVE_TAGS).filter(k => l[k] !== undefined && l[k] !== null).map(k => [k, l[k]])) : null;
       // The same tags in words, for tables: { field: 'name, name' }.
       const tag_names = tags ? Object.fromEntries(Object.entries(tags).map(([k, val]) => [k, [].concat(val).map(x => (typeof x === 'boolean' ? BOOL_NAMES[x] : CREATIVE_TAGS[k].names[x] || String(x))).join(', ')])) : null;
+      // A video cut into frames shows its storyboard instead of the preview frame.
+      const vd = hasFrames(i) ? i.video : null;
+      const video = vd ? { duration: vd.duration, width: vd.width, height: vd.height, aspect: vd.aspect || aspectOf(vd.width, vd.height), frames: vd.frames || [], storyboard: vd.storyboard || '', storyboard_thumb: vd.storyboard_thumb || '' } : null;
+      const first = (a, b) => [a, ...(b || [])].filter(Boolean);
       return { id: String(i.id), page: r.page, kind: i.kind, fmt: r.fmt || '', days, long_running: !isStoppedAd(r) && days >= longDays,
-        url: 'https://www.facebook.com/ads/library/?id=' + r.id, files: i.files || [], thumbs: i.thumbs || [], tags, tag_names, notes: l && typeof l.notes === 'string' ? l.notes : '' };
+        url: 'https://www.facebook.com/ads/library/?id=' + r.id, files: video ? first(video.storyboard, i.files) : i.files || [], thumbs: video ? first(video.storyboard_thumb, i.thumbs) : i.thumbs || [],
+        video, tags, tag_names, notes: l && typeof l.notes === 'string' ? l.notes : '' };
     });
     const done = gallery.filter(g => g.tags);
     const fields = Object.entries(CREATIVE_TAGS).map(([field, t]) => {
-      const pool = t.carouselOnly ? done.filter(g => g.kind === 'carousel') : done;
+      const pool = t.carouselOnly ? done.filter(g => g.kind === 'carousel') : t.videoOnly ? done.filter(g => g.video) : done;
       const values = (t.type === 'bool' ? [true, false] : t.values).map(value => {
         const has = pool.filter(g => (t.multi ? [].concat(g.tags[field] || []) : [g.tags[field]]).includes(value));
         const by = {};
@@ -693,8 +736,14 @@
     if (count('expired')) warnings.push({ code: 'creatives_expired', severity: 'warn', message: 'Не скачались ' + count('expired') + ' из ' + all.length + ' креативов: ссылки Meta на картинки уже не действуют. Собери срез заново и сразу запусти fetch_creatives.py.' });
     if (items.length > done.length) warnings.push({ code: 'creatives_unlabeled', severity: 'info', message: 'Скачано ' + items.length + ' креативов, размечено ' + done.length + ': блок «Что на креативах» считается только по размеченным.' });
     if (done.length && advertisers < SMALL_SAMPLE) warnings.push({ code: 'creatives_small', severity: 'warn', message: 'Креативы размечены у ' + advertisers + ' рекламодателей: частоты по картинкам это гипотезы, а не тренд ниши.' });
+    // Videos cut into frames: how long and which orientation (from the files, not from labels).
+    const cut = gallery.filter(g => g.video);
+    const tallyBy = f => cut.reduce((m, g) => { const k = f(g); if (k) m[k] = (m[k] || 0) + 1; return m; }, {});
+    const videoFailed = items.filter(i => i.video && i.video.status !== 'ok').length;
+    const videos = { analysed: cut.length, failed: videoFailed, durations: tallyBy(g => (Number.isFinite(g.video.duration) ? durationBucket(g.video.duration) : '')), aspects: tallyBy(g => g.video.aspect) };
+    if (videoFailed) warnings.push({ code: 'videos_failed', severity: 'info', message: 'Не удалось разобрать на кадры ' + videoFailed + ' видео (ссылка протухла, файл слишком большой или не декодируется): у них остался только кадр-превью.' });
     const tag_fields = Object.entries(CREATIVE_TAGS).map(([field, t]) => ({ field, label: t.label }));
-    return { selected: all.length, downloaded: items.length, expired: count('expired'), duplicates: count('duplicate'), failed, labeled: done.length, advertisers, tag_fields, fields, items: gallery, warnings };
+    return { selected: all.length, downloaded: items.length, expired: count('expired'), duplicates: count('duplicate'), failed, labeled: done.length, advertisers, tag_fields, fields, videos, items: gallery, warnings };
   }
 
   // ---- Hypothesis text checks ----------------------------------------------
@@ -1263,6 +1312,8 @@
     M.buildQueries = buildQueries;
     M.currencyForCountry = currencyForCountry;
     M.parseEuDetails = parseEuDetails;
+    M.videoFramePlan = videoFramePlan; // used by fetch_creatives.py's frame extractor page
+    M.aspectOf = aspectOf;
     M.pickEuAds = pickEuAds;
     M.isEuCountry = isEuCountry;
     M.siteFacts = siteFacts;
@@ -1275,7 +1326,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

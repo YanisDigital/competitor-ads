@@ -314,12 +314,14 @@ def main() -> None:
             "Видео оценены только по кадру-превью. Сводка по тегам на листе «Сводка»; сила сигнала считается по рекламодателям, как у хуков.")).font = f_note
         tf = visuals.get("tag_fields", [])
         vcols = ["Миниатюра", "Страница", "Вид", "Дней", "Долгожитель"] + [t["label"] for t in tf] + ["Заметка", "Объявление", "Файл"]
-        header(wv, 3, vcols, [18, 30, 12, 8, 11] + [16] * len(tf) + [40, 13, 30])
+        header(wv, 3, vcols, [34 if any(g.get("video") for g in visuals["items"]) else 18, 30, 14, 8, 11] + [16] * len(tf) + [40, 13, 30])
         root = folder.resolve()
         kind_names = {"image": "картинка", "carousel": "карусель", "video_preview": "кадр видео"}
         for i, g in enumerate(visuals["items"], 4):
             names = g.get("tag_names") or {}
-            put(wv, i, [None, g["page"], kind_names.get(g["kind"], g["kind"]), g["days"], "да" if g["long_running"] else ""]
+            gv = g.get("video")
+            kind = f"видео {round(gv['duration'])} с" + (f", {gv['aspect']}" if gv.get("aspect") else "") if gv else kind_names.get(g["kind"], g["kind"])
+            put(wv, i, [None, g["page"], kind, g["days"], "да" if g["long_running"] else ""]
                 + [names.get(t["field"], "") for t in tf] + [g.get("notes", "") if g.get("tags") else "не размечено", "объявление", (g.get("files") or [""])[0]])
             for c in range(6, len(vcols) - 1):
                 wv.cell(row=i, column=c).alignment = Alignment(wrap_text=True, vertical="top")
@@ -335,7 +337,7 @@ def main() -> None:
                     img = XLImage(str(p))
                 except Exception:
                     continue
-                w = 120
+                w = 240 if gv else 120  # a storyboard is wide
                 img.height, img.width = max(1, round(img.height * w / max(1, img.width))), w
                 img.anchor = f"A{i}"
                 wv.add_image(img)
@@ -546,6 +548,14 @@ def main() -> None:
                 put(ws, row, ["   " + x["name"], x["creatives"], x["share"], f"{x['advertisers']} рекл." + (f" · {x['strength']}" if x.get("strength") else "") + (f" · долгожителей {x['long_running']}" if x["long_running"] else "")])
                 ws.cell(row=row, column=3).number_format = "0%"
                 row += 1
+        vs = visuals.get("videos") or {}
+        if vs.get("analysed"):
+            ws.cell(row=row, column=1, value=f"Видео разобрано по кадрам: {vs['analysed']}").font = f_bold
+            row += 1
+            for label, d in (("Длина, с", vs.get("durations", {})), ("Ориентация", vs.get("aspects", {}))):
+                for k, n in d.items():
+                    put(ws, row, [f"   {label}: {k}", n])
+                    row += 1
         row += 1
     pr = report.get("prices")
     if pr:

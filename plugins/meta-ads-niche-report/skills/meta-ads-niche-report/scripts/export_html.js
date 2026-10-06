@@ -39,7 +39,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:1.6rem;margin:.2em
 a{color:var(--acc)}.chip{display:inline-block;max-width:100%;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:.78rem;margin:1px 2px 1px 0}.chip.error{color:var(--err);border-color:var(--err)}.chip.warn{color:var(--warn);border-color:var(--warn)}.chip.ok{color:var(--ok);border-color:var(--ok)}
 .note{background:var(--card);border-left:4px solid var(--warn);padding:8px 12px;border-radius:6px;margin:10px 0;font-size:.9rem}details{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin:8px 0}summary{cursor:pointer;font-weight:600}
 dl{margin:.4em 0;display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);gap:2px 12px}dt{color:var(--mut)}dd{margin:0;min-width:0;overflow-wrap:anywhere}@media(max-width:640px){dl{grid-template-columns:minmax(0,1fr)}dt{margin-top:.5em}}img.shot{max-width:100%;border:1px solid var(--line);border-radius:8px;margin-top:8px}
-.gal{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-top:12px}figure{margin:0;font-size:.85rem}img.cr{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:6px}
+.gal{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-top:12px}figure{margin:0;font-size:.85rem}figure.wide{grid-column:span 2}@media(max-width:420px){figure.wide{grid-column:auto}}img.cr{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:6px}
 @media print{body{background:#fff;color:#000}details{border:1px solid #999}details>*{display:block}details:not([open])>*:not(summary){display:block}.card,.tw{break-inside:avoid}}`;
 
 function buildHtml(m) {
@@ -111,9 +111,15 @@ function buildHtml(m) {
         return [].concat(val).filter(x => x !== 'none').map(x => chip((t.names || {})[x] || x)).join('');
       }).join('');
     };
+    const vs = v.videos || {};
+    if (vs.analysed) {
+      const DUR = { '<15': 'до 15 с', '15-30': '15–30 с', '30-60': '30–60 с', '>60': 'больше минуты' };
+      out.push(`<p><b>Видео разобрано по кадрам: ${esc(vs.analysed)}.</b> Длина: ${Object.entries(vs.durations || {}).map(([k, n]) => chip((DUR[k] || k) + ' · ' + n)).join('')} Ориентация: ${Object.entries(vs.aspects || {}).map(([k, n]) => chip(k + ' · ' + n)).join('')}</p><p class="mut">У разобранных видео в галерее раскадровка: 0–3 с (хук), четверти ролика и финал.</p>`);
+    }
+    const kindOf = g => (g.video ? 'видео ' + Math.round(g.video.duration) + ' с' + (g.video.aspect ? ' · ' + g.video.aspect : '') : KIND[g.kind] || g.kind);
     out.push('<div class="gal">' + v.items.slice(0, 60).map(g => {
       const src = m.images && (m.images[g.thumbs[0]] || m.images[g.files[0]]);
-      return `<figure class="card">${src ? `<img class="cr" alt="Креатив ${esc(g.page)}" src="${esc(src)}">` : '<div class="mut">нет миниатюры</div>'}<figcaption><b>${esc(g.page)}</b><br><span class="mut">${esc(KIND[g.kind] || g.kind)} · ${esc(g.days)} дн.${g.long_running ? ' · долгожитель' : ''}</span><br>${tagChips(g)}${g.notes ? `<br><span class="mut">${esc(g.notes)}</span>` : ''}<br>${link(g.url, 'объявление')}</figcaption></figure>`;
+      return `<figure class="card${g.video ? ' wide' : ''}">${src ? `<img class="cr" alt="Креатив ${esc(g.page)}" src="${esc(src)}">` : '<div class="mut">нет миниатюры</div>'}<figcaption><b>${esc(g.page)}</b><br><span class="mut">${esc(kindOf(g))} · ${esc(g.days)} дн.${g.long_running ? ' · долгожитель' : ''}</span><br>${tagChips(g)}${g.notes ? `<br><span class="mut">${esc(g.notes)}</span>` : ''}<br>${link(g.url, 'объявление')}</figcaption></figure>`;
     }).join('') + '</div>');
   }
 

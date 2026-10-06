@@ -359,7 +359,7 @@ async def run(args, keywords: list[str]) -> None:
     if args.creatives and report["ads"]:
         # Picture links expire within days: download the creatives now (fetch_creatives.py picks and fetches them).
         print()
-        subprocess.run([sys.executable, str(HERE / "fetch_creatives.py"), str(out_dir)], check=False)
+        subprocess.run([sys.executable, str(HERE / "fetch_creatives.py"), str(out_dir), "--videos", "20"], check=False)
 
 
 def main() -> None:
@@ -383,7 +383,7 @@ def main() -> None:
     parser.add_argument("--media", choices=tuple(MEDIA_PARAM), default="all", help="Media type: all (default), video, image (image and meme ads) or meme")
     parser.add_argument("--sort", choices=VALID_SORTS, default="impressions", help="impressions (default, the Library's order) or relevancy")
     parser.add_argument("--exact", action="store_true", help="Exact-phrase search (fewer off-niche ads); default matches the words anywhere in the ad")
-    parser.add_argument("--creatives", action="store_true", help="After collecting, download the pictures of up to 60 creatives for analysis (fetch_creatives.py; Meta's links expire within days)")
+    parser.add_argument("--creatives", action="store_true", help="After collecting, download the pictures of up to 60 creatives and cut up to 20 videos into frames for analysis (fetch_creatives.py; Meta's links expire within days)")
     parser.add_argument("--express", action="store_true", help=f"Quick look: run only the first {EXPRESS_QUERIES} queries")
     parser.add_argument("--list-presets", action="store_true", dest="list_presets", help="List available niche presets and exit")
     args = parser.parse_args()

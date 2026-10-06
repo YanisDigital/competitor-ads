@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download the pictures of a snapshot's creatives for analysis.
 
-    python fetch_creatives.py out/<name>/<date> [--limit 60] [--per-advertiser 3] [--delay 0.5]
+    python fetch_creatives.py out/<name>/<date> [--limit 60] [--per-advertiser 3] [--delay 0.5] [--videos 20]
 
 Which creatives: collector.js decides (creatives.js select: running ads of the
 advertisers that count after curation.json, long-running first, advertisers
@@ -14,11 +14,20 @@ days, so run this right after collecting (scrape.py --creatives does it).
 Result: <folder>/creatives/<id>-<n>.jpg, small copies in creatives/thumbs/ (with
 Pillow; without it the original file is kept and there are no thumbnails) and
 creatives/manifest.json (status per creative: ok, duplicate, expired, blocked,
-too_big, error). Then Claude looks at the pictures and writes creatives.json;
+too_big, error).
+
+With --videos N the first N video creatives are also downloaded (mp4, up to
+60 MB, same CDN rule) and cut into frames by headless Chromium (Playwright,
+no ffmpeg): the hook seconds 0-3, the quarters and the end (videoFramePlan in
+collector.js), saved in creatives/frames/ with a 4 x 2 storyboard
+creatives/<id>-story.jpg; the video file is deleted afterwards. The manifest
+gets item['video'] (status ok, expired, blocked, too_big, undecodable, error;
+duration, size, orientation, frames, storyboard). Then Claude looks at the pictures and writes creatives.json;
 `node creatives.js lint <folder>` checks it, report.js, Excel and HTML pick it up.
 Nothing here logs in or works around any protection.
 """
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -41,6 +50,13 @@ MIN_DELAY = 0.2
 TIMEOUT = 20
 FULL_SIDE, THUMB_SIDE = 1080, 320
 EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+VIDEO_TYPES = {"video/mp4": ".mp4", "video/webm": ".webm", "video/quicktime": ".mov"}
+MAX_VIDEO_BYTES = 60 * 1024 * 1024
+MAX_VIDEOS = 30
+VIDEO_TIMEOUT = 90
+FRAME_SIDE = 720  # longest side of a saved frame
+STORY_THUMB_SIDE = 480
+FRAMES_ORIGIN = "http://frames.local"  # the extractor page's own made-up origin; nothing goes to the network
 USER_AGENT = "meta-ads-niche-report (creative analysis)"
 
 
@@ -70,27 +86,179 @@ class _CheckedRedirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def download(url: str) -> tuple[bytes, str]:
-    """(bytes, content type) of one picture, or FetchError."""
+def download(url: str, kinds: dict = EXT, max_bytes: int = MAX_BYTES) -> tuple[bytes, str]:
+    """(bytes, content type) of one picture (or, with VIDEO_TYPES, one video), or FetchError."""
     if not is_allowed_url(url):
         raise FetchError("blocked")
     opener = urllib.request.build_opener(_CheckedRedirects)
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with opener.open(req, timeout=TIMEOUT) as resp:
+        with opener.open(req, timeout=TIMEOUT if kinds is EXT else VIDEO_TIMEOUT) as resp:
             ctype = resp.headers.get_content_type()
-            if ctype not in EXT:
+            if ctype not in kinds:
                 raise FetchError("blocked")
-            if int(resp.headers.get("Content-Length") or 0) > MAX_BYTES:
+            if int(resp.headers.get("Content-Length") or 0) > max_bytes:
                 raise FetchError("too_big")
-            data = resp.read(MAX_BYTES + 1)
+            data = resp.read(max_bytes + 1)
     except urllib.error.HTTPError as e:
         raise FetchError("expired" if e.code in (403, 404, 410) else "error") from None
     except (urllib.error.URLError, TimeoutError, OSError):
         raise FetchError("error") from None
-    if len(data) > MAX_BYTES:
+    if len(data) > max_bytes:
         raise FetchError("too_big")
     return data, ctype
+
+
+# Runs in the extractor page: plays the clip from a blob (same origin, so the
+# canvas may be read and seeking works), takes the frames collector.js plans.
+EXTRACT_JS = """async (maxSide) => {
+  const blob = await (await fetch('/clip')).blob();
+  const v = document.createElement('video');
+  v.muted = true; v.preload = 'auto'; v.playsInline = true;
+  v.src = URL.createObjectURL(blob);
+  const wait = (ev, ms) => new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error('timeout ' + ev)), ms);
+    v.addEventListener(ev, () => { clearTimeout(t); res(); }, { once: true });
+    v.addEventListener('error', () => { clearTimeout(t); rej(new Error('decode')); }, { once: true });
+  });
+  await wait('loadeddata', 20000);
+  let d = v.duration;
+  if (!Number.isFinite(d)) { // some webm files learn their length only after a seek to the end
+    const s = wait('seeked', 10000); v.currentTime = 1e7; await s;
+    d = Number.isFinite(v.duration) ? v.duration : v.currentTime;
+  }
+  const plan = window.__mai.videoFramePlan(d);
+  const scale = Math.min(1, maxSide / Math.max(v.videoWidth, v.videoHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(v.videoWidth * scale); c.height = Math.round(v.videoHeight * scale);
+  const x = c.getContext('2d');
+  const frames = [];
+  for (const p of plan) {
+    if (Math.abs(v.currentTime - p.t) > 0.01) { const s = wait('seeked', 10000); v.currentTime = p.t; await s; }
+    x.drawImage(v, 0, 0, c.width, c.height);
+    frames.push({ t: p.t, label: p.label, data: c.toDataURL('image/jpeg', 0.85) });
+  }
+  URL.revokeObjectURL(v.src);
+  return { duration: d, width: v.videoWidth, height: v.videoHeight, aspect: window.__mai.aspectOf(v.videoWidth, v.videoHeight), frames };
+}"""
+
+
+class FrameExtractor:
+    """Cuts a local video file into frames with headless Chromium (Playwright): no
+    ffmpeg needed. One browser for all videos; the page reaches nothing but the clip."""
+
+    def __enter__(self):
+        from playwright.sync_api import sync_playwright  # lazy: only needed for videos
+        self._pw = sync_playwright().start()
+        self._browser = self._pw.chromium.launch(headless=True)
+        self._context = self._browser.new_context()
+        self._context.add_init_script(path=str(HERE / "collector.js"))  # frame plan and orientation stay in collector.js
+        self._context.route("**/*", self._serve)
+        self._clip = None
+        return self
+
+    def _serve(self, route) -> None:
+        url = route.request.url
+        if not url.startswith(FRAMES_ORIGIN):
+            route.abort()  # the extractor page goes nowhere else
+        elif url == FRAMES_ORIGIN + "/clip" and self._clip:
+            route.fulfill(path=str(self._clip), content_type="application/octet-stream")
+        else:
+            route.fulfill(status=200, content_type="text/html", body="<!doctype html><title>frames</title>")
+
+    def __call__(self, path: Path) -> dict:
+        self._clip = path
+        page = self._context.new_page()
+        try:
+            page.goto(FRAMES_ORIGIN + "/")
+            out = page.evaluate(EXTRACT_JS, FRAME_SIDE)
+        except Exception:
+            raise FetchError("undecodable") from None
+        finally:
+            page.close()
+            self._clip = None
+        frames = [{"t": f["t"], "label": f["label"], "jpeg": base64.b64decode(f["data"].split(",", 1)[1])} for f in out["frames"]]
+        return {"duration": out["duration"], "width": out["width"], "height": out["height"], "aspect": out.get("aspect", ""), "frames": frames}
+
+    def __exit__(self, *exc):
+        self._browser.close()
+        self._pw.stop()
+
+
+def make_storyboard(frames: list, dest: Path, thumb: Path) -> bool:
+    """4 x 2 grid of the frames with their time under each; False without Pillow."""
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return False
+    imgs = [Image.open(io.BytesIO(f["jpeg"])).convert("RGB") for f in frames]
+    cw = 270
+    ch = max(round(cw * im.height / max(1, im.width)) for im in imgs)
+    cols, bar = 4, 22
+    rows = (len(imgs) + cols - 1) // cols
+    board = Image.new("RGB", (cols * cw, rows * (ch + bar)), "white")
+    draw = ImageDraw.Draw(board)
+    for k, (im, f) in enumerate(zip(imgs, frames)):
+        x, y = (k % cols) * cw, (k // cols) * (ch + bar)
+        im.thumbnail((cw, ch))
+        board.paste(im, (x + (cw - im.width) // 2, y))
+        draw.rectangle([x, y + ch, x + cw, y + ch + bar], fill="black")
+        draw.text((x + 6, y + ch + 5), f"{f['label']}  ({f['t']:.1f} s)", fill="yellow")
+    board.save(dest, "JPEG", quality=85)
+    small = board.copy()
+    small.thumbnail((STORY_THUMB_SIDE, STORY_THUMB_SIDE))
+    small.save(thumb, "JPEG", quality=80)
+    return True
+
+
+def save_frames(out: dict, folder: Path, ad_id: str) -> dict:
+    fdir = folder / "creatives" / "frames"
+    fdir.mkdir(parents=True, exist_ok=True)
+    frames = []
+    for n, f in enumerate(out["frames"], 1):
+        (fdir / f"{ad_id}-f{n}.jpg").write_bytes(f["jpeg"])
+        frames.append({"t": f["t"], "label": f["label"], "file": f"creatives/frames/{ad_id}-f{n}.jpg"})
+    board, thumb = f"creatives/{ad_id}-story.jpg", f"creatives/thumbs/{ad_id}-story.jpg"
+    made = make_storyboard(out["frames"], folder / board, folder / thumb) if out["frames"] else False
+    return {"status": "ok", "duration": round(float(out["duration"]), 2), "width": out["width"], "height": out["height"], "aspect": out.get("aspect", ""),
+            "frames": frames, "storyboard": board if made else "", "storyboard_thumb": thumb if made else ""}
+
+
+def fetch_videos(items: list, folder: Path, fetch=download, extract=None, sleep=time.sleep, delay: float = 0.5, log=lambda s: None) -> list:
+    """Downloads the videos marked want_video, cuts each into frames and a storyboard
+    and deletes the video file; the result goes into item['video']."""
+    targets = [i for i in items if i.get("want_video") and i.get("status") == "ok"]
+    if not targets:
+        return items
+    (folder / "creatives" / "thumbs").mkdir(parents=True, exist_ok=True)
+    own = extract is None
+    cm = FrameExtractor() if own else None
+    ex = cm.__enter__() if own else extract
+    try:
+        for k, it in enumerate(targets, 1):
+            prev = it.get("video") or {}
+            if prev.get("status") == "ok" and prev.get("storyboard") and (folder / prev["storyboard"]).exists():
+                continue  # cut on an earlier run
+            url = it.get("video_url", "")
+            if not is_allowed_url(url):
+                it["video"] = {"status": "blocked"}
+                continue
+            clip = folder / "creatives" / f"{it['id']}.mp4"
+            try:
+                data, _ = fetch(url, VIDEO_TYPES, MAX_VIDEO_BYTES)
+                clip.write_bytes(data)
+                it["video"] = save_frames(ex(clip), folder, it["id"])
+            except FetchError as e:
+                it["video"] = {"status": e.status}
+            finally:
+                clip.unlink(missing_ok=True)  # keep the frames, not the video
+                sleep(delay)
+            v = it["video"]
+            log(f"[video {k}/{len(targets)}] {it['id']} {v['status']}" + (f" ({v['duration']} s, {len(v['frames'])} frames)" if v["status"] == "ok" else ""))
+    finally:
+        if own:
+            cm.__exit__(None, None, None)
+    return items
 
 
 def save_image(data: bytes, ctype: str, folder: Path, name: str) -> tuple[str, str | None]:
@@ -129,13 +297,15 @@ def fetch_all(items: list, folder: Path, fetch=download, sleep=time.sleep, delay
     seen, out = {}, []
     for k, item in enumerate(items, 1):
         prev = old.get(item["id"])
+        video_keys = {k: item[k] for k in ("want_video", "video_url") if k in item}
         if prev and prev.get("status") == "ok" and prev.get("files") and all((folder / f).exists() for f in prev["files"]):
+            prev.update(video_keys)
             out.append(prev)  # already downloaded on an earlier run
             if prev.get("sha256"):
                 seen.setdefault(prev["sha256"], item["id"])
             continue
         rec = {"id": item["id"], "page": item.get("page", ""), "kind": item.get("kind", "image"), "fmt": item.get("fmt", ""),
-               "status": "", "files": [], "thumbs": [], "errors": []}
+               "status": "", "files": [], "thumbs": [], "errors": [], **video_keys}
         for n, url in enumerate(item.get("urls", [])[:MAX_CARDS], 1):
             if not is_allowed_url(url):
                 rec["errors"].append("blocked")
@@ -166,9 +336,9 @@ def fetch_all(items: list, folder: Path, fetch=download, sleep=time.sleep, delay
     return write_manifest(folder, out)
 
 
-def select(folder: Path, limit: int, per_advertiser: int) -> list:
+def select(folder: Path, limit: int, per_advertiser: int, videos: int = 0) -> list:
     try:
-        res = subprocess.run(["node", str(HERE / "creatives.js"), "select", str(folder), "--limit", str(limit), "--per-advertiser", str(per_advertiser)],
+        res = subprocess.run(["node", str(HERE / "creatives.js"), "select", str(folder), "--limit", str(limit), "--per-advertiser", str(per_advertiser), "--videos", str(videos)],
                              capture_output=True, encoding="utf-8", timeout=120)
     except FileNotFoundError:
         sys.exit("Node.js is required (collector.js picks the creatives).")
@@ -186,9 +356,12 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help=f"how many creatives (default {DEFAULT_LIMIT}, cap {MAX_LIMIT})")
     ap.add_argument("--per-advertiser", type=int, default=3, dest="per_advertiser", help="at most this many per advertiser (default 3)")
     ap.add_argument("--delay", type=float, default=0.5, help=f"seconds between downloads (default 0.5, minimum {MIN_DELAY:g})")
+    ap.add_argument("--videos", type=int, default=0, help=f"also cut this many video creatives into frames (default 0, cap {MAX_VIDEOS}; needs Playwright)")
     args = ap.parse_args()
     if not 1 <= args.limit <= MAX_LIMIT:
         sys.exit(f"--limit must be between 1 and {MAX_LIMIT}.")
+    if not 0 <= args.videos <= MAX_VIDEOS:
+        sys.exit(f"--videos must be between 0 and {MAX_VIDEOS}.")
     if args.per_advertiser < 1:
         sys.exit("--per-advertiser must be at least 1.")
     if args.delay < MIN_DELAY:
@@ -196,13 +369,22 @@ def main() -> None:
     folder = Path(args.folder)
     if not (folder / "ads.csv").exists():
         sys.exit(f"No ads.csv in {folder}")
-    items = select(folder, args.limit, args.per_advertiser)
+    items = select(folder, args.limit, args.per_advertiser, args.videos)
     if not items:
         sys.exit("Nothing to download: no running ads with picture links (a snapshot collected before v0.13.4 has none; collect it again).")
     manifest = fetch_all(items, folder, delay=args.delay, log=print)
     count = lambda s: sum(1 for i in manifest["items"] if i["status"] == s)
     print(f"Downloaded {count('ok')}, duplicates {count('duplicate')}, expired links {count('expired')}, "
           f"refused {count('blocked') + count('too_big')}, failed {count('error')}.")
+    if args.videos:
+        try:
+            fetch_videos(manifest["items"], folder, delay=args.delay, log=print)
+        except ImportError:
+            print("Videos skipped: Playwright is not installed (pip install playwright; python -m playwright install chromium).")
+        manifest = write_manifest(folder, manifest["items"])
+        vids = [i["video"] for i in manifest["items"] if i.get("video")]
+        print(f"Videos cut into frames: {sum(1 for v in vids if v['status'] == 'ok')} of {len(vids)}"
+              + (f" (failed: {', '.join(sorted({v['status'] for v in vids if v['status'] != 'ok'}))})" if any(v["status"] != "ok" for v in vids) else "") + ".")
     if count("expired") and not count("ok"):
         print("All links have expired: collect the snapshot again and run this right after.")
     print(f"Saved: {folder / 'creatives' / 'manifest.json'}")

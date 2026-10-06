@@ -41,7 +41,7 @@ test('creativeMedia: carousel, video preview, single picture, nothing', () => {
   assert.deepEqual(creativeMedia({ fmt: 'CAROUSEL', image_url: 'https://c/1.jpg', card_image_urls: 'https://c/1.jpg | https://c/2.jpg' }), { kind: 'carousel', urls: ['https://c/1.jpg', 'https://c/2.jpg'] });
   assert.deepEqual(creativeMedia({ fmt: 'CAROUSEL', image_url: 'https://c/1.jpg', card_image_urls: 'https://c/1.jpg' }), { kind: 'image', urls: ['https://c/1.jpg'] });
   assert.deepEqual(creativeMedia({ fmt: 'DCO', image_url: 'https://c/1.jpg', card_image_urls: 'https://c/1.jpg | https://c/2.jpg' }), { kind: 'image', urls: ['https://c/1.jpg'] }); // DCO cards are alternatives, a viewer sees one
-  assert.deepEqual(creativeMedia({ fmt: 'VIDEO', image_url: 'https://c/p.jpg', video_url: 'https://c/v.mp4' }), { kind: 'video_preview', urls: ['https://c/p.jpg'] });
+  assert.deepEqual(creativeMedia({ fmt: 'VIDEO', image_url: 'https://c/p.jpg', video_url: 'https://c/v.mp4' }), { kind: 'video_preview', urls: ['https://c/p.jpg'], video_url: 'https://c/v.mp4' });
   assert.equal(creativeMedia({ fmt: 'IMAGE', image_url: '' }), null);
   assert.equal(creativeMedia({ fmt: 'IMAGE', image_url: 'ftp://c/1.jpg' }), null);
 });

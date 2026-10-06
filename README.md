@@ -267,6 +267,13 @@ https links on Meta's image CDN, images only, up to 8 MB, one at a time, and
 writes `creatives/` with thumbnails (when Pillow is installed) and a
 `manifest.json`. Run it right away: the links expire within days.
 
+With `--videos 20` (on by default in `scrape.py --creatives`) up to 20 videos
+are downloaded and cut into frames by headless Chromium, no ffmpeg needed: the
+hook seconds 0-3, the quarters and the end, glued into a 4 x 2 storyboard; the
+video file is deleted afterwards. Videos get four more tags (hook of the first
+seconds, video format, subtitles, call to action at the end), and the report
+shows their length and orientation. Sound is not analysed.
+
 Claude then looks at the pictures and writes `creatives.json` with a fixed
 vocabulary (`references/creatives.md`): what is in the frame, text, price and
 offer on the picture, social proof, style, logo, carousel story.
