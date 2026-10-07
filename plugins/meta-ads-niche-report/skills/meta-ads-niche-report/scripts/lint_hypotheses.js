@@ -24,11 +24,8 @@ if (!dir || !fs.existsSync(hypPath)) {
 const clientPath = [process.argv[3], path.join(dir, 'client.json'), path.join(path.dirname(dir), 'client.json')].filter(Boolean).find(f => fs.existsSync(f));
 const client = clientPath ? JSON.parse(fs.readFileSync(clientPath, 'utf8')) : null;
 
-// The snapshot's preset supplies the niche hook regexes used to spot claims.
-const metaPath = path.join(dir, 'run.json');
-const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) : {};
-const presetPath = meta.preset && path.join(__dirname, '..', 'presets', meta.preset + '.json');
-const preset = presetPath && fs.existsSync(presetPath) ? JSON.parse(fs.readFileSync(presetPath, 'utf8')) : {};
+// The snapshot's preset and niche.json supply the niche hook regexes used to spot claims.
+const preset = require('./report.js').loadNicheConfig(dir).config || {};
 
 const results = lintHypotheses(JSON.parse(fs.readFileSync(hypPath, 'utf8')), {
   client,

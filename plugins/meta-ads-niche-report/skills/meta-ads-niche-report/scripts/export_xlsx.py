@@ -47,7 +47,8 @@ def load_report(folder: Path):
         res = subprocess.run(["node", str(HERE / "report.js"), str(folder)], capture_output=True, encoding="utf-8", timeout=120)
         if res.returncode == 0 and res.stdout.strip():
             data = json.loads(res.stdout)
-            return data["report"], data["doors"], data["meta"], data.get("query_stats", []), data.get("warnings", []), data.get("eu"), data.get("visuals")
+            return (data["report"], data["doors"], data["meta"], data.get("query_stats", []), data.get("warnings", []), data.get("eu"), data.get("visuals"),
+                    data.get("next_steps", []))
         print("warning: report.js failed, using report.json:", res.stderr.strip(), file=sys.stderr)
     except FileNotFoundError:
         print("warning: node not found, using report.json (door column will be empty)", file=sys.stderr)
@@ -55,7 +56,7 @@ def load_report(folder: Path):
     if not rp.exists():
         sys.exit("No node and no report.json: cannot build the report.")
     meta = json.loads((folder / "run.json").read_text(encoding="utf-8")) if (folder / "run.json").exists() else {}
-    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], [], None, None
+    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], [], None, None, []
 
 
 def days_shown(r, run_dt) -> int:
@@ -90,7 +91,7 @@ def main() -> None:
         sys.exit(f"No ads.csv in {folder}")
     out_path = Path(args.out) if args.out else folder / "report.xlsx"
 
-    report, doors, meta, query_stats, warnings, eu, visuals = load_report(folder)
+    report, doors, meta, query_stats, warnings, eu, visuals, next_steps = load_report(folder)
     with open(folder / "ads.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     # curation.json (hand-checked list of competitors) was applied by report.js: drop the same advertisers here
@@ -490,6 +491,15 @@ def main() -> None:
         for w in warnings:
             c = ws.cell(row=row, column=1, value="• " + w["message"])
             c.font = f_note
+            row += 1
+        row += 1
+    if next_steps:
+        ws.cell(row=row, column=1, value="Что ещё можно сделать (выводы ниже на эти шаги не опираются)").font = f_bold
+        row += 1
+        for s in next_steps:
+            mark = " [срочно]" if s.get("urgent") else ""
+            need = f" ({s['needs']})" if s.get("needs") else ""
+            ws.cell(row=row, column=1, value=f"• {s['title']}{mark}{need}: {s['why']} {s['how']}").font = f_note
             row += 1
         row += 1
 

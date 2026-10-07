@@ -5,7 +5,8 @@
 // contains no client.json data. Sections appear when their files exist:
 // sites.json (site check), hypotheses.json (+ hypotheses_lint.json,
 // test_plan.json), diff.json (changes), creatives/manifest.json (+ creatives.json:
-// what is on the pictures, with a gallery of thumbnails).
+// what is on the pictures, with a gallery of thumbnails). It always ends with
+// "what else can be done" (next_steps from report.js): the steps not run yet.
 //
 //   node export_html.js out/ecom-dropship-us/2026-09-30 [--out report.html] [--no-images]
 //
@@ -39,7 +40,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:1.6rem;margin:.2em
 a{color:var(--acc)}.chip{display:inline-block;max-width:100%;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:.78rem;margin:1px 2px 1px 0}.chip.error{color:var(--err);border-color:var(--err)}.chip.warn{color:var(--warn);border-color:var(--warn)}.chip.ok{color:var(--ok);border-color:var(--ok)}
 .note{background:var(--card);border-left:4px solid var(--warn);padding:8px 12px;border-radius:6px;margin:10px 0;font-size:.9rem}details{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin:8px 0}summary{cursor:pointer;font-weight:600}
 dl{margin:.4em 0;display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);gap:2px 12px}dt{color:var(--mut)}dd{margin:0;min-width:0;overflow-wrap:anywhere}@media(max-width:640px){dl{grid-template-columns:minmax(0,1fr)}dt{margin-top:.5em}}img.shot{max-width:100%;border:1px solid var(--line);border-radius:8px;margin-top:8px}
-.gal{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-top:12px}figure{margin:0;font-size:.85rem}figure.wide{grid-column:span 2}@media(max-width:420px){figure.wide{grid-column:auto}}img.cr{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:6px}
+.note.urgent{border-left-color:var(--err)}.gal{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-top:12px}figure{margin:0;font-size:.85rem}figure.wide{grid-column:span 2}@media(max-width:420px){figure.wide{grid-column:auto}}img.cr{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:6px}
 @media print{body{background:#fff;color:#000}details{border:1px solid #999}details>*{display:block}details:not([open])>*:not(summary){display:block}.card,.tw{break-inside:avoid}}`;
 
 function buildHtml(m) {
@@ -192,6 +193,12 @@ ${ln ? '<p>' + ln.findings.filter(f => f.severity !== 'info').map(f => chip(f.me
     if ((y.scaling_hooks || []).length) out.push('<p><b>Масштабируется (хуки объявлений с ростом вариантов):</b> ' + y.scaling_hooks.map(h => chip(h.hook + ' ×' + h.ads + ' · ' + h.strength)).join('') + '</p>');
     if ((y.failed_hooks || []).length) out.push('<p><b>Чаще у пропавших молодых тестов:</b> ' + y.failed_hooks.map(h => chip(h.hook + ' · ' + h.strength, 'warn')).join('') + '</p>');
     if ((d.scaling || []).length) out.push(table(['Страница', 'Было', 'Стало', 'Ссылка'], d.scaling.map(s => [esc(s.page), esc(s.variants_prev), esc(s.variants_curr), link(s.url, 'объявление')])));
+  }
+
+  const steps = m.next_steps || [];
+  if (steps.length) {
+    out.push('<h2>Что ещё можно сделать</h2><p class="mut">Шаги, которые для этого среза ещё не сделаны: выводы выше на них не опираются.</p>');
+    out.push(steps.map(s => `<div class="note${s.urgent ? ' urgent' : ''}"><b>${esc(s.title)}</b>${s.urgent ? ' ' + chip('срочно', 'warn') : ''}${s.needs ? ' ' + chip(s.needs) : ''}<br>${esc(s.why)}<br><span class="mut">${esc(s.how)}</span></div>`).join(''));
   }
 
   out.push(`<hr><p class="mut">Сформировано ${esc(m.generated || '')}${m.version ? ' · meta-ads-niche-report ' + esc(m.version) : ''}. Данные: публичная Библиотека рекламы Meta, ${m.visuals ? 'тексты и картинки объявлений' : 'только текст объявлений'}. Инструмент не связан с Meta и Anthropic. Автоматический сбор может противоречить условиям Meta: ответственность за использование на пользователе.</p>`);

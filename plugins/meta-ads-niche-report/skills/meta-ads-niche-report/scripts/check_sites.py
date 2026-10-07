@@ -89,8 +89,9 @@ async def run(args) -> None:
         sys.exit(f"No ads.csv in {folder}")
     data = load_report(folder, args.preset)
     report, meta = data["report"], data["meta"]
+    # preset + the folder's niche.json, merged by report.js (meta.niche); older report.js output lacks it
     preset_id = args.preset or meta.get("preset")
-    preset = json.loads((PRESETS_DIR / f"{preset_id}.json").read_text(encoding="utf-8")) if preset_id and (PRESETS_DIR / f"{preset_id}.json").exists() else {}
+    preset = meta.get("niche") or (json.loads((PRESETS_DIR / f"{preset_id}.json").read_text(encoding="utf-8")) if preset_id and (PRESETS_DIR / f"{preset_id}.json").exists() else {})
     fact_opts = {"currency": preset.get("currency") or "", "extraHooks": preset.get("extra_hooks", {})}
     if preset.get("base_hooks") is False:
         fact_opts["baseHooks"] = False

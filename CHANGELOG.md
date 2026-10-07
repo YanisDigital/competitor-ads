@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.14.4] - 2026-10-07
+
+From a trial on a niche without a preset (car import from the US): the run
+stopped after the text report, the niche hooks were counted outside the skill,
+and nothing said what was left out.
+
+### Added
+- `niche.json` next to `ads.csv`: the shape of a preset without `services`
+  (`title`, `extra_hooks`, `noise`, `currency`, `base_hooks`, `online_only`,
+  `seasons`, `policy`). `report.js` `loadNicheConfig` reads the preset from
+  `run.json` and puts `niche.json` on top (hooks are joined, other fields win);
+  `report.js`, Excel, HTML, `lint_hypotheses.js`, `plan_tests.js`, `compare.js`
+  and `check_sites.py` all use it, so a new niche's hooks get a strength per
+  advertiser. A broken regular expression names its hook.
+  `suggest_queries.js` prints `preset_draft` (the queries that found
+  competitors plus `niche.json`) to save as a preset with the user's consent.
+- "What else can be done": `nextSteps` in collector.js, `next_steps` in
+  `report.js`, a section at the end of the HTML report and a block on the Excel
+  summary sheet. Built from the files of the snapshot: curation, niche hooks,
+  creatives (urgent while Meta's picture links live; after 7 days "collect
+  again"; unavailable in snapshots older than 0.13.4), labeling, all ads of the
+  competitors (`--pages-of`), Meta's limit, sites, brief, hypotheses and test
+  plan, EU reach, a repeat snapshot for comparison. Steps that send new requests
+  say "only on the user's request".
+- `selectCreatives` `topAdvertisers` and `--top-advertisers N` in
+  `creatives.js` and `fetch_creatives.py`: only the N advertisers with the most
+  ads. `scrape.py --creatives` (after curation) uses the leaders' sample:
+  `--top-advertisers 10 --limit 30 --videos 10`.
+
+### Changed
+- `SKILL.md`: "the usual run" (collect, curate, `niche.json`, the leaders'
+  creatives, report, HTML and Excel, next steps) and what stays on request;
+  the chat report ends with what the conclusions are not based on and the next
+  steps. HTML and Excel are made in every run except the express one.
+- The order of advertisers in `selectCreatives` is by all their ads after
+  curation (it was by ads with media).
+- Tests (`tests/defaults.test.mjs`, 190 in total).
+
 ## [0.14.3] - 2026-10-06
 
 Four changes from trying the skill on a real case (makeup artists in Odesa).

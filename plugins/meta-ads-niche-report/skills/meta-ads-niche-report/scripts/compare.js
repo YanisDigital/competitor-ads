@@ -52,10 +52,8 @@ if (qa && qb) {
   if (shared.length < Math.max(qa.length, qb.length)) console.log(`Note: only ${shared.length} of ${qa.length}/${qb.length} queries are the same in both snapshots; stops can be confirmed only for those.`);
 }
 
-// The newer snapshot's preset supplies the niche hooks used in the dynamics.
-const runMeta = fs.existsSync(path.join(newer, 'run.json')) ? JSON.parse(fs.readFileSync(path.join(newer, 'run.json'), 'utf8')) : {};
-const presetFile = runMeta.preset && path.join(__dirname, '..', 'presets', runMeta.preset + '.json');
-const preset = presetFile && fs.existsSync(presetFile) ? JSON.parse(fs.readFileSync(presetFile, 'utf8')) : {};
+// The newer snapshot's preset and niche.json supply the niche hooks used in the dynamics.
+const preset = require('./report.js').loadNicheConfig(newer).config || {};
 const hookOpts = { extraHooks: preset.extra_hooks || {}, baseHooks: preset.base_hooks === false ? false : undefined };
 const d = diffSnapshots(parseCsv(fs.readFileSync(path.join(older, 'ads.csv'), 'utf8')), parseCsv(fs.readFileSync(path.join(newer, 'ads.csv'), 'utf8')), { prevTs: tsA, currTs: tsB, cap, hookOpts });
 const out = path.join(newer, 'diff.json');

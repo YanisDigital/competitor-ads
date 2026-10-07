@@ -1,34 +1,48 @@
 #!/usr/bin/env node
 // Rebuilds the full report for a snapshot folder from its ads.csv, using the
-// same code as the collector (collector.js) and the snapshot's preset
-// (run.json -> presets/<id>.json). If the folder has a curation.json (hand-made
-// list of advertisers to keep or drop, see applyCuration in collector.js) the
-// report is built from the kept advertisers only. As a CLI it prints
-// {report, doors, meta, query_stats, warnings, eu, visuals} as
-// JSON to stdout; as a module it exports loadSnapshot(). Used by
-// export_xlsx.py and export_html.js so exports always reflect the current
-// report logic, even for folders scraped with an older version.
+// same code as the collector (collector.js) and the snapshot's niche settings:
+// the preset (run.json -> presets/<id>.json) and, on top of it, the folder's own
+// niche.json (hooks, noise words, currency... for a niche without a preset). If
+// the folder has a curation.json (hand-made list of advertisers to keep or drop,
+// see applyCuration in collector.js) the report is built from the kept
+// advertisers only. As a CLI it prints
+// {report, doors, meta, query_stats, warnings, eu, visuals, next_steps} as
+// JSON to stdout; as a module it exports loadSnapshot() and loadNicheConfig().
+// Used by export_xlsx.py and export_html.js so exports always reflect the
+// current report logic, even for folders scraped with an older version.
 //
 //   node report.js out/ecom-dropship-us/2026-09-30 [preset-id]
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, currencyForCountry, euSummary, creativesSummary } = require('./collector.js');
+const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, nextSteps, currencyForCountry, euSummary, creativesSummary, isEuCountry } = require('./collector.js');
 
-function loadSnapshot(dir, presetOverride) {
-  const metaPath = path.join(dir, 'run.json');
-  const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) : {};
-  const ts = meta.date ? Date.parse(meta.date) / 1000 : fs.statSync(path.join(dir, 'ads.csv')).mtimeMs / 1000;
+const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null);
 
-  let preset = null;
-  const presetId = presetOverride || meta.preset; // override is for snapshots without run.json
-  if (presetId) {
-    const p = path.join(__dirname, '..', 'presets', presetId + '.json');
-    if (fs.existsSync(p)) preset = JSON.parse(fs.readFileSync(p, 'utf8'));
+// The niche settings of a snapshot: the preset named in run.json (or presetId),
+// then the folder's niche.json on top of it (its extra_hooks are added to the
+// preset's, its other fields win). config is null when there is neither.
+// Every hook must be a valid regular expression; a broken one names itself.
+function loadNicheConfig(dir, presetId) {
+  const meta = readJson(path.join(dir, 'run.json')) || {};
+  const id = presetId || meta.preset;
+  const preset = id ? readJson(path.join(__dirname, '..', 'presets', id + '.json')) : null;
+  const niche = readJson(path.join(dir, 'niche.json'));
+  for (const [k, src] of Object.entries((niche && niche.extra_hooks) || {})) {
+    try { new RegExp(src); } catch (e) { throw new Error('niche.json: hook "' + k + '" is not a valid regular expression: ' + e.message); }
   }
+  const config = preset || niche ? { ...(preset || {}), ...(niche || {}), extra_hooks: { ...((preset && preset.extra_hooks) || {}), ...((niche && niche.extra_hooks) || {}) } } : null;
+  return { config, preset_id: preset ? id : null, niche_file: !!niche };
+}
+
+// opts.now (unix seconds) pins "today" for the age of the snapshot in next_steps.
+function loadSnapshot(dir, presetOverride, opts0 = {}) {
+  const meta = readJson(path.join(dir, 'run.json')) || {};
+  const ts = meta.date ? Date.parse(meta.date) / 1000 : fs.statSync(path.join(dir, 'ads.csv')).mtimeMs / 1000;
+  const niche = loadNicheConfig(dir, presetOverride); // override is for snapshots without run.json
+  const preset = niche.config;
 
   const allRows = parseCsv(fs.readFileSync(path.join(dir, 'ads.csv'), 'utf8'));
-  const curationPath = path.join(dir, 'curation.json');
-  const curation = fs.existsSync(curationPath) ? JSON.parse(fs.readFileSync(curationPath, 'utf8')) : null;
+  const curation = readJson(path.join(dir, 'curation.json'));
   const cur = applyCuration(allRows, curation);
   const rows = cur.rows;
   const opts = { longDays: 90, now: ts };
@@ -44,20 +58,31 @@ function loadSnapshot(dir, presetOverride) {
   const doors = Object.fromEntries(rows.map(r => [r.id, classifyDoor(r)]));
   const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
   const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
-  const euPath = path.join(dir, 'eu.json'); // EU reach and audience, collected by eu_details.py
-  const eu = fs.existsSync(euPath) ? euSummary(JSON.parse(fs.readFileSync(euPath, 'utf8')), rows) : null;
+  const euData = readJson(path.join(dir, 'eu.json')); // EU reach and audience, collected by eu_details.py
+  const eu = euData ? euSummary(euData, rows) : null;
   // Pictures downloaded by fetch_creatives.py (creatives/manifest.json) and the
   // tags Claude wrote for them (creatives.json).
-  const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null);
   const manifest = readJson(path.join(dir, 'creatives', 'manifest.json'));
   const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
   const report = buildReport(rows, opts);
   const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads })
     .concat(visuals ? visuals.warnings : []);
-  return { report, doors, rows, query_stats: stats, warnings, eu, visuals, meta: { ...meta, ts, preset_title: preset && preset.title, ...curationMeta } };
+  // What the folder already has, for the "what else can be done" block.
+  const has = f => fs.existsSync(path.join(dir, f));
+  const now = opts0.now || Date.now() / 1000;
+  const next_steps = nextSteps({
+    curated: !!curation, has_image_links: allRows.some(r => r.image_url), has_page_id: allRows.some(r => r.page_id),
+    age_days: Math.max(0, (now - ts) / 86400), manifest: !!manifest, downloaded: visuals ? visuals.downloaded : 0, labeled: visuals ? visuals.labeled : 0,
+    sites: has('sites.json'), client: has('client.json') || fs.existsSync(path.join(path.dirname(path.resolve(dir)), 'client.json')),
+    hypotheses: has('hypotheses.json'), plan: has('test_plan.json'), diff: has('diff.json'), eu_country: isEuCountry(meta.country), eu: !!euData,
+    preset: !!niche.preset_id, niche: niche.niche_file, pages_of: !!meta.pages_of,
+    rate_limited: (meta.rate_limited_queries || []).length, queries: (meta.queries || []).length
+  });
+  return { report, doors, rows, query_stats: stats, warnings, eu, visuals, next_steps,
+    meta: { ...meta, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };
 }
 
-module.exports = { loadSnapshot };
+module.exports = { loadSnapshot, loadNicheConfig };
 
 if (require.main === module) {
   const dir = process.argv[2];
@@ -65,6 +90,13 @@ if (require.main === module) {
     console.error('Usage: node report.js <snapshot-folder-with-ads.csv> [preset-id]');
     process.exit(1);
   }
-  const { report, doors, meta, query_stats, warnings, eu, visuals } = loadSnapshot(dir, process.argv[3]);
-  process.stdout.write(JSON.stringify({ report, doors, meta, query_stats, warnings, eu, visuals }));
+  let snap;
+  try {
+    snap = loadSnapshot(dir, process.argv[3]);
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
+  const { report, doors, meta, query_stats, warnings, eu, visuals, next_steps } = snap;
+  process.stdout.write(JSON.stringify({ report, doors, meta, query_stats, warnings, eu, visuals, next_steps }));
 }

@@ -29,9 +29,7 @@ let lintList;
 if (fs.existsSync(lintPath)) {
   lintList = JSON.parse(fs.readFileSync(lintPath, 'utf8')).results;
 } else {
-  const meta = fs.existsSync(path.join(dir, 'run.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'run.json'), 'utf8')) : {};
-  const pp = meta.preset && path.join(__dirname, '..', 'presets', meta.preset + '.json');
-  const preset = pp && fs.existsSync(pp) ? JSON.parse(fs.readFileSync(pp, 'utf8')) : {};
+  const preset = require('./report.js').loadNicheConfig(dir).config || {}; // preset + niche.json
   lintList = lintHypotheses(hyps, { client, extraHooks: preset.extra_hooks || {}, baseHooks: preset.base_hooks === false ? false : undefined });
 }
 const lint = Object.fromEntries(lintList.map(r => [r.name, r]));

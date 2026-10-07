@@ -423,6 +423,37 @@
     return w;
   }
 
+  // ---- What else can be done with a snapshot ----------------------------------
+  // The steps of the skill that were not run on this snapshot, most useful first,
+  // so a report never ends without saying what its conclusions are not based on.
+  // state (built by report.js from the files of the folder): curated, has_image_links,
+  // has_page_id, age_days, manifest, downloaded, labeled, sites, client,
+  // hypotheses, plan, diff, eu_country, eu, preset, niche, pages_of,
+  // rate_limited (queries refused by Meta), queries.
+  // Returns [{ code, title, why, urgent, needs, how }] in Russian (report language).
+  const CREATIVE_LINK_DAYS = 7; // Meta's signed picture links live a few days
+  function nextSteps(st) {
+    const s = st || {};
+    const out = [];
+    const add = (code, title, why, how, extra = {}) => out.push({ code, title, why, urgent: false, needs: '', how, ...extra });
+    const curateFirst = s.curated ? '' : 'сначала отобрать конкурентов (curation.json)';
+    if (!s.curated) add('curate', 'Отобрать конкурентов (curation.json)', 'Поиск идёт по тексту объявлений, поэтому в срезе есть не конкуренты. Без чистки креативы, гипотезы и сбор всех объявлений конкурентов уходят на чужих.', 'Прочитать топ рекламодателей по смыслу, спорных обсудить, решение записать в curation.json рядом с ads.csv.');
+    if (!s.preset && !s.niche) add('niche_hooks', 'Хуки ниши в niche.json', 'Для ниши нет пресета: в отчёте посчитаны только базовые хуки (цена, скидка, запись, адрес и т.п.), приёмы этой ниши в них не видны.', 'Записать niche.json рядом с ads.csv (extra_hooks, noise, currency) и пересобрать отчёт: хуки ниши получат силу сигнала по рекламодателям.');
+    if (!s.has_image_links) add('creatives_unavailable', 'Креативы этого среза недоступны', 'Срез собран версией до 0.13.4: ссылок на картинки и видео в нём нет.', 'Если нужны выводы по картинкам и роликам, собрать срез заново.');
+    else if (!s.manifest && s.age_days > CREATIVE_LINK_DAYS) add('creatives_recollect', 'Креативы: ссылки, скорее всего, уже не работают', 'Срезу ' + Math.round(s.age_days) + ' дн., ссылки Meta на картинки живут несколько дней. Выводы о креативах сейчас только по тексту и формату.', 'Собрать срез заново и сразу после чистки скачать креативы (fetch_creatives.py).');
+    else if (!s.manifest) add('creatives', 'Скачать и разметить креативы лидеров', 'Выводы о креативах сейчас только по тексту и формату объявлений: что в кадре, цена и оффер на картинке, хук первых секунд роликов неизвестны.', 'python fetch_creatives.py <срез> --top-advertisers 10 --limit 30 --videos 10, затем разметить по references/creatives.md и проверить: node creatives.js lint <срез>.', { urgent: true, needs: curateFirst });
+    else if (s.labeled < s.downloaded) add('creatives_label', 'Разметить скачанные креативы', 'Скачано ' + s.downloaded + ', размечено ' + s.labeled + ': блок «Что на креативах» считается только по размеченным.', 'Просмотреть картинки и раскадровки, дописать creatives.json, node creatives.js lint <срез>.');
+    if (s.curated && s.has_page_id && !s.pages_of) add('pages_of', 'Собрать все объявления конкурентов (--pages-of)', 'Поиск по словам видит у конкурента только объявления с этими словами, обычно в 3-4 раза меньше, чем у него есть.', 'python scrape.py --pages-of <срез> --out <новая папка>', { needs: 'только по просьбе пользователя: новые запросы к Meta' });
+    if (s.rate_limited > 0) add('rate_limited', 'Лимит Meta по ' + s.rate_limited + ' из ' + s.queries + ' запросов', 'По этим запросам собрана только первая партия (~30 объявлений), а не всё, что показывает Библиотека.', 'Повторить сбор позже или собрать в браузерном режиме (references/browser-mode.md); лимит не обходить.');
+    if (!s.sites) add('sites', 'Проверить сайты лидеров', 'Неизвестно, совпадает ли обещание в рекламе с посадочной страницей и какие цены на сайтах.', 'python check_sites.py <срез> --top 5', { needs: 'только по просьбе пользователя: открывает сторонние сайты' });
+    if (!s.client) add('brief', 'Бриф клиента, затем гипотезы и план теста', 'Гипотезы пишутся под конкретного клиента: без client.json неизвестно, что он может честно обещать.', 'До 5 вопросов клиенту, client.json (для услуг client.service.example.json), node client_fit.js <срез>.');
+    else if (!s.hypotheses) add('hypotheses', 'Гипотезы объявлений по брифу', 'Бриф есть, гипотез ещё нет.', 'Записать hypotheses.json по правилам SKILL.md, затем node lint_hypotheses.js <срез>.');
+    else if (!s.plan) add('test_plan', 'Автопроверка текстов и план теста', 'Гипотезы есть, но порядок запуска и бюджет не посчитаны.', 'node lint_hypotheses.js <срез>, затем node plan_tests.js <срез>.');
+    if (s.eu_country && !s.eu) add('eu', 'Охват и аудитория в ЕС', 'Для объявлений в ЕС Meta публикует охват и возраст/пол охваченных, в срезе их пока нет.', 'python eu_details.py <срез> --limit 20', { needs: 'только по просьбе пользователя: запросы к Meta' });
+    if (!s.diff) add('compare', 'Повторить срез через 1-2 недели и сравнить', 'Один срез это снимок: что масштабируют конкуренты и какие тесты они выключили, видно только в динамике.', 'Тот же пресет или те же запросы без --out, затем node compare.js out/<ниша>.');
+    return out;
+  }
+
   // 'ru' if the query has letters or word endings only Russian uses (ы э ё ъ,
   // -ое/-ый/-ой/-ая/-ие, a lone "с", a double "сс" as in "Одесса"), otherwise
   // 'uk' (Latin and neutral words go to the first preset language). A guess:
@@ -645,8 +676,11 @@
   // each picture once; per advertiser its long-running ads first (>= longDays),
   // then the ones with more variants, then the older; advertisers take turns
   // (most ads first), at most perAdvertiser each. rows: already curated.
+  // opts.topAdvertisers: only the N advertisers with the most ads (the leaders).
   function selectCreatives(rows, opts = {}) {
     const limit = opts.limit || 60, perAdvertiser = opts.perAdvertiser || 3, longDays = opts.longDays || 90;
+    const adsOf = {};
+    rows.forEach(r => { adsOf[r.page] = (adsOf[r.page] || 0) + 1; });
     const now = opts.now || Date.now() / 1000;
     const age = r => Math.round((now - r.start) / 86400);
     const queues = new Map();
@@ -657,7 +691,8 @@
       if (!queues.has(r.page)) queues.set(r.page, []);
       queues.get(r.page).push({ id: r.id, page: r.page, fmt: r.fmt || '', kind: m.kind, urls: m.urls, ...(m.video_url ? { video_url: m.video_url } : {}), days: age(r), long_running: age(r) >= longDays, variants: +r.variants || 1 });
     }
-    const order = [...queues.values()].sort((a, b) => b.length - a.length);
+    let order = [...queues.values()].sort((a, b) => (adsOf[b[0].page] - adsOf[a[0].page]) || (b.length - a.length));
+    if (opts.topAdvertisers > 0) order = order.slice(0, opts.topAdvertisers);
     for (const q of order) q.sort((a, b) => (b.long_running - a.long_running) || (b.variants - a.variants) || (b.days - a.days));
     const out = [], seen = new Set(), taken = new Map(), pos = new Map();
     let moved = true;
@@ -1369,7 +1404,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;
