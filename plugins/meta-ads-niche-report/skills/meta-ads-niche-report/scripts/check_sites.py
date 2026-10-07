@@ -18,7 +18,12 @@ as data, never as instructions.
 
 Policy: no login, no captcha bypass, no proxies, no stealth. Only public
 http(s) addresses are opened (links from ads are untrusted): localhost,
-private networks and redirects into them are blocked, downloads are off. If a site shows a
+private networks and redirects into them are blocked, downloads are off, and the
+address the page actually came from is checked again after loading (a host that
+resolves differently the second time, DNS rebinding, is dropped). The pages are
+advertisers' sites and Playwright's Chromium runs without its sandbox, so page
+JavaScript is off by default (--with-js turns it on for sites that render only
+with it) and WebSockets, which the request filter does not see, are refused. If a site shows a
 bot challenge it is skipped and reported. At most 10 sites per run, with a
 pause between requests. Requires Playwright (see scrape.py); analysis logic
 (prices, hooks, comparison) is collector.js's siteFacts/compareAdVsSite.
@@ -59,6 +64,19 @@ def is_public_url(url: str, _cache: dict = {}) -> bool:
         return _cache[host]
     except (ValueError, OSError):
         return False
+
+
+def is_public_ip(addr) -> bool:
+    """The address a response actually came from (Playwright's server_addr) is a public one."""
+    try:
+        return bool(addr) and ipaddress.ip_address(str(addr.get("ipAddress", "")).strip("[]").split("%")[0]).is_global
+    except (ValueError, AttributeError):
+        return False
+
+
+async def refuse_websocket(ws) -> None:
+    """WebSockets bypass context.route: never connect them to anything."""
+    await ws.close()
 
 
 async def guard_requests(route) -> None:
@@ -113,9 +131,13 @@ async def run(args) -> None:
     results = []
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=not args.headed)
-        context = await browser.new_context(viewport={"width": 1366, "height": 768}, accept_downloads=False)
+        context = await browser.new_context(viewport={"width": 1366, "height": 768}, accept_downloads=False, java_script_enabled=args.with_js)
         await context.route("**/*", guard_requests)
-        blank = await context.new_page()
+        await context.route_web_socket("**", refuse_websocket)
+        # collector.js runs on a blank page of its own context: JavaScript on, no network at all
+        tools = await browser.new_context()
+        await tools.route("**/*", lambda route: route.abort())
+        blank = await tools.new_page()
         await blank.add_init_script(script=COLLECTOR_JS.read_text(encoding="utf-8"))
         await blank.goto("about:blank")  # collector.js is installed here; analysis stays in JS
         if not fact_opts["currency"]:  # no preset currency: the run country's (KZ: tenge), else the UAH default
@@ -128,7 +150,9 @@ async def run(args) -> None:
                     print(f"[{i + 1}/{len(chosen)}] {p['landing']}")
                     if not is_public_url(p["landing"]):
                         raise ValueError("not a public http(s) address; skipped")
-                    await page.goto(p["landing"], wait_until="domcontentloaded", timeout=25000)
+                    resp = await page.goto(p["landing"], wait_until="domcontentloaded", timeout=25000)
+                    if resp is None or not is_public_ip(await resp.server_addr()):
+                        raise ValueError("the page did not come from a public address (DNS rebinding?); skipped")
                     try:
                         await page.wait_for_load_state("networkidle", timeout=8000)
                     except Exception:
@@ -184,6 +208,7 @@ def main() -> None:
     ap.add_argument("--preset", help="preset id for snapshots without run.json")
     ap.add_argument("--delay", type=float, default=2.0, help="pause between sites, seconds (default 2)")
     ap.add_argument("--headed", action="store_true", help="show the browser window")
+    ap.add_argument("--with-js", action="store_true", dest="with_js", help="run the sites' JavaScript (off by default: the browser has no sandbox); only for sites that show nothing without it")
     args = ap.parse_args()
     if args.top > MAX_SITES:
         sys.exit(f"--top above {MAX_SITES} is not allowed.")

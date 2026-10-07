@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.14.5] - 2026-10-07
+
+Security and privacy review of the whole project.
+
+### Security
+- `check_sites.py`: Playwright's Chromium runs with `--no-sandbox` (its
+  default; the sandbox does not start in this environment), and the landing
+  pages are advertisers' sites. Page JavaScript is now off by default
+  (`--with-js` turns it on for sites that render only with it), WebSockets are
+  refused (`route_web_socket`; the request filter does not see them), the
+  address a page actually came from is checked after loading
+  (`server_addr`, against DNS rebinding), and collector.js runs on a blank page
+  in a context of its own with all network blocked.
+- `fetch_creatives.py`: only numeric ad ids name files (an id like `../x` from
+  a tampered `ads.csv` is blocked, for pictures and videos); a malformed
+  `Content-Length` no longer stops the run; Pillow parses only JPEG, PNG, WEBP
+  and GIF and refuses pictures above 40 Mpx (it only warned up to 178 Mpx).
+- `eu_details.py`: only numeric ad ids go into the Library URL.
+- CSV: a value with spaces before `=`, `+`, `-` or `@` is neutralised too.
+- `.gitignore`: `report.json`, `run.json`, `diff.json`, `niche.json`,
+  `selection.json` and `*.mp4`, for a snapshot saved outside `out/`.
+
+### Privacy
+- The EU "payer" (can be a private person's name) is no longer in the HTML
+  report, which is made to be shared; in Excel the column has a "do not
+  publish" comment.
+- `SKILL.md` and both READMEs: `--no-images` before sending the HTML report
+  outside (the creatives gallery embeds other people's pictures, faces too);
+  a "Security and privacy" section in the READMEs.
+- Tests (`tests/security.test.mjs`, 196 in total).
+
 ## [0.14.4] - 2026-10-07
 
 From a trial on a niche without a preset (car import from the US): the run

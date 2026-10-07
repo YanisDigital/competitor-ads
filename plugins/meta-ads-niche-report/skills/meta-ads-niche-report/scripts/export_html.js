@@ -129,8 +129,9 @@ function buildHtml(m) {
     out.push('<h2>ЕС: охват и аудитория</h2><div class="note">Данные Meta только для объявлений, показанных в ЕС: охват в людях по каждому объявлению, таргетинг (возраст, пол, страны) и возрастно-половой состав тех, до кого реклама дошла. Охват объявлений одного рекламодателя в сумме считает пересекающихся людей дважды: сумма это верхняя граница, а не размер аудитории. Собрано по ' + esc(eu.ads) + ' объявл.</div>');
     out.push('<p><b>Возраст охваченных (все объявления):</b> ' + share(eu.overall.age_share).join('') + '</p>');
     if (Object.keys(eu.overall.gender_share || {}).length) out.push('<p><b>Пол охваченных:</b> ' + share({ мужчины: eu.overall.gender_share.male, женщины: eu.overall.gender_share.female, 'не определён': eu.overall.gender_share.unknown }).join('') + '</p>');
-    out.push(table(['Страница', 'Объявл. с данными', 'Охват, сумма', 'Охват, макс.', 'Возраст таргетинга', 'Пол', 'Страны', 'Главная группа', 'Плательщик'], eu.per_page.map(p => [
-      esc(p.page), esc(p.ads), esc(p.reach_sum), esc(p.reach_max), esc(p.age_min === null ? '' : p.age_min + '-' + p.age_max), esc(p.genders.join(', ')), esc(p.countries.join(', ')), esc(p.top_age_range), esc(p.payers.join('; '))
+    // No payer column: the payer can be a private person and this file is made to be shared (it stays in Excel).
+    out.push(table(['Страница', 'Объявл. с данными', 'Охват, сумма', 'Охват, макс.', 'Возраст таргетинга', 'Пол', 'Страны', 'Главная группа'], eu.per_page.map(p => [
+      esc(p.page), esc(p.ads), esc(p.reach_sum), esc(p.reach_max), esc(p.age_min === null ? '' : p.age_min + '-' + p.age_max), esc(p.genders.join(', ')), esc(p.countries.join(', ')), esc(p.top_age_range)
     ])));
   }
 

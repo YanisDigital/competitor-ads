@@ -20,6 +20,7 @@ checkpoint stops the run. Parsing lives in collector.js (parseEuDetails).
 import argparse
 import asyncio
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -58,9 +59,10 @@ def plan(folder: Path, limit: int) -> tuple[str, list[dict]]:
     if not out["eu"]:
         sys.exit(f"This snapshot was collected for {out['country'] or 'an unknown country'}, which is not an EU country: "
                  "the Library has EU reach and audience data only for ads delivered in the EU.")
-    if not out["ads"]:
+    ads = [a for a in out["ads"] if re.fullmatch(r"\d{1,25}", str(a.get("id", "")))]  # the id goes into the Library URL
+    if not ads:
         sys.exit("No ads left in that snapshot (check its curation.json).")
-    return out["country"], out["ads"]
+    return out["country"], ads
 
 
 def save(done: dict, country: str, path: Path) -> None:

@@ -1158,7 +1158,8 @@
       // Ad text/page names/CTAs are untrusted third-party input. A value
       // starting with = + - @ is read as a formula by Excel/Sheets when the
       // CSV is opened — prefix it with a quote so it's treated as text.
-      if (/^[=+\-@]/.test(s)) s = "'" + s;
+      // Leading spaces are dropped first: " =..." is a formula too for some spreadsheet imports.
+      if (/^\s*[=+\-@]/.test(s)) s = "'" + s.trimStart();
       return '"' + s.replace(/"/g, '""') + '"';
     };
     const lines = rows.map(r => cols.map(c => esc(c === 'start' ? new Date(r.start * 1000).toISOString().slice(0, 10) : c === 'end' ? (isStoppedAd(r) && r.end ? new Date(r.end * 1000).toISOString().slice(0, 10) : '') : r[c])).join(','));

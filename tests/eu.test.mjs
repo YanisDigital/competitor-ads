@@ -109,6 +109,7 @@ test('HTML report: EU section only with data, values escaped', () => {
   const html = buildHtml({ ...loadSnapshot(snapshot(true)), generated: '2026-10-06' });
   assert.match(html, /ЕС: охват и аудитория/);
   assert.match(html, /1000/);
+  assert.ok(!html.includes('Payer GmbH') && !html.includes('Плательщик'), 'the payer can be a private person: not in the shareable HTML');
   const plain = buildHtml({ ...loadSnapshot(snapshot(false)), generated: '2026-10-06' });
   assert.doesNotMatch(plain, /ЕС: охват и аудитория/);
   const dir = snapshot(true);

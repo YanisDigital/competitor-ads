@@ -310,6 +310,21 @@ HTML, the text checks and the comparison read it on top of the preset, so the
 hooks of a new niche get a strength per advertiser like any other.
 `suggest_queries.js` turns it into a preset draft after curation.
 
+## Security and privacy
+
+- Landing pages (`check_sites.py`, on request only) are third-party code and
+  Playwright's Chromium runs without its sandbox, so page JavaScript is off by
+  default (`--with-js` to turn it on), WebSockets are refused, only public
+  addresses are opened and the address a page actually came from is checked
+  again (DNS rebinding).
+- Creatives: https on Meta's CDN only, numeric ad ids as file names, images
+  only in JPEG/PNG/WEBP/GIF and below 40 Mpx (decompression bombs refused).
+- Reports: all third-party text escaped, no scripts (CSP), formulas neutralised
+  in Excel and CSV. The EU "payer" (can be a private person) is not in the HTML
+  report and carries a "do not publish" note in Excel. `--no-images` builds an
+  HTML file without the creatives and screenshots for sharing.
+- Collected data, client briefs and reports stay in `out/` (ignored by git).
+
 ## Stopped ads and delivery period
 
 `scrape.py --status all` (or `inactive`) also collects ads the Library no

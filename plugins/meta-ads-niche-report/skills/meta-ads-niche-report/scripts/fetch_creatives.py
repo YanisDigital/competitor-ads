@@ -31,7 +31,9 @@ import base64
 import hashlib
 import io
 import json
+import re
 import subprocess
+import warnings
 import sys
 import time
 import urllib.error
@@ -50,6 +52,8 @@ MIN_DELAY = 0.2
 TIMEOUT = 20
 FULL_SIDE, THUMB_SIDE = 1080, 320
 EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+IMAGE_FORMATS = ["JPEG", "PNG", "WEBP", "GIF"]
+MAX_PIXELS = 40_000_000  # far above any ad picture (1080 x 1920 is 2 Mpx)
 VIDEO_TYPES = {"video/mp4": ".mp4", "video/webm": ".webm", "video/quicktime": ".mov"}
 MAX_VIDEO_BYTES = 60 * 1024 * 1024
 MAX_VIDEOS = 30
@@ -66,6 +70,19 @@ class FetchError(Exception):
     def __init__(self, status: str):
         super().__init__(status)
         self.status = status
+
+
+def is_ad_id(value) -> bool:
+    """Ad ids from the Library are numbers; the id becomes a file name, so nothing else is accepted (no '../')."""
+    return isinstance(value, str) and re.fullmatch(r"\d{1,25}", value) is not None
+
+
+def content_length(value) -> int:
+    """Content-Length as a number; a missing or malformed header counts as unknown (0), it must not stop the run."""
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
 
 
 def is_allowed_url(url: str) -> bool:
@@ -97,7 +114,7 @@ def download(url: str, kinds: dict = EXT, max_bytes: int = MAX_BYTES) -> tuple[b
             ctype = resp.headers.get_content_type()
             if ctype not in kinds:
                 raise FetchError("blocked")
-            if int(resp.headers.get("Content-Length") or 0) > max_bytes:
+            if content_length(resp.headers.get("Content-Length")) > max_bytes:
                 raise FetchError("too_big")
             data = resp.read(max_bytes + 1)
     except urllib.error.HTTPError as e:
@@ -240,7 +257,7 @@ def fetch_videos(items: list, folder: Path, fetch=download, extract=None, sleep=
             if prev.get("status") == "ok" and prev.get("storyboard") and (folder / prev["storyboard"]).exists():
                 continue  # cut on an earlier run
             url = it.get("video_url", "")
-            if not is_allowed_url(url):
+            if not is_allowed_url(url) or not is_ad_id(it.get("id")):
                 it["video"] = {"status": "blocked"}
                 continue
             clip = folder / "creatives" / f"{it['id']}.mp4"
@@ -269,11 +286,17 @@ def save_image(data: bytes, ctype: str, folder: Path, name: str) -> tuple[str, s
     except ImportError:
         (cdir / (name + EXT[ctype])).write_bytes(data)
         return f"creatives/{name}{EXT[ctype]}", None
+    # A small file can still decode into a huge picture: refuse anything above MAX_PIXELS
+    # (Pillow on its own only warns up to twice its 89 Mpx limit), and only the four web
+    # formats are parsed, whatever else the bytes claim to be.
+    Image.MAX_IMAGE_PIXELS = MAX_PIXELS
     try:
-        img = Image.open(io.BytesIO(data))
-        img.load()
-        img = img.convert("RGB")
-    except Exception:  # not a picture after all, or a decompression bomb
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            img = Image.open(io.BytesIO(data), formats=IMAGE_FORMATS)
+            img.load()
+            img = img.convert("RGB")
+    except Exception:  # not a picture after all, another format, or a decompression bomb
         raise FetchError("error") from None
     full = img.copy()
     full.thumbnail((FULL_SIDE, FULL_SIDE))
@@ -306,6 +329,10 @@ def fetch_all(items: list, folder: Path, fetch=download, sleep=time.sleep, delay
             continue
         rec = {"id": item["id"], "page": item.get("page", ""), "kind": item.get("kind", "image"), "fmt": item.get("fmt", ""),
                "status": "", "files": [], "thumbs": [], "errors": [], **video_keys}
+        if not is_ad_id(item["id"]):  # the id names the files: only plain numbers
+            rec["status"] = "blocked"
+            out.append(rec)
+            continue
         for n, url in enumerate(item.get("urls", [])[:MAX_CARDS], 1):
             if not is_allowed_url(url):
                 rec["errors"].append("blocked")

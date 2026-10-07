@@ -16,6 +16,13 @@ sites.json
 sites/
 creatives/
 creatives*.json
+# the rest of a snapshot, in case one is saved outside out/
+report.json
+run.json
+diff.json
+niche.json
+selection.json
+*.mp4
 
 node_modules/
 .venv/
