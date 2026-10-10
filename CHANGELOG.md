@@ -3,6 +3,40 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.14.7] - 2026-10-10
+
+Security and privacy fixes found in the review of the TikTok plugin and
+reproduced on this plugin before fixing.
+
+### Security
+- `check_sites.py`: a landing page that redirects into a private network
+  (localhost, a router, a cloud metadata address) made the browser request it:
+  Playwright's routing sees only the first URL of a redirect the browser follows,
+  and the old check after loading came too late (the request was already sent).
+  The guard now fetches every request itself with no redirects; a main-page
+  redirect is followed one hop at a time by `safe_goto()` with the new address
+  checked first, sub-resource redirects are not followed, credentials in a URL
+  are refused, IPv4 hidden in IPv6 (::ffff:, NAT64, 6to4) is unwrapped, hosts are
+  resolved again after each fetch. Reproduced with a local server before the fix
+  (`/meta-nav` was requested), none after; `tests/check_sites_ssrf.py`.
+- Regex DoS: a hostile page of 100 000 digits took 36 s in `siteFacts`
+  (unbounded `\d[\d\s]*`, `\d+`, `before.*after` in the hook patterns, page text
+  not capped). Quantifiers are bounded and the text is capped at 30 000
+  characters: 400 000 characters now take milliseconds.
+
+### Privacy
+- EU payer and beneficiary names (can be private persons) are no longer stored
+  in `eu.json` or shown in Excel: only `payer_differs` (the payer is not the
+  beneficiary: an agency or a network). `scripts/scrub.js` cleans older snapshots.
+- HTML report (made to be shared): the client's round budget and target CPA are
+  left out unless `--with-budget`; the site-check link drops its query string
+  (`fbclid`, utm: a click would be counted in a competitor's analytics).
+
+### Tests
+- `tests/hardening.test.mjs` (SSRF over the network, skipped without Playwright
+  or internet; ReDoS timing; payer flag; HTML links and budget); EU and security
+  tests updated to the new behaviour.
+
 ## [tiktok-ads-niche-report 0.1.0] - 2026-10-10
 
 First release of the TikTok plugin, in the same repository and marketplace.

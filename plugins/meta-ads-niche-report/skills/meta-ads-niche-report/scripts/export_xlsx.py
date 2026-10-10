@@ -247,25 +247,25 @@ def main() -> None:
         we = wb.create_sheet("ЕС охват и аудитория")
         we.cell(row=1, column=1, value=("Данные Meta только для объявлений, показанных в ЕС. Охват это люди по каждому объявлению; сумма по объявлениям одного рекламодателя "
                                         "считает пересекающихся людей дважды (верхняя граница). Возраст и пол охваченных это фактический состав, таргетинг это настройки рекламодателя.")).font = f_note
-        header(we, 3, ["Страница", "Объявл. с данными", "Охват, сумма", "Охват, макс.", "Возраст таргетинга", "Пол", "Страны таргетинга", "Главная возрастная группа", "Плательщик"], [38, 12, 13, 13, 14, 14, 36, 14, 40])
-        payer_note = Comment("Плательщик может быть частным лицом (его имя). Колонка для работы таргетолога: не публикуй её и не пересылай клиенту.", "meta-ads-niche-report")
+        header(we, 3, ["Страница", "Объявл. с данными", "Охват, сумма", "Охват, макс.", "Возраст таргетинга", "Пол", "Страны таргетинга", "Главная возрастная группа", "Плательщик ≠ бенефициар"], [38, 12, 13, 13, 14, 14, 36, 14, 22])
+        payer_note = Comment("Сколько объявлений оплачивает не тот, в чью пользу реклама (агентство, сеть страниц). Имена плательщика и бенефициара не сохраняются: это могут быть частные лица.", "meta-ads-niche-report")
         payer_note.width, payer_note.height = 300, 90
         we.cell(row=3, column=9).comment = payer_note
         r0 = 4
         for p in eu["per_page"]:
             put(we, r0, [p["page"], p["ads"], p["reach_sum"], p["reach_max"], f'{p["age_min"]}-{p["age_max"]}' if p["age_min"] is not None else "",
-                         ", ".join(p["genders"]), ", ".join(p["countries"]), p["top_age_range"], "; ".join(p["payers"])])
+                         ", ".join(p["genders"]), ", ".join(p["countries"]), p["top_age_range"], f'{p.get("payer_differs", 0)} из {p["ads"]}'])
             r0 += 1
         r0 += 1
         we.cell(row=r0, column=1, value="По объявлениям").font = f_bold
         r0 += 1
-        for i, t in enumerate(["Страница", "Охват", "Возраст таргетинга", "Пол таргетинга", "Главная группа", "Её доля", "Женщин среди охваченных", "Плательщик", "Ссылка"], 1):
+        for i, t in enumerate(["Страница", "Охват", "Возраст таргетинга", "Пол таргетинга", "Главная группа", "Её доля", "Женщин среди охваченных", "Плательщик ≠ бенефициар", "Ссылка"], 1):
             c = we.cell(row=r0, column=i, value=t)
             c.font, c.fill = f_head, fill_head
         r0 += 1
         for a in eu["per_ad"]:
             put(we, r0, [a["page"], a["reach"], f'{a["age_min"]}-{a["age_max"]}' if a["age_min"] is not None else "", a["gender"], a["top_age_range"],
-                         a["top_age_share"], a["female_share"], a["payer"], a["url"]])
+                         a["top_age_share"], a["female_share"], {True: "да", False: "нет"}.get(a.get("payer_differs"), ""), a["url"]])
             we.cell(row=r0, column=9).hyperlink = a["url"]
             we.cell(row=r0, column=9).font = f_link
             for col in (6, 7):

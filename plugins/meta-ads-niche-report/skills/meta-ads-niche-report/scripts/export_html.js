@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 // Writes ONE self-contained HTML report for a snapshot folder: no external
 // files, fonts, images or scripts (charts are CSS, screenshots are embedded as
-// data: URIs, and a Content-Security-Policy forbids everything else). It also
-// contains no client.json data. Sections appear when their files exist:
+// data: URIs, and a Content-Security-Policy forbids everything else). Made to
+// be shared, so: no client.json file, no payer or beneficiary names (never
+// stored), no budget or target CPA of the test plan (the client's numbers;
+// --with-budget adds them), links to third-party sites without their query
+// string (fbclid, ttclid, utm_*). The hypotheses do contain the facts the client
+// confirmed for the ad text. Sections appear when their files exist:
 // sites.json (site check), hypotheses.json (+ hypotheses_lint.json,
 // test_plan.json), diff.json (changes), creatives/manifest.json (+ creatives.json:
 // what is on the pictures, with a gallery of thumbnails). It always ends with
 // "what else can be done" (next_steps from report.js): the steps not run yet.
 //
-//   node export_html.js out/ecom-dropship-us/2026-09-30 [--out report.html] [--no-images]
+//   node export_html.js out/ecom-dropship-us/2026-09-30 [--out report.html] [--no-images] [--with-budget]
 //
 // Every value below comes from ad text or files that a third party influences,
 // so all of it goes through esc(); links are limited to http(s).
@@ -17,6 +21,9 @@ const path = require('path');
 const { CREATIVE_TAGS } = require('./collector.js');
 
 const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Third-party link: scheme://host/path only, no credentials, query or fragment ('' when not http(s)):
+// a click with ttclid/fbclid/utm_* would be counted in a competitor's analytics.
+const cleanUrl = u => { try { const x = new URL(String(u || '')); return /^https?:$/.test(x.protocol) && !x.username && !x.password ? x.origin + x.pathname : ''; } catch (e) { return ''; } };
 const safeUrl = u => (/^https?:\/\//i.test(String(u || '')) ? esc(u) : '');
 const link = (u, text) => (safeUrl(u) ? `<a href="${safeUrl(u)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text));
 const pct = (n, d) => (d ? Math.round(100 * n / d) : 0);
@@ -162,7 +169,7 @@ function buildHtml(m) {
       const c = s.compare || {};
       const img = m.images && m.images[s.screenshot] ? `<img class="shot" alt="Первый экран" src="${esc(m.images[s.screenshot])}">` : '';
       out.push(`<details><summary>${esc(s.page)} · ${esc(s.ads)} объявл.${s.shopify ? ' · Shopify' : ''}</summary><dl>
-<dt>Страница</dt><dd>${link(s.final_url || s.landing, s.final_url || s.landing)}</dd><dt>Заголовок</dt><dd>${esc(s.title)}</dd>
+<dt>Страница</dt><dd>${link(cleanUrl(s.final_url || s.landing), cleanUrl(s.final_url || s.landing) || '(адрес скрыт)')}</dd><dt>Заголовок</dt><dd>${esc(s.title)}</dd>
 <dt>Цены на сайте</dt><dd>${num(s.site && s.site.prices && s.site.prices.min)} – ${num(s.site && s.site.prices && s.site.prices.max)}</dd>
 <dt>Обещано в рекламе, на сайте не найдено</dt><dd>${(c.promised_not_on_site || []).map(x => chip(x, 'warn')).join('') || '-'}</dd>
 <dt>На сайте, в рекламе не упомянуто</dt><dd>${(c.on_site_not_advertised || []).map(x => chip(x)).join('') || '-'}</dd></dl>${img}</details>`);
@@ -186,8 +193,9 @@ ${ln ? '<p>' + ln.findings.filter(f => f.severity !== 'info').map(f => chip(f.me
     }
     if (m.plan && m.plan.plan) {
       const p = m.plan.plan;
-      out.push('<h3>План теста</h3>' + table(['Раунд', 'Тесты (параллельно)', 'Бюджет'], p.rounds.map(x => [esc(x.round), esc(x.tests.map(t => t.name + ' (' + t.variable_type + ')').join('; ')), x.budget === null ? '-' : esc(x.budget)])));
-      out.push(`<p class="mut">Допущения: ${esc(p.assumptions.variants_per_test)} варианта на тест, ${esc(p.assumptions.events_per_variant)} событий оптимизации на вариант (ориентир), не меньше ${esc(p.assumptions.min_days_per_round)} дней на раунд, целевой CPA ${p.assumptions.target_cpa === null ? 'неизвестен' : esc(p.assumptions.target_cpa)}.</p>`);
+      const showBudget = !!m.withBudget; // the client's numbers: only on request
+      out.push('<h3>План теста</h3>' + table(['Раунд', 'Тесты (параллельно)', ...(showBudget ? ['Бюджет'] : [])], p.rounds.map(x => [esc(x.round), esc(x.tests.map(t => t.name + ' (' + t.variable_type + ')').join('; ')), ...(showBudget ? [x.budget === null ? '-' : esc(x.budget)] : [])])));
+      out.push(`<p class="mut">Допущения: ${esc(p.assumptions.variants_per_test)} варианта на тест, ${esc(p.assumptions.events_per_variant)} событий оптимизации на вариант (ориентир), не меньше ${esc(p.assumptions.min_days_per_round)} дней на раунд, ${showBudget ? 'целевой CPA ' + (p.assumptions.target_cpa === null ? 'неизвестен' : esc(p.assumptions.target_cpa)) : 'бюджет и целевой CPA клиента в этот файл не включены (--with-budget добавит их; они есть в Excel)'}.</p>`);
     }
   }
 
@@ -216,22 +224,23 @@ ${ln ? '<p>' + ln.findings.filter(f => f.severity !== 'info').map(f => chip(f.me
 <title>Ads Library: ${esc(title)} ${esc(dateStr)}</title><style>${CSS}</style></head><body><main>${out.join('\n')}</main></body></html>`;
 }
 
-module.exports = { buildHtml, esc, safeUrl };
+module.exports = { buildHtml, esc, safeUrl, cleanUrl };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
   const outIdx = args.indexOf('--out');
   const outPath = outIdx >= 0 ? args.splice(outIdx, 2)[1] : null;
   const noImages = args.includes('--no-images') && args.splice(args.indexOf('--no-images'), 1);
+  const withBudget = args.includes('--with-budget') && args.splice(args.indexOf('--with-budget'), 1);
   const dir = args[0];
   if (!dir || !fs.existsSync(path.join(dir, 'ads.csv'))) {
-    console.error('Usage: node export_html.js <snapshot-folder-with-ads.csv> [--out file.html] [--no-images]');
+    console.error('Usage: node export_html.js <snapshot-folder-with-ads.csv> [--out file.html] [--no-images] [--with-budget]');
     process.exit(1);
   }
   const { loadSnapshot } = require('./report.js');
   const snap = loadSnapshot(dir);
   const read = f => (fs.existsSync(path.join(dir, f)) ? JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')) : null);
-  const model = { ...snap, sites: read('sites.json'), hypotheses: read('hypotheses.json'), lint: read('hypotheses_lint.json'), plan: read('test_plan.json'), diff: read('diff.json'), images: {}, generated: new Date().toISOString().slice(0, 10) };
+  const model = { ...snap, sites: read('sites.json'), hypotheses: read('hypotheses.json'), lint: read('hypotheses_lint.json'), plan: read('test_plan.json'), diff: read('diff.json'), images: {}, withBudget: !!withBudget, generated: new Date().toISOString().slice(0, 10) };
   try { model.version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', '.claude-plugin', 'plugin.json'), 'utf8')).version; } catch (e) { /* not installed as a plugin */ }
   if (!noImages) {
     const root = path.resolve(dir) + path.sep;

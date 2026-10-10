@@ -68,21 +68,24 @@ print(json.dumps(out))`, dir);
   assert.deepEqual(JSON.parse(r.stdout), ['ok', 'error', 'error']);
 });
 
-test('check_sites: the address a page really came from must be public (DNS rebinding)', () => {
+test('check_sites: only public addresses, also when IPv4 hides in IPv6, and no credentials in the URL', () => {
   const r = py(`
 import check_sites as c
-print(json.dumps([c.is_public_ip(a) for a in [{'ipAddress': '8.8.8.8', 'port': 443}, {'ipAddress': '127.0.0.1', 'port': 80}, {'ipAddress': '192.168.1.1'},
-  {'ipAddress': '[::1]'}, {'ipAddress': '169.254.169.254'}, {'ipAddress': '2606:4700:4700::1111'}, None, {}, {'ipAddress': 'not an ip'}]]))`);
+addrs = ['8.8.8.8', '127.0.0.1', '192.168.1.1', '[::1]', '169.254.169.254', '2606:4700:4700::1111', '::ffff:127.0.0.1', '64:ff9b::7f00:1', '2002:7f00:1::', 'not an ip', '']
+urls = ['http://8.8.8.8/', 'http://2130706433/', 'http://[::ffff:192.168.1.1]/', 'http://user:pw@8.8.8.8/', 'ftp://8.8.8.8/', 'file:///etc/passwd']
+print(json.dumps({'addr': [c.addr_is_public(a) for a in addrs], 'url': [c.is_public_url(u) for u in urls]}))`);
   if (r.status !== 0 && /No module named/.test(r.stderr)) return;
   assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(JSON.parse(r.stdout), [true, false, false, false, false, true, false, false, false]);
+  const out = JSON.parse(r.stdout);
+  assert.deepEqual(out.addr, [true, false, false, false, false, true, false, false, false, false, false]);
+  assert.deepEqual(out.url, [true, false, false, false, false, false]);
 });
 
-test('check_sites: page JavaScript is off unless --with-js, and WebSockets are refused', () => {
+test('check_sites: page JavaScript is off unless --with-js, WebSockets are refused, redirects go through safe_goto', () => {
   const r = py(`
 import check_sites as c, inspect
 src = inspect.getsource(c.run)
-print(json.dumps({'js': 'java_script_enabled=args.with_js' in src, 'ws': 'route_web_socket' in src, 'addr': 'server_addr' in src}))`);
+print(json.dumps({'js': 'java_script_enabled=args.with_js' in src, 'ws': 'route_web_socket' in src, 'addr': 'safe_goto(' in src}))`);
   if (r.status !== 0 && /No module named/.test(r.stderr)) return;
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(JSON.parse(r.stdout), { js: true, ws: true, addr: true });

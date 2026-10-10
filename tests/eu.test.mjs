@@ -27,7 +27,7 @@ test('isEuCountry knows the 27 member states, in any case, and nothing else', ()
   for (const c of ['UA', 'KZ', 'US', 'GB', 'CH', '', undefined]) assert.equal(isEuCountry(c), false, String(c));
 });
 
-test('parseEuDetails: reach, targeting, per-country age and gender breakdown, payer', () => {
+test('parseEuDetails: reach, targeting, per-country age and gender breakdown, payer flag without names', () => {
   const d = parseEuDetails(response());
   assert.equal(d.eu_total_reach, 1000);
   assert.equal(d.age_min, 18);
@@ -37,8 +37,10 @@ test('parseEuDetails: reach, targeting, per-country age and gender breakdown, pa
   assert.deepEqual(d.excluded_locations, ['France']);
   assert.equal(d.breakdown.length, 4);
   assert.deepEqual(d.breakdown[0], { country: 'AT', age_range: '25-34', male: 100, female: 300, unknown: 0 });
-  assert.equal(d.payer, 'Payer GmbH');
-  assert.equal(d.beneficiary, 'Brand GmbH');
+  // payer and beneficiary can be private persons: only whether they differ is kept
+  assert.equal(d.payer_differs, true);
+  assert.ok(!('payer' in d) && !('beneficiary' in d));
+  assert.ok(!/Payer GmbH|Brand GmbH/.test(JSON.stringify(d)));
 });
 
 test('parseEuDetails: several JSON lines, noise lines, and "no EU data" all handled', () => {
@@ -75,7 +77,8 @@ test('euSummary: per-ad reach and audience, per-advertiser roll-up, overall age 
   assert.equal(alpha.reach_max, 1000);
   assert.equal(alpha.age_min, 18);
   assert.equal(alpha.age_max, 65);
-  assert.deepEqual(alpha.payers, ['Payer GmbH']);
+  assert.equal(alpha.payer_differs, 2); // ads whose payer is not the beneficiary
+  assert.ok(!('payers' in alpha));
   assert.ok(!s.per_page.some(p => p.page === 'Beta'), 'no data, no row');
   assert.ok(s.overall.age_share['25-34'] > 0.5);
   assert.ok(Math.abs(Object.values(s.overall.age_share).reduce((a, b) => a + b, 0) - 1) < 0.02);
@@ -136,7 +139,8 @@ print(json.dumps({'sheets': wb.sheetnames, 'values': [[c for c in r] for r in ws
   const flat = JSON.stringify(out.values);
   assert.match(flat, /Alpha/);
   assert.match(flat, /1000/);
-  assert.match(flat, /Payer GmbH/);
+  assert.doesNotMatch(flat, /Payer GmbH|Brand GmbH/); // names are not stored
+  assert.match(flat, /Плательщик ≠ бенефициар/);
   const without = spawnSync('python', [path.join(SCRIPTS, 'export_xlsx.py'), snapshot(false)], { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
   assert.equal(without.status, 0, without.stderr);
 });

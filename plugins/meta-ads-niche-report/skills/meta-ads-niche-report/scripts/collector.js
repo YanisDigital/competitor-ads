@@ -7,15 +7,15 @@
   // since Ads Library results mix all three depending on advertiser/locale.
   // ==========================================================================
   const HOOK_PATTERNS = {
-    'цена в грн': /\d[\d\s]*\s*(грн|₴|uah)/,
-    'процент/скидка': /(\d+\s*%|знижк|скидк|discount|sale)/,
+    'цена в грн': /\d[\d\s]{0,12}(грн|₴|uah)/,
+    'процент/скидка': /(\d{1,3}\s*%|знижк|скидк|discount|sale)/,
     'акция': /(акці|акци|promo)/,
     'первый визит': /(перш\S* (візит|процедур|знайомств)|перв\S* (визит|процедур|знакомств)|нов\S* клієнт|нов\S* клиент|first visit|new client)/,
     'бесплатно': /(безкоштовн|бесплатн|\bfree\b)/,
     'подарок/сертификат': /(подарун|подарок|сертифікат|сертификат|\bgift\b|certificate)/,
     'гарантия': /(гарант|guarantee)/,
     'отзывы/рейтинг': /(відгук|отзыв|рейтинг|review|rating)/,
-    'опыт/годы': /(досвід|опыт|\d+\s*(років|лет|роки|года)|years? of experience)/,
+    'опыт/годы': /(досвід|опыт|\d{1,3}\s*(років|лет|роки|года)|years? of experience)/,
     'дедлайн/ограничение': /(тільки до|только до|до \d{1,2}[.\s]|залишилось|осталось|обмежен|ограничен|limited time|last chance|only until)/,
     'рассрочка': /(розстроч|рассроч|частин|installment)/,
     'запись/бронь': /(запис|запиш|бронь|бронюй|book now|sign up)/,
@@ -23,7 +23,7 @@
     // епіляції"): those are not training, so they are left out; "курс по таргету", "базовий курс",
     // "запишись на курс" still count; "бути в курсі" (be aware) is not a course either.
     'обучение/курсы': /(навчан|обучен|\bcourse\b|training|(?<!в\s)(?<!весь\s)(?<!повний\s)(?<!полный\s)(?<!фіксується на\s)(?<!фиксируется на\s)(?<!фіксуємо на\s)(?<!фиксируем на\s)курс(?!\s*(?:\d|процедур|сеанс|лазер|епіляц|эпиляц|лікуван|лечен)))/,
-    'до/после': /(до і після|до и после|before.*after)/,
+    'до/после': /(до і після|до и после|before.{0,80}after)/,
     'адрес/район': /(📍|вул\.|вулиц|ул\.|улиц|просп|пров\.|район|метро|адрес|адреса)/
   };
 
@@ -231,7 +231,9 @@
 
   // Prices, "was/instead of" discount pairs and "N% off" mentions in one text
   // (already lowercased). currency: 'UAH' (default), 'USD' or 'KZT' (₸, тг, тенге).
+  const MAX_TEXT = 30000; // characters analysed: page and ad text are third-party input for regexes
   function priceHits(t, currency) {
+    t = String(t || '').slice(0, MAX_TEXT);
     const amounts = currency === 'USD'
       ? [...t.matchAll(/\$\s?(\d{1,5}(?:[.,]\d{1,2})?)|(\d{1,5}(?:\.\d{1,2})?)\s?(?:usd|dollars?)\b/g)].map(m => num(m[1] || m[2])).filter(n => n >= 1 && n <= 10000)
       : currency === 'KZT'
@@ -255,7 +257,7 @@
   // Facts from a block of text (a landing page's visible text, or the joined
   // text of an advertiser's ads): which hooks appear and which prices.
   function siteFacts(text, opts = {}) {
-    const t = String(text || '').toLowerCase();
+    const t = String(text || '').slice(0, MAX_TEXT).toLowerCase();
     const hits = priceHits(t, String(opts.currency || 'UAH').toUpperCase());
     const list = [...new Set(hits.amounts)].sort((a, b) => a - b);
     return {
@@ -513,6 +515,16 @@
 
   // Turns the text of a Library response (JSON, one document per line) into a
   // flat record, or null when the response holds no EU reach.
+  // Who paid and who benefits can be private persons (a sole trader's name):
+  // the names are not kept, only whether the payer differs from the
+  // beneficiary (an agency or a network pays for someone else's ad). null = unknown.
+  const normName = x => String(x || '').toLowerCase().replace(/[^\p{L}\d]/gu, '');
+  function payerDiffers(beneficiary, payer) {
+    const a = normName(beneficiary), b = normName(payer);
+    if (!a || !b) return null;
+    return !(a === b || a.includes(b) || b.includes(a));
+  }
+
   function parseEuDetails(text) {
     let eu = null, payer = null;
     const visit = o => {
@@ -540,8 +552,7 @@
       locations: places.filter(p => !p.excluded).map(p => String(p.name || '')),
       excluded_locations: places.filter(p => p.excluded).map(p => String(p.name || '')),
       breakdown,
-      payer: payer && payer.payer ? String(payer.payer) : '',
-      beneficiary: payer && payer.beneficiary ? String(payer.beneficiary) : ''
+      payer_differs: payer ? payerDiffers(payer.beneficiary, payer.payer) : null
     };
   }
 
@@ -567,26 +578,26 @@
         id, page: pageOf.get(id), reach: d.eu_total_reach, age_min: d.age_min, age_max: d.age_max, gender: d.gender, countries: d.locations || [],
         top_age_range: known.length ? known[0][0] : '', top_age_share: known.length && t.all ? r2(known[0][1] / t.all) : null,
         female_share: t.all ? r2(t.g.female / t.all) : null, male_share: t.all ? r2(t.g.male / t.all) : null,
-        payer: d.payer || '', beneficiary: d.beneficiary || '', url: 'https://www.facebook.com/ads/library/?id=' + id
+        payer_differs: typeof d.payer_differs === 'boolean' ? d.payer_differs : null, url: 'https://www.facebook.com/ads/library/?id=' + id
       });
       for (const [k, v] of Object.entries(t.age)) overallAge[k] = (overallAge[k] || 0) + v;
       for (const k of Object.keys(overallG)) overallG[k] += t.g[k];
     }
     const pages = new Map();
     for (const a of perAd) {
-      const p = pages.get(a.page) || { page: a.page, ads: 0, reach_sum: 0, reach_max: 0, age_min: null, age_max: null, genders: new Set(), countries: new Set(), tops: {}, payers: new Set() };
+      const p = pages.get(a.page) || { page: a.page, ads: 0, reach_sum: 0, reach_max: 0, age_min: null, age_max: null, genders: new Set(), countries: new Set(), tops: {}, payer_differs: 0 };
       p.ads++; p.reach_sum += a.reach; p.reach_max = Math.max(p.reach_max, a.reach);
       if (a.age_min !== null) p.age_min = p.age_min === null ? a.age_min : Math.min(p.age_min, a.age_min);
       if (a.age_max !== null) p.age_max = p.age_max === null ? a.age_max : Math.max(p.age_max, a.age_max);
       if (a.gender) p.genders.add(a.gender);
       a.countries.forEach(c => p.countries.add(c));
       if (a.top_age_range) p.tops[a.top_age_range] = (p.tops[a.top_age_range] || 0) + 1;
-      if (a.payer) p.payers.add(a.payer);
+      if (a.payer_differs === true) p.payer_differs++;
       pages.set(a.page, p);
     }
     const perPage = [...pages.values()].map(p => ({
       page: p.page, ads: p.ads, reach_sum: p.reach_sum, reach_max: p.reach_max, age_min: p.age_min, age_max: p.age_max,
-      genders: [...p.genders], countries: [...p.countries], top_age_range: Object.entries(p.tops).sort((a, b) => b[1] - a[1])[0]?.[0] || '', payers: [...p.payers]
+      genders: [...p.genders], countries: [...p.countries], top_age_range: Object.entries(p.tops).sort((a, b) => b[1] - a[1])[0]?.[0] || '', payer_differs: p.payer_differs
     })).sort((a, b) => b.reach_sum - a.reach_sum);
     const ageTotal = Object.values(overallAge).reduce((a, b) => a + b, 0), gTotal = overallG.male + overallG.female + overallG.unknown;
     const age_share = {};
@@ -1422,7 +1433,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

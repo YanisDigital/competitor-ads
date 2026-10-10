@@ -261,8 +261,9 @@ every advertiser first; at most 50 per run, with a pause). It writes
 `eu.json`; the report, Excel ("ЕС охват и аудитория" sheet) and HTML pick it
 up. Snapshots from non-EU countries stop with a message, a login wall or a
 captcha stops the run. Reach is people per ad: summing an advertiser's ads
-counts overlapping people twice (an upper bound). The "payer" can be a private
-person's name: do not publish that column.
+counts overlapping people twice (an upper bound). Payer and beneficiary names
+(can be private persons) are not stored, only whether the payer differs from the
+beneficiary; clean older snapshots with `node scripts/scrub.js out/<niche>`.
 
 ## Links to the picture and the video
 
@@ -325,14 +326,19 @@ hooks of a new niche get a strength per advertiser like any other.
 - Landing pages (`check_sites.py`, on request only) are third-party code and
   Playwright's Chromium runs without its sandbox, so page JavaScript is off by
   default (`--with-js` to turn it on), WebSockets are refused, only public
-  addresses are opened and the address a page actually came from is checked
-  again (DNS rebinding).
+  addresses without credentials are opened, and redirects are followed one hop
+  at a time with every address checked before it is requested: a redirect into
+  localhost, a router or a cloud metadata address is never requested (also with
+  IPv4 hidden in IPv6). Hosts are resolved again after each fetch (DNS
+  rebinding) and page text is capped (no regex can hang on a hostile page).
 - Creatives: https on Meta's CDN only, numeric ad ids as file names, images
   only in JPEG/PNG/WEBP/GIF and below 40 Mpx (decompression bombs refused).
 - Reports: all third-party text escaped, no scripts (CSP), formulas neutralised
-  in Excel and CSV. The EU "payer" (can be a private person) is not in the HTML
-  report and carries a "do not publish" note in Excel. `--no-images` builds an
-  HTML file without the creatives and screenshots for sharing.
+  in Excel and CSV. EU payer and beneficiary names are never stored. The HTML
+  report leaves out the client's budget and target CPA (`--with-budget` adds
+  them) and links to third-party sites without `fbclid`/utm parameters.
+  `--no-images` builds an HTML file without the creatives and screenshots for
+  sharing.
 - Collected data, client briefs and reports stay in `out/` (ignored by git).
 
 ## Stopped ads and delivery period
