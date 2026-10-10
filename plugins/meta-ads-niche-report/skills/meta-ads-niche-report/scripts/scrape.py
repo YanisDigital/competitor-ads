@@ -213,6 +213,8 @@ def read_keywords(args) -> list[str]:
 
 
 def load_preset(preset_id: str) -> dict:
+    if not re.fullmatch(r"[a-z0-9-]+", preset_id or ""):  # the id becomes a file name: no '..' or slashes
+        sys.exit(f"Bad preset id '{preset_id}': lowercase letters, digits and hyphens only.")
     path = PRESETS_DIR / f"{preset_id}.json"
     if not path.is_file():
         available = ", ".join(sorted(p.stem for p in PRESETS_DIR.glob("*.json")))

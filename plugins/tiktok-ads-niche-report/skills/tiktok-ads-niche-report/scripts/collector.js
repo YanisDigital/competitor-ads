@@ -370,7 +370,7 @@
 
   // Ad-click trackers and redirectors: opening such a link would register a
   // click in the competitor's campaign, so check_sites.py never opens them.
-  const TRACKER_HOSTS = /(^|\.)(doubleclick\.net|googleadservices\.com|adform\.net|adsrvr\.org|clickserve\.dartsearch\.net|appsflyer\.com|onelink\.me|adjust\.com|app\.link|bnc\.lt|clickfunnels\.com\/track|awin1\.com|tradedoubler\.com|go2cloud\.org|trk\.\w+)$/i;
+  const TRACKER_HOSTS = /(^|\.)(doubleclick\.net|googleadservices\.com|adform\.net|adsrvr\.org|clickserve\.dartsearch\.net|appsflyer\.com|onelink\.me|adjust\.com|app\.link|bnc\.lt|clickfunnels\.com\/track|awin1\.com|tradedoubler\.com|go2cloud\.org|trk\.\w+)$|^(track|tracking|trk|trkv|trck|clk|clicks?)\d*\./i; // also tracking subdomains: track.<site>, trkv.<site>
   const isTrackerLink = u => TRACKER_HOSTS.test(domainOf(u));
 
   // Tracking tags seen in a page's HTML (works with page JavaScript off: the

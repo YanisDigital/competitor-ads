@@ -3,6 +3,24 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.14.8] - 2026-10-10
+
+Fixes from a privacy and security review of the whole repository.
+
+### Security
+- `check_sites.py` opened a landing link that goes through an ad-click tracker
+  (`ad.doubleclick.net`, `track.<site>`, `trkv.<site>` ...): the open counted a click in
+  a stranger's campaign and showed them our address. Such links are now never taken for the
+  advertiser's site (`top_pages[].tracker`, no `landing`) and are listed in `sites.json` as
+  skipped. `collector.js` gets `isTrackerLink`, the same rule as the TikTok plugin; the tracker
+  list now also covers tracking subdomains (`track.`, `tracking.`, `trk.`, `trkv.`, `clk.`, `click.`).
+- A preset id is checked (`[a-z0-9-]+`) in `scrape.py`, `report.js` and `check_sites.py`: before,
+  `--preset ../x` read any `.json` file on the disk as niche settings.
+
+### Added
+- `SECURITY.md` (private vulnerability reporting), `tests/trackers.test.mjs`,
+  `tests/skill_frontmatter.test.mjs`.
+
 ## [0.14.7] - 2026-10-10
 
 Security and privacy fixes found in the review of the TikTok plugin and
@@ -36,6 +54,14 @@ reproduced on this plugin before fixing.
 - `tests/hardening.test.mjs` (SSRF over the network, skipped without Playwright
   or internet; ReDoS timing; payer flag; HTML links and budget); EU and security
   tests updated to the new behaviour.
+
+## [tiktok-ads-niche-report 0.1.3] - 2026-10-10
+
+### Fixed
+- Real company and brand names left in the tests (`tests/run.js`) and in a fixture ad text
+  (`cc_list.json`) are replaced with invented ones.
+- The tracker list also covers tracking subdomains (`track.`, `tracking.`, `trk.`, `trkv.`,
+  `clk.`, `click.`), as in the Meta plugin.
 
 ## [tiktok-ads-niche-report 0.1.2] - 2026-10-10
 

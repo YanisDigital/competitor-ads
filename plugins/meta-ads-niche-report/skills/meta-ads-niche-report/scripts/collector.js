@@ -69,6 +69,11 @@
   const weakLocal = r => LOCAL_WEAK.test((r.cta || '') + ' ' + (r.title || '') + ' ' + (r.body || ''));
   const PLATFORM_DOORS = ['Маркетплейс', 'Установка приложения'];
   const SHORT_LINKS =/^(bit\.ly|tinyurl\.com|cutt\.ly|rebrand\.ly|goo\.gl|ow\.ly|is\.gd|shorturl\.at|t\.ly)$/;
+  // Ad-click trackers and redirectors (also a tracking subdomain such as track.<site> or trkv.<site>):
+  // opening such a link would register a click in a stranger's campaign and show them our IP, so
+  // it is never taken for the advertiser's site and never opened.
+  const TRACKER_HOSTS = /(^|\.)(doubleclick\.net|googleadservices\.com|adform\.net|adsrvr\.org|clickserve\.dartsearch\.net|appsflyer\.com|onelink\.me|adjust\.com|app\.link|bnc\.lt|awin1\.com|tradedoubler\.com|go2cloud\.org|trk\.\w+)$|^(track|tracking|trk|trkv|trck|clk|clicks?)\d*\./i;
+  const isTrackerLink = u => TRACKER_HOSTS.test(domainOf(u));
 
   // Finds the first card (DCO / carousel) whose title or body is non-empty.
   function firstNonEmptyCard(cards) {
@@ -991,7 +996,8 @@
       }
       p.doors.add(classifyDoor(r));
       const d = domainOf(r.link);
-      if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d) && !AFFILIATE_LINKS.test(d)) {
+      if (d && isTrackerLink(r.link)) p.tracker = true; // ad-click tracker: not the site, never linked or opened
+      else if (d && !/instagram|facebook|fb\.com|fb\.me|m\.me|wa\.me|t\.me/.test(d) && !MARKETPLACES.test(d) && !APP_STORES.test(d) && !SHORT_LINKS.test(d) && !AFFILIATE_LINKS.test(d)) {
         p.sites.add(d);
         const u = unwrapUrl(r.link);
         if (u) { const k = u.origin + u.pathname; p.links[k] = (p.links[k] || 0) + 1; }
@@ -1433,7 +1439,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

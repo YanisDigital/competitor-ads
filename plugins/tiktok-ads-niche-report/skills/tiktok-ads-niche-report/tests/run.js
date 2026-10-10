@@ -330,8 +330,8 @@ test('prioritization and TikTok test plan', () => {
 });
 
 test('payer names are not stored; payer flag', () => {
-  assert.strictEqual(C.payerDiffers('Gym Glamour Sp. z o.o.', 'GYM GLAMOUR SP Z O O'), false);
-  assert.strictEqual(C.payerDiffers('NEIGE', 'EXAMPLE AGENCY LTD'), true);
+  assert.strictEqual(C.payerDiffers('Salon A Sp. z o.o.', 'SALON A SP Z O O'), false);
+  assert.strictEqual(C.payerDiffers('SALON B', 'EXAMPLE AGENCY LTD'), true);
   assert.strictEqual(C.payerDiffers('', 'X'), null);
   const row = C.mergeDetails(C.normalizeLibraryAd({ id: '1', name: 'A', title: 't', first_shown_date: 1e12, last_shown_date: 1e12 }, ''), C.detailsFromJson(json('library_details.json')));
   const csv = C.toCsv([row]);

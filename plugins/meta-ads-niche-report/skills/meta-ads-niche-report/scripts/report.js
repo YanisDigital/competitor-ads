@@ -25,6 +25,7 @@ const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8'))
 function loadNicheConfig(dir, presetId) {
   const meta = readJson(path.join(dir, 'run.json')) || {};
   const id = presetId || meta.preset;
+  if (id && !/^[a-z0-9-]+$/.test(id)) throw new Error('Bad preset id: ' + id);
   const preset = id ? readJson(path.join(__dirname, '..', 'presets', id + '.json')) : null;
   const niche = readJson(path.join(dir, 'niche.json'));
   for (const [k, src] of Object.entries((niche && niche.extra_hooks) || {})) {

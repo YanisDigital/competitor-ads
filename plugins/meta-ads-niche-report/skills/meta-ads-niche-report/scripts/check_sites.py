@@ -174,6 +174,8 @@ async def run(args) -> None:
     report, meta = data["report"], data["meta"]
     # preset + the folder's niche.json, merged by report.js (meta.niche); older report.js output lacks it
     preset_id = args.preset or meta.get("preset")
+    if preset_id and not re.fullmatch(r"[a-z0-9-]+", preset_id):
+        sys.exit(f"Bad preset id '{preset_id}': lowercase letters, digits and hyphens only.")
     preset = meta.get("niche") or (json.loads((PRESETS_DIR / f"{preset_id}.json").read_text(encoding="utf-8")) if preset_id and (PRESETS_DIR / f"{preset_id}.json").exists() else {})
     fact_opts = {"currency": preset.get("currency") or "", "extraHooks": preset.get("extra_hooks", {})}
     if preset.get("base_hooks") is False:
@@ -188,12 +190,19 @@ async def run(args) -> None:
     candidates = [p for p in report["top_pages"] if p.get("landing") and not p.get("local") and not p.get("platform")]
     # top_pages holds 15; that is enough for --top up to 10
     chosen = candidates[: min(args.top, MAX_SITES)]
+    # pages whose only link goes through an ad-click tracker: opening it would count a click in a stranger's campaign
+    skipped = [{"page": p["page"], "ads": p["ads"], "landing": "", "library_url": p.get("library_url", ""),
+                "error": "link through an ad-click tracker: not opened, so as not to count a click in a stranger's campaign"}
+               for p in report["top_pages"] if p.get("tracker") and not p.get("landing") and not p.get("local") and not p.get("platform")][: max(0, MAX_SITES - len(chosen))]
     if not chosen:
+        if skipped:
+            (folder / "sites.json").write_text(json.dumps(skipped, ensure_ascii=False, indent=2), encoding="utf-8")
+            sys.exit(f"Only tracker links ({len(skipped)} pages): nothing opened. Saved: {folder / 'sites.json'}")
         sys.exit("No advertisers with their own landing page in this snapshot.")
     print(f"Checking {len(chosen)} sites: " + ", ".join(urlparse(p["landing"]).hostname or "?" for p in chosen))
 
     (folder / "sites").mkdir(exist_ok=True)
-    results = []
+    results = list(skipped)
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=not args.headed)
         context = await browser.new_context(viewport={"width": 1366, "height": 768}, accept_downloads=False, java_script_enabled=args.with_js)
