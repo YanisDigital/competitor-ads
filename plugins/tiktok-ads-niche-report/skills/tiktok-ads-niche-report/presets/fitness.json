@@ -1,0 +1,27 @@
+{
+  "id": "fitness",
+  "title": "Fitness clubs, studios, personal trainers",
+  "cc_industry": 28,
+  "services": [
+    { "pl": "siłownia", "de": "Fitnessstudio", "en": "gym", "es": "gimnasio", "fr": "salle de sport", "it": "palestra", "tr": "spor salonu", "nl": "sportschool", "uk": "фітнес", "ru": "фитнес" },
+    { "pl": "klub fitness", "de": "Fitnessclub", "en": "fitness club", "es": "club de fitness", "fr": "club de fitness", "it": "centro fitness", "tr": "fitness kulübü", "nl": "fitnessclub", "uk": "тренажерний зал", "ru": "тренажерный зал" },
+    { "pl": "trener personalny", "de": "Personal Trainer", "en": "personal trainer", "es": "entrenador personal", "fr": "coach sportif", "it": "personal trainer", "tr": "kişisel antrenör", "nl": "personal trainer", "uk": "персональний тренер", "ru": "персональный тренер" },
+    { "pl": "pilates", "de": "Pilates", "en": "pilates", "es": "pilates", "fr": "pilates", "it": "pilates", "tr": "pilates", "nl": "pilates", "uk": "пілатес", "ru": "пилатес" },
+    { "pl": "joga", "de": "Yoga Studio", "en": "yoga studio", "es": "yoga", "fr": "yoga", "it": "yoga", "tr": "yoga", "nl": "yoga", "uk": "йога", "ru": "йога" },
+    { "pl": "karnet", "de": "Mitgliedschaft Fitness", "en": "gym membership", "es": "cuota gimnasio", "fr": "abonnement salle", "it": "abbonamento palestra", "tr": "spor salonu üyelik", "nl": "sportschool abonnement", "uk": "абонемент", "ru": "абонемент" },
+    { "pl": "crossfit", "de": "Crossfit", "en": "crossfit", "es": "crossfit", "fr": "crossfit", "it": "crossfit", "tr": "crossfit", "nl": "crossfit", "uk": "кросфіт", "ru": "кроссфит" },
+    { "pl": "trening EMS", "de": "EMS Training", "en": "ems training", "es": "entrenamiento EMS", "fr": "électrostimulation", "it": "allenamento EMS", "tr": "EMS antrenman", "nl": "EMS training", "uk": "EMS тренування", "ru": "EMS тренировка" }
+  ],
+  "extra_hooks": {
+    "пробная тренировка": "pierwszy trening|trening próbny|probetraining|free trial|trial class|clase de prueba|séance d'essai|prova gratuita|deneme dersi|пробн\\S* (тренуван|тренировк|заняття|занятие)",
+    "без договора/заморозка": "bez umowy|ohne vertrag|no contract|sin permanencia|sans engagement|senza vincoli|taahhütsüz|без договор|заморозк",
+    "24/7": "24/7|24h|całodobow|rund um die uhr|круглосуточ|цілодобов",
+    "трансформация/результат": "\\d+\\s*(kg|кг)|metamorfoz|transformation|verwandlung|трансформац|результат"
+  },
+  "noise": ["mieszkanie", "apartament", "nieruchomo", "immobilie", "wohnung", "real estate", "suplement", "supplement", "odzież", "kleidung", "apparel", "кредит", "недвиж", "нерухом"],
+  "seasons": [
+    { "name": "Новый год / январь", "from": "12-26", "to": "01-31", "note": "пик продаж абонементов и «начни с понедельника»" },
+    { "name": "Перед летом", "from": "04-01", "to": "05-31", "note": "«к лету», похудение, акции на абонементы" }
+  ],
+  "policy": "Фитнес и похудение: TikTok ограничивает рекламу снижения веса (только 18+, без нереалистичных результатов, без «до/после» тела и стыда за внешность). См. references/tiktok-policy.md."
+}

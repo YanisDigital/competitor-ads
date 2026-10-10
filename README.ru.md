@@ -8,6 +8,16 @@
 
 English version: [README.md](README.md)
 
+> **В этом репозитории два плагина** в одном маркетплейсе:
+>
+> | Плагин | Источник рекламы | Где работает |
+> |---|---|---|
+> | `meta-ads-niche-report` (эта страница) | Библиотека рекламы Meta (Facebook / Instagram) | любая страна |
+> | [`tiktok-ads-niche-report`](plugins/tiktok-ads-niche-report/README.ru.md) | TikTok Ad Library и Creative Center | Ad Library: ЕС/ЕЭЗ, GB, CH, TR; Creative Center: Украина, США и ещё ~30 |
+>
+> Остальная страница про Meta-плагин. TikTok-плагин ставится командой
+> `/plugin install tiktok-ads-niche-report@meta-ads-niche-report`.
+
 ## Где это работает (прочитай сначала)
 
 > **Одной загрузки zip в claude.ai недостаточно.** Установка скилла ничего

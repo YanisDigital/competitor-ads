@@ -1,0 +1,19 @@
+{
+  "id": "dentistry",
+  "title": "Dental clinics",
+  "cc_industry": 29,
+  "services": [
+    { "pl": "dentysta", "de": "Zahnarzt", "en": "dentist", "es": "dentista", "fr": "dentiste", "it": "dentista", "tr": "diş hekimi", "nl": "tandarts", "uk": "стоматологія", "ru": "стоматология" },
+    { "pl": "implanty", "de": "Zahnimplantate", "en": "dental implants", "es": "implantes dentales", "fr": "implant dentaire", "it": "impianti dentali", "tr": "implant", "nl": "tandimplantaat", "uk": "імплантація", "ru": "имплантация" },
+    { "pl": "aparat ortodontyczny", "de": "Zahnspange", "en": "braces", "es": "ortodoncia", "fr": "orthodontie", "it": "ortodonzia", "tr": "diş teli", "nl": "beugel", "uk": "брекети", "ru": "брекеты" },
+    { "pl": "licówki", "de": "Veneers", "en": "veneers", "es": "carillas", "fr": "facettes dentaires", "it": "faccette dentali", "tr": "zirkonyum", "nl": "facings", "uk": "вініри", "ru": "виниры" },
+    { "pl": "wybielanie zębów", "de": "Bleaching", "en": "teeth whitening", "es": "blanqueamiento dental", "fr": "blanchiment dentaire", "it": "sbiancamento denti", "tr": "diş beyazlatma", "nl": "tanden bleken", "uk": "відбілювання зубів", "ru": "отбеливание зубов" }
+  ],
+  "extra_hooks": {
+    "без боли": "bezbolesn|schmerzfrei|painless|sin dolor|sans douleur|senza dolore|ağrısız|без болю|без боли",
+    "рассрочка/финансирование": "raty 0|ratenzahlung|financing|financiación|финансир",
+    "консультация/диагностика": "konsultacj|beratung|consultation|consulta|консультац|діагностик|диагностик"
+  },
+  "noise": ["kurs", "szkolenie", "course", "академія", "академия", "курс"],
+  "policy": "Медицина: TikTok ограничивает медицинскую рекламу (лицензия, без гарантий результата, без «до/после» как обещания, 18+ для части услуг). См. references/tiktok-policy.md."
+}

@@ -3,12 +3,18 @@
   "owner": {
     "name": "YanisDigital"
   },
-  "description": "Marketplace for the meta-ads-niche-report skill: competitor ad research from the Meta Ads Library.",
+  "description": "Competitor ad research for media buyers: the Meta Ads Library (Facebook/Instagram) and TikTok (Ad Library and Creative Center). The marketplace keeps its original name so existing install commands keep working.",
   "plugins": [
     {
       "name": "meta-ads-niche-report",
       "source": "./plugins/meta-ads-niche-report",
       "description": "Collects and summarizes active competitor ads from the Meta Ads Library by niche and city.",
+      "category": "marketing"
+    },
+    {
+      "name": "tiktok-ads-niche-report",
+      "source": "./plugins/tiktok-ads-niche-report",
+      "description": "Collects and summarizes competitor ads from the TikTok Ad Library (EU/EEA, GB, CH, TR) and top ads from TikTok Creative Center (Ukraine, US and more) by niche and country.",
       "category": "marketing"
     }
   ]

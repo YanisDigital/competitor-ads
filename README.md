@@ -8,6 +8,16 @@ No paid scraping API.
 
 Русская версия: [README.ru.md](README.ru.md)
 
+> **This repository holds two plugins** in one marketplace:
+>
+> | Plugin | Ads source | Where |
+> |---|---|---|
+> | `meta-ads-niche-report` (this page) | Meta Ads Library (Facebook / Instagram) | any country |
+> | [`tiktok-ads-niche-report`](plugins/tiktok-ads-niche-report/README.md) | TikTok Ad Library and Creative Center | Ad Library: EU/EEA, GB, CH, TR; Creative Center: Ukraine, US and ~30 more |
+>
+> The rest of this page is about the Meta plugin. Install the TikTok one with
+> `/plugin install tiktok-ads-niche-report@meta-ads-niche-report`.
+
 ## Where it works (read this first)
 
 > **Uploading the zip to claude.ai is not enough.** Installing a skill installs

@@ -1,0 +1,24 @@
+{
+  "id": "beauty",
+  "title": "Beauty salons: nails, brows, lashes, cosmetology",
+  "cc_industry": 14,
+  "services": [
+    { "pl": "salon kosmetyczny", "de": "Kosmetikstudio", "en": "beauty salon", "es": "centro de estética", "fr": "institut de beauté", "it": "centro estetico", "tr": "güzellik salonu", "nl": "schoonheidssalon", "uk": "салон краси", "ru": "салон красоты" },
+    { "pl": "manicure", "de": "Maniküre", "en": "manicure", "es": "manicura", "fr": "manucure", "it": "manicure", "tr": "manikür", "nl": "manicure", "uk": "манікюр", "ru": "маникюр" },
+    { "pl": "kosmetolog", "de": "Kosmetikerin", "en": "facial treatment", "es": "tratamiento facial", "fr": "soin du visage", "it": "trattamento viso", "tr": "cilt bakımı", "nl": "gezichtsbehandeling", "uk": "косметолог", "ru": "косметолог" },
+    { "pl": "depilacja laserowa", "de": "Laser Haarentfernung", "en": "laser hair removal", "es": "depilación láser", "fr": "épilation laser", "it": "epilazione laser", "tr": "lazer epilasyon", "nl": "laserontharing", "uk": "епіляція", "ru": "эпиляция" },
+    { "pl": "rzęsy", "de": "Wimpernverlängerung", "en": "lash extensions", "es": "extensiones de pestañas", "fr": "extension de cils", "it": "extension ciglia", "tr": "kirpik", "nl": "wimperextensions", "uk": "вії", "ru": "ресницы" },
+    { "pl": "brwi", "de": "Augenbrauen", "en": "brow lamination", "es": "cejas", "fr": "sourcils", "it": "sopracciglia", "tr": "kaş", "nl": "wenkbrauwen", "uk": "брови", "ru": "брови" }
+  ],
+  "extra_hooks": {
+    "стерильность": "steryl|sterili|стерил",
+    "портфолио/работы": "portfolio|наші роботи|наши работы|nasze prace|unsere arbeiten",
+    "материалы/бренды": "hybryd|shellac|luxio|kodi|kapous|\\bopi\\b"
+  },
+  "noise": ["kurs", "szkolenie", "akademia", "schulung", "course", "academy", "курс", "навчання", "обучение", "школа"],
+  "seasons": [
+    { "name": "8 марта / весна", "from": "02-22", "to": "03-08", "note": "запись и подарочные сертификаты перед праздником" },
+    { "name": "Новый год", "from": "12-10", "to": "12-31", "note": "записи перед праздниками и подарочные сертификаты" }
+  ],
+  "policy": "Косметология и эстетическая медицина: TikTok требует 18+ для косметических процедур, не допускает обещаний медицинского результата и «до/после», которые давят на неуверенность во внешности. См. references/tiktok-policy.md."
+}

@@ -1,0 +1,31 @@
+# Collected data: other people's ads, advertiser names (sole traders are private
+# persons), video frames with faces, screenshots of third-party sites.
+out/
+creatives/
+sites/
+ads.csv
+details.json
+sites.json
+diff.json
+creatives.json
+creatives_lint.json
+curation.json
+niche.json
+hypotheses.json
+hypotheses_lint.json
+test_plan.json
+report.json
+report.html
+report.xlsx
+
+# The client's business data (prices, margin, target CPA). The *.example.json
+# files are templates and stay in the repository.
+client.json
+
+# Runs and caches
+run.json
+__pycache__/
+*.pyc
+node_modules/
+.env
+*.log

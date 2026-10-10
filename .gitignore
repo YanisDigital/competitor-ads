@@ -9,6 +9,8 @@ client.json
 curation.json
 hypotheses*.json
 eu.json
+# TikTok: ad details (CTA, link, targeting) of a snapshot
+details.json
 test_plan.json
 report.xlsx
 report.html

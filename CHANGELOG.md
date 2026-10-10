@@ -1,5 +1,39 @@
 # Changelog
 
+Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
+versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
+
+## [tiktok-ads-niche-report 0.1.0] - 2026-10-10
+
+First release of the TikTok plugin, in the same repository and marketplace.
+
+### Added
+- Two sources: TikTok Ad Library (EU/EEA, GB, CH, TR: advertisers, first/last
+  shown dates, reach, details with CTA, link, objective and targeting) and
+  Creative Center Top Ads (Ukraine, US and more: CTR percentile, likes, budget
+  level, length, landing page). Browser mode and Playwright CLI.
+- Report built on unique videos (copies of one video per advertiser count once,
+  shown as scaling), long-running videos, doors, targeting, hooks in ten
+  languages, prices per currency, query statistics and warnings.
+- Storyboards of videos (0-3 s hook, quarters, end) and a TikTok tag vocabulary.
+- Leaders' landing pages (promised vs on the page, prices, tracking pixels,
+  phone-width screenshot), comparison of two snapshots, TikTok ad hypotheses
+  with a lint against TikTok's rules and the client's brief, test plan.
+- Presets: fitness, beauty, dentistry, auto-service, ecom-eu, infobiz.
+- Excel and single-file HTML exports; tests in `tests/tiktok.test.mjs`.
+
+### Security and privacy
+- Site check follows redirects one hop at a time and checks every address
+  before it is requested (a redirect into a private network is never
+  requested, including IPv4 wrapped in IPv6); ad-click tracking links are not
+  opened; page JavaScript is off by default; page text is capped.
+- Regexes are bounded (a hostile page cannot hang a run); a ReDoS and an SSRF
+  test ship with the plugin.
+- Payer names are never stored, only whether the payer differs from the
+  advertiser (`scripts/scrub.js` cleans older snapshots).
+- HTML: third-party links without tracking parameters, client budget and CPA
+  only with `--with-budget`.
+
 ## [0.14.6] - 2026-10-10
 
 ### Added

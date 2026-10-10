@@ -1,0 +1,245 @@
+{
+ "code": 0,
+ "msg": "OK",
+ "request_id": "202610100428354AD9A2F3E51594E0B29C",
+ "data": {
+  "industry": [
+   {
+    "id": 11112000000,
+    "value": "Car Dealerships",
+    "label": "label_11112000000",
+    "parent_id": 11000000000
+   },
+   {
+    "id": 23124000000,
+    "value": "Food & Cooking",
+    "label": "label_23124000000",
+    "parent_id": 23000000000
+   },
+   {
+    "id": 23999000000,
+    "value": "Other News & Entertainment",
+    "label": "label_23999000000",
+    "parent_id": 23000000000
+   },
+   {
+    "id": 18106000000,
+    "value": "Cleaning Appliances",
+    "label": "label_18106000000",
+    "parent_id": 18000000000
+   },
+   {
+    "id": 11108000000,
+    "value": "Electric Scooters",
+    "label": "label_11108000000",
+    "parent_id": 11000000000
+   },
+   {
+    "id": 15101000000,
+    "value": "Computers",
+    "label": "label_15101000000",
+    "parent_id": 15000000000
+   },
+   {
+    "id": 23118000000,
+    "value": "Reading",
+    "label": "label_23118000000",
+    "parent_id": 23000000000
+   },
+   {
+    "id": 22999000000,
+    "value": "Other Apparel & Accessories",
+    "label": "label_22999000000",
+    "parent_id": 22000000000
+   },
+   {
+    "id": 21000000000,
+    "value": "Home Improvement",
+    "label": "label_21000000000"
+   },
+   {
+    "id": 25302000000,
+    "value": "Casino",
+    "label": "label_25302000000",
+    "parent_id": 25000000000
+   },
+   {
+    "id": 10999000000,
+    "value": "Other Education",
+    "label": "label_10999000000",
+    "parent_id": 10000000000
+   },
+   {
+    "id": 23114000000,
+    "value": "Astrology",
+    "label": "label_23114000000",
+    "parent_id": 23000000000
+   },
+   {
+    "id": 15102000000,
+    "value": "Computers Components",
+    "label": "label_15102000000",
+    "parent_id": 15000000000
+   },
+   {
+    "id": 16105000000,
+    "value": "Digital Devices",
+    "label": "label_16105000000",
+    "parent_id": 16000000000
+   },
+   {
+    "id": 16104000000,
+    "value": "Home Appliances",
+    "label": "label_16104000000",
+    "parent_id": 16000000000
+   },
+   {
+    "id": 26109000000,
+    "value": "Utilities Payments",
+    "label": "label_26109000000",
+    "parent_id": 26000000000
+   },
+   {
+    "id": 10103000000,
+    "value": "Overseas Education",
+    "label": "label_10103000000",
+    "parent_id": 10000000000
+   },
+   {
+    "id": 24100000000,
+    "value": "Real Estate & Home Rentals",
+    "label": "label_24100000000",
+    "parent_id": 24000000000
+   },
+   {
+    "id": 14100000000,
+    "value": "Oral Care",
+    "label": "label_14100000000",
+    "parent_id": 14000000000
+   },
+   {
+    "id": 23126000000,
+    "value": "Car Information",
+    "label": "label_23126000000",
+    "parent_id": 23000000000
+   },
+   {
+    "id": 20999000000,
+    "value": "Other Apps",
+    "label": "label_20999000000",
+    "parent_id": 20000000000
+   },
+   {
+    "id": 24117000000,
+    "value": "Legal Services",
+    "label": "label_24117000000",
+    "parent_id": 24000000000
+   },
+   {
+    "id": 26108000000,
+    "value": "Gardening",
+    "label": "label_26108000000",
+    "parent_id": 26000000000
+   },
+   {
+    "id": 22000000000,
+    "value": "Apparel & Accessories",
+    "label": "label_22000000000"
+   },
+   {
+    "id": 30101000000,
+    "value": "Small & Medium-sized E-commerce Platforms",
+    "label": "label_30101000000",
+    "parent_id": 30000000000
+   },
+   {
+    "id": 25305000000,
+    "value": "Racing",
+    "label": "label_25305000000",
+    "parent_id": 25000000000
+   },
+   {
+    "id": 27103000000,
+    "value": "Alcoholic Beverages",
+    "label": "label_27103000000",
+    "parent_id": 27000000000
+   },
+   {
+    "id": 13000000000,
+    "value": "Financial Services",
+    "label": "label_13000000000"
+   },
+   {
+    "id": 23130000000,
+    "value": "Real Estate Information",
+    "label": "label_23130000000",
+    "parent_id": 23000000000
+   },
+   {
+    "id": 21999000000,
+    "value": "Other Home Improvement",
+    "label": "label_21999000000",
+    "parent_id": 21000000000
+   },
+   {
+    "id": 24102000000,
+    "value": "Recruitment & Job Searching",
+    "label": "label_24102000000",
+    "parent_id": 24000000000
+   },
+   {
+    "id": 29103000000,
+    "value": "Medicine",
+    "label": "label_29103000000",
+    "parent_id": 29000000000
+   },
+   {
+    "id": 20103000000,
+    "value": "Photography",
+    "label": "label_20103000000",
+    "parent_id": 20000000000
+   },
+   {
+    "id": 23104000000,
+    "value": "Culture & History",
+    "label": "label_23104000000",
+    "parent_id": 23000000000
+   },
+   {
+    "id": 11104000000,
+    "value": "Car Rentals",
+    "label": "label_11104000000",
+    "parent_id": 11000000000
+   },
+   {
+    "id": 11102000000,
+    "value": "Auto Services",
+    "label": "label_11102000000",
+    "parent_id": 11000000000
+   },
+   {
+    "id": 15000000000,
+    "value": "Tech & Electronics",
+    "label": "label_15000000000"
+   },
+   {
+    "id": 22108000000,
+    "value": "Men's Clothing",
+    "label": "label_22108000000",
+    "parent_id": 22000000000
+   },
+   {
+    "id": 12105000000,
+    "value": "Baby Shoes",
+    "label": "label_12105000000",
+    "parent_id": 12000000000
+   },
+   {
+    "id": 22102000000,
+    "value": "Bags",
+    "label": "label_22102000000",
+    "parent_id": 22000000000
+   }
+  ]
+ }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "auto-service",
+  "title": "Car service, tyres, detailing",
+  "cc_industry": 11,
+  "services": [
+    { "pl": "warsztat samochodowy", "de": "Autowerkstatt", "en": "car repair", "es": "taller mecánico", "fr": "garage automobile", "it": "officina", "tr": "oto servis", "nl": "autogarage", "uk": "СТО", "ru": "автосервис" },
+    { "pl": "wulkanizacja", "de": "Reifenwechsel", "en": "tyre change", "es": "neumáticos", "fr": "pneus", "it": "gommista", "tr": "lastik", "nl": "banden wisselen", "uk": "шиномонтаж", "ru": "шиномонтаж" },
+    { "pl": "detailing", "de": "Autoaufbereitung", "en": "car detailing", "es": "detailing", "fr": "detailing auto", "it": "detailing auto", "tr": "detailing", "nl": "auto detailing", "uk": "детейлінг", "ru": "детейлинг" },
+    { "pl": "myjnia", "de": "Autowäsche", "en": "car wash", "es": "lavado de coches", "fr": "lavage auto", "it": "autolavaggio", "tr": "oto yıkama", "nl": "autowasstraat", "uk": "автомийка", "ru": "автомойка" },
+    { "pl": "folia PPF", "de": "Lackschutzfolie", "en": "paint protection film", "es": "PPF", "fr": "film de protection", "it": "pellicola protettiva", "tr": "PPF kaplama", "nl": "PPF folie", "uk": "плівка PPF", "ru": "пленка PPF" }
+  ],
+  "extra_hooks": {
+    "диагностика": "diagnostyk|diagnose|diagnostic|diagnóstico|диагност|діагност",
+    "оригинальные запчасти": "oryginaln|originalteile|genuine parts|оригинал|оригінал",
+    "в день обращения": "tego samego dnia|am selben tag|same day|el mismo día|в день обращения|в день звернення"
+  },
+  "noise": ["sprzedam", "verkaufe", "for sale", "leasing", "kredyt", "продам", "кредит"]
+}

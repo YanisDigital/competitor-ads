@@ -1,0 +1,18 @@
+{
+  "id": "ecom-eu",
+  "title": "Online stores and dropshipping in Europe",
+  "cc_industry": 30,
+  "services": [
+    { "en": "free shipping", "de": "kostenloser Versand", "pl": "darmowa dostawa", "es": "envío gratis", "fr": "livraison gratuite", "it": "spedizione gratuita", "nl": "gratis verzending", "tr": "ücretsiz kargo" },
+    { "en": "limited stock", "de": "nur noch wenige", "pl": "ostatnie sztuki", "es": "últimas unidades", "fr": "stock limité", "it": "ultimi pezzi", "nl": "beperkte voorraad", "tr": "sınırlı stok" },
+    { "en": "order now", "de": "jetzt bestellen", "pl": "zamów teraz", "es": "pide ahora", "fr": "commandez maintenant", "it": "ordina ora", "nl": "bestel nu", "tr": "hemen sipariş" },
+    { "en": "money back guarantee", "de": "Geld-zurück-Garantie", "pl": "gwarancja zwrotu", "es": "garantía de devolución", "fr": "satisfait ou remboursé", "it": "soddisfatti o rimborsati", "nl": "geld terug garantie", "tr": "para iade garantisi" }
+  ],
+  "extra_hooks": {
+    "BOGO/комплект": "2\\s*\\+\\s*1|1\\s*\\+\\s*1|buy \\d+ get|kaufe \\d+|kup \\d+|2x1|3x2",
+    "оплата при получении": "nachnahme|za pobraniem|cash on delivery|contrareembolso|paiement à la livraison|наложенн|накладен",
+    "оригинал/подделки": "original|oryginał|genuine|оригинал|оригінал"
+  },
+  "noise": ["praca", "job", "stellenangebot", "вакансия", "вакансія"],
+  "policy": "Еком: запросы этого пресета — фразы-офферы, поэтому хуки из тех же слов будут круговыми (не выдавай их за признак ниши). Лучше запросы по категориям товаров клиента (--keywords)."
+}

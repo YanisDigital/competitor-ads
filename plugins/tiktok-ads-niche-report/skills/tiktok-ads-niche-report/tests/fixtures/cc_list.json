@@ -1,0 +1,496 @@
+{
+ "code": 0,
+ "msg": "OK",
+ "request_id": "202610100427546E297529A3C34AF2751A",
+ "data": {
+  "materials": [
+   {
+    "ad_title": "Get ready to get up close and personal with the latest in electronic innovations!🎉\n Stay tuned — these gadgets might just spark your next tech obsession!\n #audioconnector | #wireharness | #Automotive | #Autoparts ",
+    "brand_name": "",
+    "cost": 0,
+    "ctr": 0.86,
+    "favorite": false,
+    "id": "7545791671499653137",
+    "industry_key": "label_21103000000",
+    "is_search": true,
+    "like": 1,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v15044gf0000cqji7knog65jrq5l0100",
+     "duration": 37.687,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-maliva-p-0068c799-us/o4pCyQySOnmAAjH?sig=x",
+     "video_url": {
+      "720p": "https://v16m-default.tiktokcdn.com/ee77ef6a210cbae03446435d308b631f/6ac9a2c?sig=x"
+     },
+     "width": 576,
+     "height": 1024
+    }
+   },
+   {
+    "ad_title": "hi",
+    "brand_name": "",
+    "cost": 2,
+    "ctr": 0.91,
+    "favorite": false,
+    "id": "7683173229765312532",
+    "industry_key": "label_23125000000",
+    "is_search": true,
+    "like": 574704,
+    "objective_key": "campaign_objective_video_view",
+    "video_info": {
+     "vid": "v1c033g50000daqv187og65pboi3q13g",
+     "duration": 13.724,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oQxr52oi9Y6XaAQE?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/ab28ac1722d58ca09c275df85cbfed03/6ac9a2b?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/22f65695a796c1025bed9772dc390b1f/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/f0617a99eaedda8a9c78a0c4f5d56e77/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/d2a1abbb761225ce016b299c6f983a09/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/be9abf508e3a848eca91668dd653dc19/6ac9a2b?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "Ми чекаємо на тебе!",
+    "brand_name": "",
+    "cost": 0,
+    "ctr": 0.99,
+    "favorite": false,
+    "id": "7635428655016411143",
+    "industry_key": "label_24102000000",
+    "is_search": true,
+    "like": 1,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v14033g50000d8dhhofog65sgqkpdok0",
+     "duration": 21.617,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-useast2a-p-0051c799-euttp/osobomwIiw?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/1f88b1452805f54c12dcbe5db40499c1/6ac9a2b?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/ff2626910768332b9f6d68db8601f461/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/ceb7e6757b0e8458272372d5fa656a57/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/49faefca7189ff75315cd9dbc0e202e1/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/b2216530d45f094af6188b693e685559/6ac9a2b?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "Ці багаторічники, які не вимагають особливого догляду, здатні прикрасити будь-який сад. ",
+    "brand_name": "Sad",
+    "cost": 0,
+    "ctr": 0.74,
+    "favorite": false,
+    "id": "7535460726213345288",
+    "industry_key": "label_26108000000",
+    "is_search": true,
+    "like": 7,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v10033g50000d29lc3vog65jsltu3uu0",
+     "duration": 37.546,
+     "cover": "https://p19-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/owmA8KgriYYotxAe?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/572f1e06832878752ab25b7fdbbbc209/6ac9a2c?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/95f816f06b8f4faf29fe4d04e132e0fa/6ac9a2c?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/40d0f3f444dcbad0d38d46acff3e1fc8/6ac9a2c?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/5a7d5310eee9694bd79ccced923e8791/6ac9a2c?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/d8582fb734d652f28845c18087173366/6ac9a2c?sig=x"
+     },
+     "width": 1280,
+     "height": 720
+    }
+   },
+   {
+    "ad_title": "hf",
+    "brand_name": "",
+    "cost": 0,
+    "ctr": 0.97,
+    "favorite": false,
+    "id": "7688190437680758791",
+    "industry_key": "label_23116000000",
+    "is_search": true,
+    "like": 27,
+    "objective_key": "campaign_objective_video_view",
+    "video_info": {
+     "vid": "v14033g50000daov1mfog65vjq8kgnug",
+     "duration": 15.535,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oIeMIxAe9XC0AFQl?sig=x",
+     "video_url": {
+      "360p": "https://v16m-default.tiktokcdn.com/3fad299e92fd5b3553030c6c970dfb50/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/1dac56400b3f8a9d43fa9eb1176bc5e2/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/297f7f756fa544a8fe5cf0515bba9f5f/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/511cdcebcb4b3560e8ad2d8cd5e7899b/6ac9a2b?sig=x"
+     },
+     "width": 576,
+     "height": 1024
+    }
+   },
+   {
+    "ad_title": "Ефективна підготовка до НМТ з досвідченими викладачами",
+    "brand_name": "",
+    "cost": 0,
+    "ctr": 0.88,
+    "favorite": false,
+    "id": "7683901812312522773",
+    "industry_key": "label_10101000000",
+    "is_search": true,
+    "like": 2,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v14033g50000dajr6unog65u49o0qj1g",
+     "duration": 40.441,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/o0DIn3fNBAT7qFRD?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/182532c769d5575302e3528fef031012/6ac9a2d?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/d6d2b97d04fa9f503fc9678d0793ea35/6ac9a2d?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/87096893bec81dc03773660539012f3f/6ac9a2d?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/d1c0049c0d2cfb8f7afc9af9861dc8b2/6ac9a2d?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/52872f616640b6720840b0a3db4b1ccf/6ac9a2d?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "Ідея для саду, яка одразу привертає увагу",
+    "brand_name": "Paga alla Consegna 🚚📦",
+    "cost": 0,
+    "ctr": 0.99,
+    "favorite": false,
+    "id": "7360389659435040775",
+    "industry_key": "label_16100000000",
+    "is_search": true,
+    "like": 0,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v14033g50000da7kfunog65u49sqqekg",
+     "duration": 13.954,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/owMfQQkE1MAfjezo?sig=x",
+     "video_url": {
+      "360p": "https://v16m-default.tiktokcdn.com/baaea374b1bd5df81c1cc03abc5c4113/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/cf1f0e80073efe084367e1de768746be/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/7e9b879baf07756d5b43ba2fb7ad16c7/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/e29543a060bb2e8b55e442c5f179389f/6ac9a2b?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "hi",
+    "brand_name": "",
+    "cost": 2,
+    "ctr": 0.9,
+    "favorite": false,
+    "id": "7683171079334723604",
+    "industry_key": "label_23125000000",
+    "is_search": true,
+    "like": 181404,
+    "objective_key": "campaign_objective_video_view",
+    "video_info": {
+     "vid": "v1c033g50000daqv187og65sb1n9ug2g",
+     "duration": 13.073,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/o8AND0fD4E4YbfVG?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/6fb15af295ddadcd9e7f6adfafad1124/6ac9a2b?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/06513424638a184db5cde3c8312ba1cb/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/5b915e2d61744e165708004da1556f00/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/326c4ad3565098b092d3c92ce9fb0357/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/7646586483d3cf9b3f3920c8dbfa12bd/6ac9a2b?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "Ефективна підготовка до НМТ з досвідченими викладачами",
+    "brand_name": "",
+    "cost": 0,
+    "ctr": 0.79,
+    "favorite": false,
+    "id": "7683902822430720020",
+    "industry_key": "label_10101000000",
+    "is_search": true,
+    "like": 9,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v14033g50000dajr6snog65r2oq2i72g",
+     "duration": 39.04,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oIFIwi7BmzQE1Asv?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/81c8b214ce4dad28b21b6109c80ec8a9/6ac9a2d?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/00f7e37559ce062c8cc1602bb9f1a1d3/6ac9a2d?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/bdc444e423155e74bb0657ee90126ad9/6ac9a2d?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/b91713e73c1c9cc87a79b5e3b24c7f8d/6ac9a2d?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/ce910f5673fc7ae96080b199b4f758b0/6ac9a2d?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "Ефективна підготовка до НМТ з досвідченими викладачами",
+    "brand_name": "",
+    "cost": 1,
+    "ctr": 0.71,
+    "favorite": false,
+    "id": "7686823198826922004",
+    "industry_key": "label_10101000000",
+    "is_search": true,
+    "like": 51,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v14033g50000danqm9nog65q02csq6qg",
+     "duration": 70.659,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/okyevBVgIAqJAGAB?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/1ed29197094bbf9dba466e66627e3b52/6ac9a2f?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/eba0e54afe4a2dd860a1fc70068a48ec/6ac9a2f?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/9009d97f4bfee44f45197f764fec8693/6ac9a2f?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/917c85fb1040017f25346333a4d1b9cd/6ac9a2f?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/49db63dcf414493050cd04370234ddb6/6ac9a2f?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "hi",
+    "brand_name": "",
+    "cost": 2,
+    "ctr": 0.88,
+    "favorite": false,
+    "id": "7683129336174428180",
+    "industry_key": "label_23125000000",
+    "is_search": true,
+    "like": 305840,
+    "objective_key": "campaign_objective_video_view",
+    "video_info": {
+     "vid": "v1c033g50000daqv187og65jj006vgi0",
+     "duration": 14.304,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oogzKmwEXBai1ABX?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/9b7e169048b9f8627686197ec0c6a50f/6ac9a2b?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/a038f9e259a18df57a6c1eb10c07c39d/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/652d06f4a8a83e76c5cca71b67caa1fe/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/31468a2fb469538ef3cfc9c4a203a953/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/22775272d2ac86051637bed6e783ba36/6ac9a2b?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "Преміум костюми Softshell по знижці до кінця дня -40% Нова ціна : 1999 грн (Стара ціна : 3800)",
+    "brand_name": "",
+    "cost": 0,
+    "ctr": 0.92,
+    "favorite": false,
+    "id": "7686836078997569556",
+    "industry_key": "label_22110000000",
+    "is_search": true,
+    "like": 1,
+    "objective_key": "campaign_objective_conversion",
+    "video_info": {
+     "vid": "v14033g50000dami2lnog65r2ouescrg",
+     "duration": 30.047,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oYWVEMzBYvCtjiqA?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/bdd3b0a6026b5860704c91921ea5a07f/6ac9a2c?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/8d16437f85e0c0f98b2ca8afdb23b9ca/6ac9a2c?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/e63542721e76e18145017dc14e75d784/6ac9a2c?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/11461409c7a52a65e1f99cd85a34f588/6ac9a2c?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/bd3f0ec9381fb7254d183987ccb3eff9/6ac9a2c?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "💃🏻",
+    "brand_name": "Shopee 50% Off Shocking Month",
+    "cost": 0,
+    "ctr": 0.5,
+    "favorite": false,
+    "id": "7670924784091791377",
+    "industry_key": "label_20105000000",
+    "is_search": true,
+    "like": 2117,
+    "objective_key": "campaign_objective_traffic",
+    "video_info": {
+     "vid": "v1c044g50000d9q9fdnog65i3j4reb9g",
+     "duration": 13.114,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0037/oUAXXmBNRsIT8iy0nL3McYB?sig=x",
+     "video_url": {
+      "720p": "https://v16m-default.tiktokcdn.com/b95b8c624bd0074309541c2088d7728b/6ac9a2b?sig=x"
+     },
+     "width": 576,
+     "height": 1024
+    }
+   },
+   {
+    "ad_title": "Заходи и качай своего дракона",
+    "brand_name": "",
+    "cost": 1,
+    "ctr": 0.55,
+    "favorite": false,
+    "id": "7687264478392516615",
+    "industry_key": "label_25100000000",
+    "is_search": true,
+    "like": 213,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v14033g50000danaefvog65pp7e8ulv0",
+     "duration": 28.907,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oY53GIeGQInp2eqM?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/a6fc32ff7c5a542dbc764edbc4e68e96/6ac9a2c?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/a684e9d7249f31119b2f35e38e6cc8da/6ac9a2c?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/8da88d8a1beb89eea6a3dab8ddddb178/6ac9a2c?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/cb19dc7dd76dba9d2536eb3d0bb10d8f/6ac9a2c?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/6be864b111720d0d5cd55a7f8a20d9f5/6ac9a2c?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "Чистка обличчя: -30% для нових клієнтів",
+    "brand_name": "",
+    "cost": 1,
+    "ctr": 0.64,
+    "favorite": false,
+    "id": "7680549645748617217",
+    "industry_key": "label_14105000000",
+    "is_search": true,
+    "like": 29,
+    "objective_key": "campaign_objective_lead_generation",
+    "video_info": {
+     "vid": "v14033g50000dafp6enog65kird9k7f0",
+     "duration": 19.482,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oI2JnEX4VZDRJdpf?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/2dcad5e4601161c89573ddc510d0bda1/6ac9a2b?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/3f9a242514318223dfedf773dcf0203f/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/825ccb2ffe3ba6c4a33d68bc54e66c21/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/12825b645d967a93981f7b29a52c17a1/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/8218e03b3743594381870f59a8d5def5/6ac9a2b?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "hi",
+    "brand_name": "",
+    "cost": 1,
+    "ctr": 0.91,
+    "favorite": false,
+    "id": "7683129363818348564",
+    "industry_key": "label_23125000000",
+    "is_search": true,
+    "like": 64618,
+    "objective_key": "campaign_objective_video_view",
+    "video_info": {
+     "vid": "v1c033g50000daqv187og65om1akjeb0",
+     "duration": 12.609,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/ogAiXBWoaFAErB4s?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/3503c1be0f372de3f8f4f3210a64e918/6ac9a2b?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/d2170de19434f172d11a3b3ebb981873/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/ce31ff08a30e2dadcd8b1b8b463a0f89/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/506a8290a1484b5c13379a188b3ce012/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/a0abb5373dd1961b01c5b190c42a91cd/6ac9a2b?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "Почни говорити англійською з ESL! ",
+    "brand_name": "",
+    "cost": 1,
+    "ctr": 0.97,
+    "favorite": false,
+    "id": "7684234383058927634",
+    "industry_key": "label_10105000000",
+    "is_search": true,
+    "like": 712,
+    "objective_key": "campaign_objective_reach",
+    "video_info": {
+     "vid": "v14033g50000dahu6mvog65kira4u4lg",
+     "duration": 32.634,
+     "cover": "https://p19-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oMqsUNjltBEEfAiN?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/11b942174af6114dca0532c49172aa27/6ac9a2c?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/1667c41a963a6921270b06e99c3ed8db/6ac9a2c?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/5a624523dca197ee9465927c5f3e9b6d/6ac9a2c?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/58e5d1df27c6fd5a08c9c6938541f88f/6ac9a2c?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/170ca43f2b19705510c33a8c6e631cba/6ac9a2c?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   },
+   {
+    "ad_title": "The future of living is already here. Appliances are connected, everything is calculated, and smart living is fully activated. Now, the Midea Smart Master is ready to take innovation beyond the home. Next mission: Midea IFA Berlin 2026. Coming soon. Discover how Midea brings world-class innovation home at https://www.midea.com/ph  #MideaPH #SimplyIdeal #MideaIFABerlin2026",
+    "brand_name": "",
+    "cost": 2,
+    "ctr": 0.92,
+    "favorite": false,
+    "id": "7679121816317853704",
+    "industry_key": "label_21104000000",
+    "is_search": true,
+    "like": 121558,
+    "objective_key": "campaign_objective_video_view",
+    "video_info": {
+     "vid": "v29025g50000daeaqdfog65gahktl7mg",
+     "duration": 84.451,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0037/ogfq31VCCuDnOcqEZrF01Ir?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/56733ac477222cedb69b41843f373c08/6ac9a2f?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/077ea533b22b3483d9e4997ecc9e9185/6ac9a2f?sig=x"
+     },
+     "width": 576,
+     "height": 1024
+    }
+   },
+   {
+    "ad_title": "Почни говорити англійською з ESL! ",
+    "brand_name": "",
+    "cost": 0,
+    "ctr": 0.98,
+    "favorite": false,
+    "id": "7689099030299639815",
+    "industry_key": "label_10105000000",
+    "is_search": true,
+    "like": 106,
+    "objective_key": "campaign_objective_reach",
+    "video_info": {
+     "vid": "v1c033g50000dar16s7og65pboic47q0",
+     "duration": 19.2,
+     "cover": "https://p16-common-sign.tiktokcdn.com/tos-alisg-p-0051c001-sg/oIeNDEgmQvqKEuD3?sig=x",
+     "video_url": {
+      "1080p": "https://v16m-default.tiktokcdn.com/8f89e1ae900b2755e2a12914ed79a93c/6ac9a2b?sig=x",
+      "360p": "https://v16m-default.tiktokcdn.com/53210669eec1f00fdda3737095e0cf45/6ac9a2b?sig=x",
+      "480p": "https://v16m-default.tiktokcdn.com/1f0314499ba9d7136b4d772fae289e9d/6ac9a2b?sig=x",
+      "540p": "https://v16m-default.tiktokcdn.com/b34732ebe07dd602758f5df37179a60d/6ac9a2b?sig=x",
+      "720p": "https://v16m-default.tiktokcdn.com/8566d2437b981d7c6f0bebbbd1293867/6ac9a2b?sig=x"
+     },
+     "width": 720,
+     "height": 1280
+    }
+   }
+  ],
+  "pagination": {
+   "has_more": true,
+   "page": 1,
+   "size": 20,
+   "total_count": 31
+  }
+ }
+}

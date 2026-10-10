@@ -1,0 +1,18 @@
+{
+  "id": "infobiz",
+  "title": "Online courses and coaching",
+  "cc_industry": 10,
+  "services": [
+    { "pl": "kurs online", "de": "Online Kurs", "en": "online course", "es": "curso online", "fr": "formation en ligne", "it": "corso online", "tr": "online kurs", "nl": "online cursus", "uk": "онлайн курс", "ru": "онлайн курс" },
+    { "pl": "webinar", "de": "Webinar", "en": "free webinar", "es": "webinar gratis", "fr": "webinaire", "it": "webinar gratuito", "tr": "ücretsiz webinar", "nl": "webinar", "uk": "вебінар", "ru": "вебинар" },
+    { "pl": "mentoring", "de": "Mentoring", "en": "mentorship", "es": "mentoría", "fr": "mentorat", "it": "mentoring", "tr": "mentorluk", "nl": "mentorschap", "uk": "менторство", "ru": "наставничество" },
+    { "pl": "szkolenie", "de": "Weiterbildung", "en": "masterclass", "es": "masterclass", "fr": "masterclass", "it": "masterclass", "tr": "masterclass", "nl": "masterclass", "uk": "навчання", "ru": "обучение" }
+  ],
+  "extra_hooks": {
+    "доход/заработок": "zarab|verdien|\\bearn|ganar|gagner|guadagn|kazan|заробі|заработ|дохід|доход",
+    "бесплатный урок/вебинар": "darmow\\S* (lekcj|webinar)|kostenlos\\S* (webinar|lektion)|free (webinar|lesson|class)|бесплатн\\S* (урок|вебинар)|безкоштовн\\S* (урок|вебінар)",
+    "сертификат": "certyfikat|zertifikat|certificate|certificado|certificat|сертифікат|сертификат"
+  },
+  "noise": ["praca", "job", "вакансия"],
+  "policy": "Инфобизнес: TikTok запрещает обещания дохода и «быстрого богатства», требует реалистичных формулировок. См. references/tiktok-policy.md."
+}
