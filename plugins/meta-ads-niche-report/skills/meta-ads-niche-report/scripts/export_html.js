@@ -95,6 +95,13 @@ function buildHtml(m) {
     out.push(table(['Страница', 'Дней', 'Вариантов', 'Формат', 'Дверь', 'Текст'], r.longrun.map(l => [esc(l.page), esc(l.days), esc(l.variants), esc(l.fmt), esc(l.door), link(l.url, l.text)])));
   }
 
+  const fr = r.fresh;
+  if (fr && fr.ads) {
+    out.push('<h2>Свежие запуски</h2><p class="mut">Объявления младше ' + esc(fr.days) + ' дней: ' + esc(fr.ads) + ' у ' + esc(fr.advertisers) + ' рекламодателей. Это то, что конкуренты тестируют прямо сейчас; молодое объявление ещё не доказало, что работает. Не больше 2 на страницу.' +
+      (fr.bursts.length ? ' Запустили пачку (3+): ' + fr.bursts.map(b => esc(b.page) + ' (' + esc(b.ads) + ')').join(', ') + '.' : '') + '</p>');
+    out.push(table(['Страница', 'Дней', 'Вариантов', 'Формат', 'CTA', 'Дверь', 'Хуки', 'Текст'], fr.top.map(l => [esc(l.page), esc(l.days), esc(l.variants), esc(l.fmt), esc(l.cta), esc(l.door), l.hooks.map(h => chip(h)).join(''), link(l.url, l.text)])));
+  }
+
   const v = m.visuals;
   if (v && v.items.length) {
     const KIND = { image: 'картинка', carousel: 'карусель', video_preview: 'кадр видео' };

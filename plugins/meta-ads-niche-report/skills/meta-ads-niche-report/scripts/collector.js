@@ -1120,6 +1120,22 @@
       winner_doors: enough ? top(longRows, r => classifyDoor(r), 3) : [],
       price_anchors: { currency, median_price: prices.median, median_pct_off: prices.median_pct_off, median_discount_pct: prices.median_discount_pct }
     };
+    // Ads launched in the last week: what competitors are testing right now. A
+    // young ad is a test, not a proven approach. An advertiser with 3+ fresh ads
+    // is in an active testing phase. Max 2 entries per advertiser, like longrun.
+    const freshDays = 7;
+    const freshRows = liveRows.filter(r => age(r) < freshDays);
+    const freshBy = cnt(freshRows.map(r => r.page));
+    const perFresh = {};
+    const fresh = {
+      days: freshDays,
+      ads: freshRows.length,
+      advertisers: Object.keys(freshBy).length,
+      bursts: Object.entries(freshBy).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).map(([page, ads]) => ({ page, ads })),
+      top: freshRows.filter(r => !outOfNiche.has(r.page)).sort((a, b) => (b.variants - a.variants) || (b.start - a.start))
+        .filter(r => (perFresh[r.page] = (perFresh[r.page] || 0) + 1) <= 2).slice(0, 25)
+        .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, cta: r.cta || '', door: classifyDoor(r), hooks: Object.keys(hp).filter(k => hp[k].test(text(r))), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }))
+    };
     return {
       ads: rows.length,
       advertisers: pageList.length,
@@ -1143,6 +1159,7 @@
       prices,
       top_pages: pageList.slice(0, 15),
       longrun,
+      fresh,
       status_counts: { active: liveRows.length, stopped: stoppedRows.length },
       stopped,
       samples

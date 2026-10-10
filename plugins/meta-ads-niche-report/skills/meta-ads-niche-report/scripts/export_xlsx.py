@@ -305,6 +305,22 @@ def main() -> None:
             value="Ранжирование: по числу вариантов креатива, потом по возрасту; не больше 2 объявлений на страницу; у онлайн-пресетов локальные бизнесы и платформы исключены.").font = f_note
     wl.freeze_panes = "A2"
 
+    # ---- Fresh launches (ads younger than a week) ----
+    fresh = report.get("fresh") or {}
+    if fresh.get("ads"):
+        wf = wb.create_sheet("Свежие")
+        header(wf, 1, ["Страница", "Дней", "Формат", "Вариантов", "CTA", "Дверь", "Хуки", "Текст (начало)", "Ссылка"], [36, 7, 12, 11, 18, 20, 30, 80, 44])
+        for i, t in enumerate(fresh.get("top", []), 2):
+            put(wf, i, [t["page"], t["days"], t["fmt"], t["variants"], t["cta"], t["door"], ", ".join(t["hooks"]), t["text"], t["url"]])
+            wf.cell(row=i, column=9).hyperlink = t["url"]
+            wf.cell(row=i, column=9).font = f_link
+        bursts = ", ".join(f"{b['page']} ({b['ads']})" for b in fresh.get("bursts", []))
+        wf.cell(row=len(fresh.get("top", [])) + 3, column=1, value=(
+            f"Младше {fresh['days']} дней: {fresh['ads']} объявл. у {fresh['advertisers']} рекламодателей. Это то, что конкуренты тестируют сейчас; "
+            "молодое объявление ещё не доказало, что работает. Не больше 2 на страницу."
+            + (f" Запустили пачку (3+): {bursts}." if bursts else ""))).font = f_note
+        wf.freeze_panes = "A2"
+
     # ---- Creatives (only when fetch_creatives.py was run) ----
     if visuals and visuals.get("items"):
         try:

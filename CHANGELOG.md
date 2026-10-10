@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.6] - 2026-10-10
+
+### Added
+- "Fresh launches" block in the regular report (one snapshot, no comparison
+  needed): live ads younger than 7 days, max 2 per advertiser, with CTA, door,
+  hooks and a library link, plus advertisers that launched 3+ ads that week
+  (`report.fresh`: `ads`, `advertisers`, `bursts`, `top`). Shown in the HTML
+  report and on a new "Свежие" Excel sheet; respects `curation.json`.
+- `SKILL.md` step 6: keep observations and interpretations apart, link every
+  ad mentioned, and state the country, date and filters of the snapshot in the
+  summary.
+
 ## [0.14.5] - 2026-10-07
 
 Security and privacy review of the whole project.
