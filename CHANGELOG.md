@@ -37,6 +37,13 @@ reproduced on this plugin before fixing.
   or internet; ReDoS timing; payer flag; HTML links and budget); EU and security
   tests updated to the new behaviour.
 
+## [tiktok-ads-niche-report 0.1.2] - 2026-10-10
+
+### Fixed
+- `SKILL.md` description was 1035 characters; claude.ai accepts at most 1024
+  ("field description must be at most 1024 characters"). Shortened to about 900.
+  The frontmatter test now checks the length as well as angle brackets.
+
 ## [tiktok-ads-niche-report 0.1.1] - 2026-10-10
 
 ### Fixed
