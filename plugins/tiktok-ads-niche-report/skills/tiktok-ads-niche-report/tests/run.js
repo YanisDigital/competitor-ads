@@ -81,6 +81,12 @@ test('creative center items normalize with industry names', () => {
   assert.strictEqual(d.shares, 1200);
 });
 
+test('SKILL.md frontmatter has no angle brackets (claude.ai rejects them as XML tags)', () => {
+  const md = fs.readFileSync(path.join(__dirname, '..', 'SKILL.md'), 'utf8');
+  const fm = md.match(/^---\r?\n([^]*?)\r?\n---/)[1];
+  assert.ok(!/<[^>]*>/.test(fm), 'description contains <...>');
+});
+
 test('doors', () => {
   const D = o => C.classifyDoor({ source: 'library', details: true, ...o });
   assert.strictEqual(C.classifyDoor({ source: 'library', details: false }), 'Не проверено');

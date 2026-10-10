@@ -1,7 +1,7 @@
 {
   "name": "tiktok-ads-niche-report",
   "displayName": "TikTok Ads Niche Report",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Collects competitor ads from the TikTok Ad Library (EU/EEA, GB, CH, TR) and top ads from TikTok Creative Center (Ukraine, US and more) by niche and country, and turns them into a report: who's advertising, where the ads lead, which hooks and video formats repeat, longest-running and scaled videos, untapped angles, storyboards, TikTok-ready ad hypotheses with a test plan.",
   "author": {
     "name": "YanisDigital"

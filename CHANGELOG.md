@@ -37,6 +37,14 @@ reproduced on this plugin before fixing.
   or internet; ReDoS timing; payer flag; HTML links and budget); EU and security
   tests updated to the new behaviour.
 
+## [tiktok-ads-niche-report 0.1.1] - 2026-10-10
+
+### Fixed
+- `SKILL.md` description contained an angle-bracket placeholder, which claude.ai
+  rejects as an XML tag ("SKILL.md description cannot contain XML tags"), so the
+  zip could not be uploaded. Replaced with plain text; a test now checks the
+  frontmatter of the skill for angle brackets.
+
 ## [tiktok-ads-niche-report 0.1.0] - 2026-10-10
 
 First release of the TikTok plugin, in the same repository and marketplace.
