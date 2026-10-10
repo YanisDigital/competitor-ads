@@ -2,7 +2,7 @@
  "data": {
   "ad": {
    "id": "1876302315426034",
-   "name": "安徽金尚机械制造股份有限公司",
+   "name": "Advertiser A Co., Ltd",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789476091000,
@@ -23,17 +23,17 @@
    "rejection_info": null,
    "sor_audit_status": "1",
    "title": "back in stock & buy more save more today only!!!!",
-   "external_url": "https://www.ubigmall.com/products/zero-sugar-best-seller-trio-wor?sig=x",
+   "external_url": "https://shop-a.example/products/sample-product-page?sig=x",
    "call_to_action": "Order now",
    "advertising_objective": "Sales",
    "subject": "Health"
   },
   "advertiser": {
-   "name": "安徽金尚机械制造股份有限公司",
+   "name": "Advertiser A Co., Ltd",
    "adv_biz_ids": "7546145023675432968",
    "registry_location": "China",
    "tt_user": null,
-   "sponsor": "BLUEVISION INTERACTIVE LIMITED"
+   "sponsor": "PAYER EXAMPLE LIMITED"
   },
   "targeting": {
    "location": {

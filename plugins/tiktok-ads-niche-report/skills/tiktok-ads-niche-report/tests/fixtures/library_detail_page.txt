@@ -61,10 +61,10 @@ Operating system
 ANDROID
 Ad
 Advertiser
-LDREAM LIMITED
+Advertiser L Limited
 See all ads
 Ad paid for by
-LDREAM LIMITED
+Advertiser L Limited
 Advertiser's registered location
 China
 Ad caption
@@ -72,11 +72,11 @@ Ultimate cute setup. Customize your screen with sweet themes.
 Call to action
 Go to Google Play
 External website linked
-https://play.google.com/store/apps/details?id=com.widget.icon.theme&hl=en
+https://play.google.com/store/apps/details?id=com.example.app&hl=en
 Ad Category
 Apps
 All ad information is from the original ad.
-themie_app
+example_app
 831.9Kfollowers
 TikTok
 English (US)

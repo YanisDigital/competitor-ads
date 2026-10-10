@@ -38,8 +38,8 @@ test('details JSON maps link, CTA, objective, targeting', () => {
   assert.strictEqual(d.genders, 'female|male');
   assert.ok(d.adv_id.length > 5);
   assert.ok(d.target_countries.includes('DE'));
-  assert.strictEqual(d.payer_differs, true); // BLUEVISION INTERACTIVE pays for a different advertiser
-  assert.ok(!JSON.stringify(d).includes('BLUEVISION'), 'no payer name anywhere in the parsed details');
+  assert.strictEqual(d.payer_differs, true); // PAYER EXAMPLE pays for a different advertiser
+  assert.ok(!JSON.stringify(d).includes('PAYER EXAMPLE'), 'no payer name anywhere in the parsed details');
   const withUser = C.detailsFromJson({ data: { advertiser: { tt_user: { username: 'example_gym', follower_count: '87.1K' } } } });
   assert.strictEqual(withUser.tt_handle, 'example_gym');
   assert.strictEqual(withUser.tt_followers, 87100);
@@ -53,10 +53,10 @@ test('details page text parses (browser mode)', () => {
   assert.strictEqual(d.objective, 'App promotion');
   assert.strictEqual(d.cta, 'Go to Google Play');
   assert.ok(d.link.startsWith('https://play.google.com/'));
-  assert.strictEqual(d.payer_differs, false); // payer and advertiser are both LDREAM LIMITED
+  assert.strictEqual(d.payer_differs, false); // payer and advertiser are both Advertiser L Limited
   assert.ok(!('paid_by' in d), 'the payer name is not kept');
   assert.strictEqual(d.adv_country, 'China');
-  assert.strictEqual(d.tt_handle, 'themie_app');
+  assert.strictEqual(d.tt_handle, 'example_app');
   assert.strictEqual(d.tt_followers, 831900);
   assert.strictEqual(d.reach, '0-1K');
   assert.strictEqual(d.ages, '25-34|35-44');
@@ -76,7 +76,7 @@ test('creative center items normalize with industry names', () => {
   assert.ok(rows.some(r => r.duration > 0));
   assert.ok(rows.every(r => r.video_url === '' || r.video_url.startsWith('https://')));
   const d = C.parseCcDetailText(fx('cc_detail_page.txt'));
-  assert.ok(d.link.startsWith('https://novabiz.shop/'));
+  assert.ok(d.link.startsWith('https://shop-b.example/'));
   assert.strictEqual(d.comments, 10);
   assert.strictEqual(d.shares, 1200);
 });
@@ -327,7 +327,7 @@ test('payer names are not stored; payer flag', () => {
   assert.strictEqual(C.payerDiffers('', 'X'), null);
   const row = C.mergeDetails(C.normalizeLibraryAd({ id: '1', name: 'A', title: 't', first_shown_date: 1e12, last_shown_date: 1e12 }, ''), C.detailsFromJson(json('library_details.json')));
   const csv = C.toCsv([row]);
-  assert.ok(!csv.includes('BLUEVISION') && !/paid_by/.test(csv));
+  assert.ok(!csv.includes('PAYER EXAMPLE') && !/paid_by/.test(csv));
   assert.strictEqual(C.parseCsv(csv)[0].payer_differs, true);
   assert.ok(!('paid_by' in C.parseCsv(['"id","paid_by"', '"1","Some Person"'].join('\n'))[0]));
 });

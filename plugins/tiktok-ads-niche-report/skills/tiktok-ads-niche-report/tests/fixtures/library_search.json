@@ -2,7 +2,7 @@
  "data": [
   {
    "id": "1876302315426034",
-   "name": "安徽金尚机械制造股份有限公司",
+   "name": "Advertiser A Co., Ltd",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789476091000,
@@ -27,7 +27,7 @@
   },
   {
    "id": "1876300986282146",
-   "name": "ZENZEN(HK)TRADING LIMITED",
+   "name": "Advertiser B Trading Limited",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789430647000,
@@ -52,7 +52,7 @@
   },
   {
    "id": "1876301069862353",
-   "name": "ZENZEN(HK)TRADING LIMITED",
+   "name": "Advertiser B Trading Limited",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789430642000,
@@ -77,7 +77,7 @@
   },
   {
    "id": "1876068022302754",
-   "name": "HAPPY MUSIC COMPANY LIMITED",
+   "name": "Advertiser C Company Limited",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
@@ -102,7 +102,7 @@
   },
   {
    "id": "1876272871053762",
-   "name": "重庆文鲤晟传媒有限公司",
+   "name": "Advertiser D Media Co., Ltd",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
@@ -127,7 +127,7 @@
   },
   {
    "id": "1876214544393506",
-   "name": "杭州银烛文化创意有限公司",
+   "name": "Advertiser E Creative Co., Ltd",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
@@ -152,7 +152,7 @@
   },
   {
    "id": "1876262701462529",
-   "name": "BRALY JOINT STOCK COMPANY",
+   "name": "Advertiser F Joint Stock Company",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
@@ -174,7 +174,7 @@
   },
   {
    "id": "1876325039332402",
-   "name": "一克科技（广州）有限公司",
+   "name": "Advertiser G Technology Co., Ltd",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
@@ -194,12 +194,12 @@
    ],
    "rejection_info": null,
    "sor_audit_status": "1",
-   "title": "Crazy Brain Puzzle",
+   "title": "Sample Puzzle Game",
    "subject": "Games"
   },
   {
    "id": "1876305818263921",
-   "name": "星雪漫推传媒(武汉东湖新技术开发)有限责任公司",
+   "name": "Advertiser H Media Co., Ltd",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
@@ -224,7 +224,7 @@
   },
   {
    "id": "1876288584243362",
-   "name": "ICEBEAR JOINT STOCK COMPANY",
+   "name": "Advertiser I Joint Stock Company",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
@@ -249,7 +249,7 @@
   },
   {
    "id": "1876339740778306",
-   "name": "VOLIO VIET NAM COMPANY LIMITED",
+   "name": "Advertiser J Company Limited",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
@@ -271,7 +271,7 @@
   },
   {
    "id": "1876280544499089",
-   "name": "GUANGZHOU HAND IN HAND INTERNET CO., LTD",
+   "name": "Advertiser K Internet Co., Ltd",
    "audit_status": "1",
    "type": "2",
    "first_shown_date": 1789344000000,
