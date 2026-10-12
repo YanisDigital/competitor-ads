@@ -55,7 +55,7 @@
     return x ? x.hostname.replace(/^(www|l|m)\./, '') : '';
   }
 
-  const MARKETPLACES = /(^|\.)(prom\.ua|rozetka\.com\.ua|olx\.ua|kasta\.ua|amazon\.com|etsy\.com|ebay\.com|walmart\.com|temu\.com|aliexpress\.com|shop\.tiktok\.com)$/;
+  const MARKETPLACES = /(^|\.)(prom\.ua|rozetka\.com\.ua|olx\.ua|kasta\.ua|amazon\.\w+(\.\w+)?|etsy\.com|ebay\.com|walmart\.com|temu\.com|aliexpress\.com|shop\.tiktok\.com|alibaba\.com|shein\.com|dhgate\.com|wish\.com)$/;
   const APP_STORES = /^(apps\.apple\.com|itunes\.apple\.com|play\.google\.com)$/;
   const AFFILIATE_LINKS = /^(urlgeni\.us|geni\.us|amzlink\.to|amzn\.to|a\.co|howl\.link|shrsl\.com|go\.magik\.ly|shop-links\.co)$/;
   // Signals of a brick-and-mortar business: CTAs and phrases that only make
@@ -1199,7 +1199,11 @@
     // Library's search, not evidence: it stays in the counts but out of the lists and the products.
     const checkQuery = !!(opts.products && opts.products.query_match === true);
     const loose = new Set(checkQuery ? rows.filter(r => queryMatch(r) === false).map(r => r.id) : []);
-    const fits = r => !outOfNiche.has(r.page) && !loose.has(r.id);
+    // ...and an ad that does not lead to the advertiser's own site (an affiliate link to Amazon, a marketplace,
+    // a phone call, messages, no link) is not a store selling the product: products.doors lists the doors kept.
+    const keepDoors = opts.products && Array.isArray(opts.products.doors) && opts.products.doors.length ? new Set(opts.products.doors) : null;
+    const offDoor = new Map(keepDoors ? rows.map(r => [r.id, classifyDoor(r)]).filter(([, d]) => !keepDoors.has(d)) : []);
+    const fits = r => !outOfNiche.has(r.page) && !loose.has(r.id) && !offDoor.has(r.id);
     const freq = {};
     // opts.extraHooks: { label: regexSource } from a niche preset.
     // opts.baseHooks === false: only the preset's hooks (e.g. a US preset
@@ -1363,7 +1367,8 @@
       top_pages: pageList.slice(0, 15),
       longrun,
       fresh,
-      products: opts.products ? { ...earlyProducts(liveRows.filter(fits), { now, currency, config: opts.products }), excluded_count: excludedPages.length, excluded_pages: excludedPages, query_check: checkQuery, loose_ads: loose.size, ads_checked: rows.length } : null,
+      products: opts.products ? { ...earlyProducts(liveRows.filter(fits), { now, currency, config: opts.products }), excluded_count: excludedPages.length, excluded_pages: excludedPages, query_check: checkQuery, loose_ads: loose.size, ads_checked: rows.length,
+        doors_kept: keepDoors ? [...keepDoors] : null, other_door_ads: offDoor.size, other_doors: cnt([...offDoor.values()]) } : null,
       status_counts: { active: liveRows.length, stopped: stoppedRows.length },
       stopped,
       samples

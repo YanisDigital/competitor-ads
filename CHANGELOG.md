@@ -3,6 +3,22 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.6] - 2026-10-12
+
+From a manual check of the long-running list of the live US report: affiliate links to Amazon (TubShroom,
+Everything Envy) and phone-call ads of a local service (Virginia Environmental Resources) were there.
+
+### Changed
+- `products.doors` (set to `["Сайт"]` in `ecom-problem-solvers-us`): only ads that lead to the advertiser's own
+  site count in the long-running ads, fresh launches, samples, stopped ads and products. Affiliate links,
+  marketplaces, calls, messages and ads without a link stay in the counts; `products.other_door_ads` and
+  `other_doors` give them by door, and the HTML says so. Presets without the field are unchanged.
+- Marketplaces: every Amazon domain (amazon.ca, amazon.co.uk ...), Alibaba, SHEIN, DHgate and Wish are now
+  "Маркетплейс", not "Сайт" (Alibaba was in the long-running list as a site). TikTok plugin: Alibaba, SHEIN,
+  DHgate and Wish added to its list too.
+- `page_name_flags`: water conditioning, marble, polishing, tile cleaning, maintenance, repair (service
+  companies that remained after the door filter).
+
 ## [0.15.5] - 2026-10-12
 
 ### Changed

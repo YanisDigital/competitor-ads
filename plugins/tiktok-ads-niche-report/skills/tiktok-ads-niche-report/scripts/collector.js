@@ -290,7 +290,7 @@
   }
 
   // ---- Where an ad sends the viewer -----------------------------------------
-  const MARKETPLACES = /(^|\.)(prom\.ua|rozetka\.com\.ua|olx\.\w+|kasta\.ua|allegro\.pl|amazon\.\w+(\.\w+)?|etsy\.com|ebay\.\w+|temu\.com|aliexpress\.\w+|zalando\.\w+|trendyol\.com|hepsiburada\.com|emag\.\w+|bol\.com|otto\.de|cdiscount\.com)$/;
+  const MARKETPLACES = /(^|\.)(prom\.ua|rozetka\.com\.ua|olx\.\w+|kasta\.ua|allegro\.pl|amazon\.\w+(\.\w+)?|etsy\.com|ebay\.\w+|temu\.com|aliexpress\.\w+|zalando\.\w+|trendyol\.com|hepsiburada\.com|emag\.\w+|bol\.com|otto\.de|cdiscount\.com|alibaba\.com|shein\.com|dhgate\.com|wish\.com)$/;
   const APP_STORES = /^(apps\.apple\.com|itunes\.apple\.com|play\.google\.com|appgallery\.huawei\.com|onelink\.me|app\.adjust\.com|\w+\.onelink\.me)$/;
   const SHORT_LINKS = /^(bit\.ly|tinyurl\.com|cutt\.ly|rebrand\.ly|goo\.gl|ow\.ly|is\.gd|shorturl\.at|t\.ly|linktr\.ee|beacons\.ai|taplink\.cc)$/;
   const PLATFORM_DOORS = ['Маркетплейс', 'Приложение', 'TikTok Shop'];

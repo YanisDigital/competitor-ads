@@ -39,12 +39,13 @@
       "огнеопасное/химическое": "\\b(flammable|accelerant|lighter fluid|fuel (?:tabs?|gel|cubes?)|fire ?plugs?|burn time|petroleum|butane|propane|kerosene|waxed? fire)\\b"
     },
     "page_name_flags": {
-      "локальные услуги/ремонт": "\\b(plumbing|plumbers?|rooter|hvac|heating|air conditioning|electric(?:al)?|llc|services?|cleaning pros|janitor\\w*|restoration|roofing|remodel\\w*|contractors?|home improvement|pest|lawn|pool|sir grout|dryer vent wizard|handyman|movers?)\\b"
+      "локальные услуги/ремонт": "\\b(plumbing|plumbers?|rooter|hvac|heating|air conditioning|electric(?:al)?|llc|services?|cleaning pros|janitor\\w*|restoration|roofing|remodel\\w*|contractors?|home improvement|pest|lawn|pool|sir grout|dryer vent wizard|handyman|movers?|water conditioning|marble|polishing|tile cleaning|maintenance|repairs?)\\b"
     },
     "soft_flags": {
       "обещание здоровья (мягкое)": "\\b(cure[sd]?|heals?|healing|pain relief|posture|joint|inflammation|clinical|detox|collagen|anti.?aging|weight loss|bloat\\w*|anxiety|doctor|immune|nerve|vagus)\\b"
     },
-    "query_match": true
+    "query_match": true,
+    "doors": ["Сайт"]
   },
   "extra_hooks": {
     "проблема → решение": "tired of|sick of|struggling with|no more|say goodbye|stop wasting|finally|never again",
