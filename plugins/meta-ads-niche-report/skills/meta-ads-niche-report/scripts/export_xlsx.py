@@ -341,7 +341,7 @@ def main() -> None:
             price = p.get("price")
             shown = ("$%g" % price["min"] if price["min"] == price["max"] else "$%g-%g" % (price["min"], price["max"])) if price else ""
             put(wpr, i, [p["name"], "", "сильный" if p.get("strong") else "подходит" if p.get("early") else "нет", p["stores"], p["oldest_days"], p["ads"], p["variants"], p["fresh_ads"],
-                         shown, "  ".join(p["ad_urls"]), "  ".join(p["store_urls"]), "; ".join(p["red_flags"] or p["reasons"]), "", "", None, ""])
+                         shown, "  ".join(p["ad_urls"]), "  ".join(p["store_urls"]), "; ".join(p["red_flags"] or p["reasons"]) + (("; осторожно: " + p["caution"]) if p.get("caution") else ""), "", "", None, ""])
             for col, key in ((10, "ad_urls"), (11, "store_urls")):
                 if p[key]:
                     wpr.cell(row=i, column=col).hyperlink = p[key][0]

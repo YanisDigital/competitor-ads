@@ -29,7 +29,7 @@
     "max_stores": 3,
     "min_price": 45,
     "red_flags": {
-      "здоровье/медицина": "\\b(cure[sd]?|heals?|healing|pain relief|arthritis|diabet\\w*|fda|supplements?|weight loss|anti.?aging|detox|cbd|hair growth|posture|vagus|nerve|menopaus\\w*|meno|joint|inflammation|clinical|thyroid|hormon\\w*|vitamins?|probiotics?|postbiotics?|collagen|gut health|bloat\\w*|anxiety|sleep aid|treats|pet food|dog food|gout|dementia|diagnos\\w*|gynecolog\\w*|doctor|medications?|medicine|natural support|extracts?|seed oil|black seed|fish oil|castor oil|essential oils?|lion'?s mane|mushroom|herbal|ointment|acne|eczema|psoriasis|tinnitus|neuropathy|cholesterol|blood pressure|blood sugar|immune|libido|prostate|hemorrhoids?|migraine|follicles?|hair loss|regrow\\w*|scalp|hormonal|pills|health support|support community|lymph\\w*)\\b",
+      "здоровье/медицина": "\\b(arthritis|diabet\\w*|fda|supplements?|cbd|hair growth|menopaus\\w*|meno|thyroid|hormon\\w*|vitamins?|probiotics?|postbiotics?|gut health|sleep aid|treats|pet food|dog food|gout|dementia|diagnos\\w*|gynecolog\\w*|medications?|medicine|natural support|extracts?|seed oil|black seed|fish oil|castor oil|essential oils?|lion'?s mane|mushroom|herbal|ointment|acne|eczema|psoriasis|tinnitus|neuropathy|cholesterol|blood pressure|blood sugar|libido|prostate|hemorrhoids?|migraine|follicles?|hair loss|regrow\\w*|scalp|hormonal|pills|health support|support community|lymph\\w*|kidneys?|dialysis|disease|symptoms?|prescription|creatinine|cardiolog\\w*|blood test|stage \\d)\\b",
       "детские товары": "\\b(baby|babies|toddler|kids?|child|children|infant|newborn|pacifier|stroller)\\b",
       "оружие/регулируемое": "\\b(knife|knives|gun|firearm|taser|pepper spray|ammo|vape|alcohol)\\b",
       "бренд/патент": "\\b(patented|patent pending|trademark|official (?:store|site|website)|licensed|family.owned|founded in|since (?:18|19|20)\\d\\d)\\b|[®™]",
@@ -40,6 +40,9 @@
     },
     "page_name_flags": {
       "локальные услуги/ремонт": "\\b(plumbing|plumbers?|rooter|hvac|heating|air conditioning|electric(?:al)?|llc|services?|cleaning pros|janitor\\w*|restoration|roofing|remodel\\w*|contractors?|home improvement|pest|lawn|pool|sir grout|dryer vent wizard|handyman|movers?)\\b"
+    },
+    "soft_flags": {
+      "обещание здоровья (мягкое)": "\\b(cure[sd]?|heals?|healing|pain relief|posture|joint|inflammation|clinical|detox|collagen|anti.?aging|weight loss|bloat\\w*|anxiety|doctor|immune|nerve|vagus)\\b"
     },
     "query_match": true
   },

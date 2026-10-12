@@ -1020,6 +1020,9 @@
     const maxStores = Number.isFinite(cfg.max_stores) ? cfg.max_stores : 3;
     const minPrice = Number.isFinite(cfg.min_price) ? cfg.min_price : 0;
     const flags = Object.entries(cfg.red_flags || {}).map(([label, src]) => [label, new RegExp(src, 'i')]);
+    // soft flags: words that can be a figure of speech ("the moon face cure") or a mild claim. They are shown as a
+    // caution next to the product but never remove it or its page; red_flags (conditions, drugs, supplements) do.
+    const soft = Object.entries(cfg.soft_flags || {}).map(([label, src]) => [label, new RegExp(src, 'ig')]);
     const age = r => Math.max(0, Math.round((now - r.start) / 86400));
     const textOf = r => ((r.title || '') + ' ' + (r.body || '')).toLowerCase();
     const handleOf = r => {
@@ -1067,6 +1070,7 @@
       const price = amounts.length ? { min: Math.min(...amounts), max: Math.max(...amounts) } : null;
       const big = rs.map(r => textOf(r) + ' ' + handleOf(r).replace(/-/g, ' ') + ' ' + String(r.page || '').toLowerCase() + ' ' + domainStem(r.link)).join(' ').slice(0, MAX_TEXT);
       const redFlags = flags.filter(([, re]) => re.test(big)).map(([label]) => label);
+      const cautions = soft.map(([label, re]) => ({ label, words: [...new Set([...big.matchAll(re)].map(m => m[0].toLowerCase()))].slice(0, 4) })).filter(c => c.words.length);
       const counts = {};
       for (const h of handles) counts[h] = (counts[h] || 0) + 1;
       const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
@@ -1084,12 +1088,13 @@
       if (!checks.stores) reasons.push('уже ' + stores + ' магазинов');
       if (!checks.clean) reasons.push('красный флаг: ' + redFlags.join(', '));
       if (checks.price === false) reasons.push('цена в рекламе до $' + price.max);
+      const cautionText = cautions.map(c => c.label + ': ' + c.words.join(', ')).join('; ');
       products.push({
         name: readable(handle) ? handle.replace(/[-_]/g, ' ') : cut(snippet(sorted[0]), 60),
         handle,
         stores, sites: sites.slice(0, 5), pages: [...pages].slice(0, 5),
         ads: rs.length, variants, oldest_days: oldest, newest_days: newest, fresh_ads: freshAds,
-        price, red_flags: redFlags, checks,
+        price, red_flags: redFlags, soft_flags: cautions, caution: cautionText, checks,
         early: checks.window && checks.stores && checks.clean && checks.price !== false,
         strong: checks.window && checks.stores && checks.clean && checks.price !== false && checks.scaling,
         reasons,

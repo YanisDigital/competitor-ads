@@ -40,7 +40,7 @@ const ROWS = [
   ad(8, 'Store D3', 22, 'https://d3.example/products/under-sink-rack', 'Under sink organizer, $52'),
   ad(9, 'Store D4', 23, 'https://d4.example/products/under-sink-rack', 'Under sink organizer, $52'),
   // health claim: red flag
-  ad(10, 'Store E', 15, 'https://store-e.example/products/knee-brace', 'Pain relief for your joints in minutes. $59'),
+  ad(10, 'Store E', 15, 'https://store-e.example/products/knee-brace', 'Relief for arthritis and joint pain in minutes. $59'),
   // price in the ad below the minimum
   ad(11, 'Store F', 15, 'https://store-f.example/products/screw-extractor', 'Remove any stripped screw. Only $12.99'),
   // a store's brand ad: no product link, unique text: not a product

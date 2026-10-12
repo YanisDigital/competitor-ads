@@ -3,6 +3,17 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.5] - 2026-10-12
+
+### Changed
+- Soft health flags. A manual check of the live report showed a massager page (HiZoo) left out because its ads
+  said "the Moon Face Cure" (a figure of speech) and "diet bloat". Generic wellness words (cure, heal, bloat,
+  doctor, pain relief, posture, joint, detox, collagen, immune, nerve ...) moved from the red health flag to
+  `products.soft_flags` in `ecom-problem-solvers-us`: they show as "осторожно" next to the product (HTML chip,
+  Excel notes) but remove neither the product nor its page. Diseases and treatment words stay red and some were
+  added (kidney, dialysis, disease, symptoms, prescription, creatinine, cardiologist, blood test, stage N), so the
+  nutra pages found earlier are still left out. An ad that promises a cure is still a risk on Meta: the caution says so.
+
 ## [0.15.4] - 2026-10-12
 
 The cause of the remaining noise found in a manual check of the live US report (nutra stories about kidney

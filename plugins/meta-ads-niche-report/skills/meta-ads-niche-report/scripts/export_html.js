@@ -118,7 +118,7 @@ function buildHtml(m) {
     }
     out.push(table(['Продукт', 'Оценка', 'Магазинов', 'Дней', 'Объявл.', 'Вариантов', 'Новых за 7 дн.', 'Цена', 'Замечания', 'Объявление', 'Магазин'],
       prods.top.slice(0, 25).map(p => [esc(p.name), p.strong ? chip('сильный', 'ok') : p.early ? chip('подходит') : chip('нет', 'warn'), esc(p.stores), esc(p.oldest_days), esc(p.ads), esc(p.variants), esc(p.fresh_ads),
-        p.price ? esc('$' + (p.price.min === p.price.max ? p.price.min : p.price.min + '–' + p.price.max)) : '-', esc((p.red_flags.length ? p.red_flags : p.reasons).join('; ')),
+        p.price ? esc('$' + (p.price.min === p.price.max ? p.price.min : p.price.min + '–' + p.price.max)) : '-', esc((p.red_flags.length ? p.red_flags : p.reasons).join('; ')) + (p.caution ? (p.red_flags.length || p.reasons.length ? ' ' : '') + chip('осторожно: ' + p.caution, 'warn') : ''),
         p.ad_urls.map((u, k) => link(u, 'объявление ' + (k + 1))).join(' '), p.store_urls.map((u, k) => link(u, 'магазин ' + (k + 1))).join(' ')])));
   }
 
