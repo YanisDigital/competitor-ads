@@ -484,6 +484,7 @@
     const w = [];
     const add = (code, severity, message) => w.push({ code, severity, message });
     const stats = info.queryStats || [];
+    if (info.blocked) add('collection_stopped', 'warn', 'Сбор остановлен: TikTok показал капчу или окно входа (' + info.blocked + '). Выполнено ' + (info.queriesDone || 0) + ' из ' + (info.queriesPlanned || '?') + ' запросов, срез неполный: выводы только по тому, что успело собраться.');
     if (info.source === 'cc') {
       add('cc_sample', 'warn', 'Источник — Creative Center (Top Ads): это подборка самых результативных аукционных объявлений, которую делает TikTok, а не вся реклама ниши. Рекламодатели почти всегда скрыты, поиска по нише по сути нет (фильтр по отрасли и слову). Выводы — «что работает в отрасли», а не «что делают конкуренты».');
       if ((info.ads || 0) < 30) add('small_sample', 'warn', 'В выборке только ' + info.ads + ' объявлений: частоты хуков и форматов — гипотезы, не тренд.');
@@ -509,6 +510,7 @@
     const s = st || {};
     const out = [];
     const add = (code, title, why, how, extra = {}) => out.push({ code, title, why, urgent: false, needs: '', how, ...extra });
+    if (s.blocked) add('resume', 'Дособрать запросы, которые не успели', 'TikTok остановил сбор (капча или окно входа): в срезе ' + (s.queries || 0) + ' запросов, ещё ' + (s.queries_remaining || 0) + ' не выполнены.', 'Подождать несколько часов, затем запустить только оставшиеся запросы из run.json (queries_remaining) с большей паузой --delay, в отдельную папку; обхода капчи нет.', { urgent: true });
     if (s.source === 'library' && !s.curated) add('curate', 'Отобрать конкурентов (curation.json)', 'Поиск идёт по тексту объявлений и названию рекламодателя, поэтому в срезе есть не конкуренты. Без чистки детали, креативы и гипотезы уходят на чужих.', 'Прочитать топ рекламодателей по смыслу, спорных обсудить, решение записать в curation.json рядом с ads.csv.');
     if (s.source === 'cc' && !s.curated) add('curate_cc', 'Убрать нерелевантные объявления (curation.json → exclude_ids)', 'Отрасль в Creative Center широкая: в подборку попадают соседние товары и услуги.', 'Просмотреть объявления, id лишних записать в curation.json → "exclude_ids".');
     if (!s.preset && !s.niche) add('niche_hooks', 'Хуки ниши в niche.json', 'Для ниши нет пресета: посчитаны только базовые хуки.', 'Записать niche.json рядом с ads.csv (extra_hooks, noise, currency) и пересобрать отчёт.');

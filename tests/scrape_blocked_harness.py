@@ -89,4 +89,6 @@ try:
     scrape.main()
 except SystemExit as e:
     code = e.code if isinstance(e.code, int) else 1
+    if not isinstance(e.code, int):
+        print(e.code, file=sys.stderr)
 print(json.dumps({"code": code, "files": sorted(p.name for p in Path(OUT).glob("*")), "calls": calls["n"]}))

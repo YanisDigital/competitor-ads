@@ -195,6 +195,8 @@ async def run(args) -> None:
         await context.add_init_script(script=collector_src)
         page = await context.new_page()
         totals, capped = {}, []
+        blocked = ""  # a captcha or login wall stops the run; what was collected so far is still saved
+        done = []
         try:
             if source == "library":
                 await page.goto(library_url(country, args.period), wait_until="domcontentloaded")
@@ -213,24 +215,39 @@ async def run(args) -> None:
             for i, q in enumerate(queries):
                 label = q.get("label") or q["q"]
                 print(f"[{i + 1}/{len(queries)}] {label}")
-                if q["q"]:
-                    res = await (search_library(page, q["q"]) if source == "library" else search_cc(page, q["q"]))
-                if source == "cc" and (args.order != "For You" or not q["q"] and i > 0):
-                    res = await page.evaluate("(o) => window.__tti.sort(o)", args.order)
-                    if isinstance(res, str):
-                        print("    " + res)
-                await detect_block(page)
-                await page.evaluate("(n) => window.__tti.more(n)", args.max_ads)
+                try:
+                    if q["q"]:
+                        res = await (search_library(page, q["q"]) if source == "library" else search_cc(page, q["q"]))
+                    if source == "cc" and (args.order != "For You" or not q["q"] and i > 0):
+                        res = await page.evaluate("(o) => window.__tti.sort(o)", args.order)
+                        if isinstance(res, str):
+                            print("    " + res)
+                    await detect_block(page)
+                    await page.evaluate("(n) => window.__tti.more(n)", args.max_ads)
+                except BlockedError as e:
+                    blocked = str(e)
+                    print(f"Stopped at query {i + 1} of {len(queries)}: {e}")
+                    break
                 summary = await page.evaluate("(kw) => window.__tti.collect(kw)", label)
                 totals[label] = summary.get("total_says")
                 if summary.get("capped"):
                     capped.append(label)
+                done.append(label)
                 print(f"    captured={summary['captured']} total={summary.get('total_says')} unique={summary['total_unique']}"
                       + ("  [only the top of the list]" if summary.get("capped") else ""))
                 if i < len(queries) - 1:
                     await asyncio.sleep(args.delay)
-            csv_text = await page.evaluate("() => window.__tti.csv()")
-        except BlockedError as e:
+            if blocked and not done:
+                await browser.close()
+                sys.exit(f"Stopped: {blocked} Nothing was collected, so nothing is saved.")
+            try:
+                csv_text = await page.evaluate("() => window.__tti.csv()")  # the records live in the page: still there after a block on a later query
+            except Exception:
+                if not blocked:
+                    raise
+                await browser.close()
+                sys.exit(f"Stopped: {blocked} The collected records could not be read back, so nothing is saved.")
+        except BlockedError as e:  # raised before the first query (nothing to save yet)
             await browser.close()
             sys.exit(f"Stopped: {e}")
         await browser.close()
@@ -238,15 +255,16 @@ async def run(args) -> None:
     (out_dir / "ads.csv").write_text(csv_text, encoding="utf-8")
     run_meta = {
         "date": datetime.now(timezone.utc).isoformat(), "source": source, "country": country,
-        "queries": [q.get("label") or q["q"] for q in queries], "query_langs": {q["q"]: q["lang"] for q in queries if q["q"]},
+        "queries": done, "query_langs": {q["q"]: q["lang"] for q in queries if q["q"]},
         "preset": args.preset, "totals": totals, "capped_queries": capped, "exact": bool(args.exact),
         "long_days": args.long_days, "cities": [c for c in (args.city or []) if c],
         **({"period_days": args.period} if source == "library" else {"cc_period": args.cc_period, "industry": args.industry, "order": args.order}),
         "max_ads_per_query": args.max_ads, "headed": headed,
+        **({"blocked": blocked, "queries_planned": len(queries), "queries_remaining": [q.get("label") or q["q"] for q in queries][len(done):]} if blocked else {}),
     }
     (out_dir / "run.json").write_text(json.dumps(run_meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    if args.details:
+    if args.details and not blocked:
         sys.stdout.flush()  # keep the collection log before details.py's
         subprocess.run([sys.executable, str(HERE / "details.py"), str(out_dir), "--limit", str(args.details)], check=False)
 
@@ -267,6 +285,11 @@ async def run(args) -> None:
         print("Nothing captured. If unexpected, retry with --headed and see what the page shows.")
     print(f"Saved: {out_dir / 'ads.csv'}")
     print(f"Saved: {out_dir / 'report.json'}")
+    if blocked:
+        print()
+        print(f"PARTIAL snapshot: {len(done)} of {len(queries)} queries ran. TikTok stopped the run ({blocked}) and nothing was done to get around it. "
+              "Wait several hours before the next live run, use a longer --delay, and run only the remaining queries (listed in run.json).")
+        sys.exit(3)
 
 
 LIBRARY_COUNTRIES = {"AT", "BE", "BG", "CH", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR", "HU", "IE", "IS", "IT", "LI",

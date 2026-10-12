@@ -59,7 +59,8 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   // Details are counted per unique creative: copies of one video share them.
   const creatives = C.uniqueTexts(rows.filter(r => r.source === 'library')).uniqRows;
   const unchecked = creatives.filter(r => !r.details).length;
-  const warnings = C.snapshotWarnings({ source, advertisers: report.advertisers, ads: report.ads, creatives: creatives.length, unchecked, queryStats: stats, ts, preset })
+  const warnings = C.snapshotWarnings({ source, advertisers: report.advertisers, ads: report.ads, creatives: creatives.length, unchecked, queryStats: stats, ts, preset,
+    blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   const has = f => fs.existsSync(path.join(dir, f));
   const now = opts0.now || Date.now() / 1000;
@@ -68,7 +69,8 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     manifest: !!manifest, downloaded: visuals ? visuals.downloaded : 0, labeled: visuals ? visuals.labeled : 0,
     client: has('client.json') || fs.existsSync(path.join(path.dirname(path.resolve(dir)), 'client.json')),
     hypotheses: has('hypotheses.json'), lint: has('hypotheses_lint.json'), plan: has('test_plan.json'), sites: has('sites.json'), diff: has('diff.json'), preset: !!niche.preset_id, niche: niche.niche_file,
-    cc_details: source === 'cc' && rows.some(r => r.details), library_country: C.isLibraryCountry(meta.country)
+    cc_details: source === 'cc' && rows.some(r => r.details), library_country: C.isLibraryCountry(meta.country),
+    blocked: !!meta.blocked, queries: (meta.queries || []).length, queries_remaining: (meta.queries_remaining || []).length
   });
   return { report, rows, query_stats: stats, warnings, visuals, next_steps,
     meta: { ...meta, source, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };

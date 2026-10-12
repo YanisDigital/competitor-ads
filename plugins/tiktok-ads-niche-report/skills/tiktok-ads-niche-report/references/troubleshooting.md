@@ -14,6 +14,14 @@ captcha, never log in, never reuse cookies, never rotate proxies. Tell the
 user, suggest retrying later with fewer queries (`--express`), a longer
 `--delay`, or browser mode in their own browser.
 
+Since 0.1.4 the queries that finished before the block are **saved** as a
+partial snapshot (`ads.csv`, `report.json`, `run.json`; exit code 3, details
+are not opened). `run.json` gets `blocked`, `queries` (only those that ran),
+`queries_planned` and `queries_remaining`; the report warns that the sample is
+partial and "What else can be done" lists finishing the rest. A block before
+the first query saves nothing. Do not rerun at once: wait several hours and
+run only `queries_remaining` into a separate folder.
+
 ## Creative Center shows a blank page or "no permission"
 
 Creative Center refuses headless browsers. `scrape.py --source cc` and

@@ -95,7 +95,19 @@ reproduced on this plugin before fixing.
   or internet; ReDoS timing; payer flag; HTML links and budget); EU and security
   tests updated to the new behaviour.
 
-## [tiktok-ads-niche-report 0.1.3] - 2026-10-10
+## [tiktok-ads-niche-report 0.1.4] - 2026-10-12
+
+### Fixed
+- A captcha or login wall in the middle of a run lost everything collected before it (`scrape.py` left
+  without saving). It still stops at the block (no retry, no bypass) but now saves the finished queries as a
+  partial snapshot, does not open details and exits with code 3. `run.json` gets `blocked`, `queries` (only
+  those that ran), `queries_planned` and `queries_remaining`; the report adds the warning
+  `collection_stopped` and the urgent step `resume`. A block before the first query saves nothing. Same
+  behaviour as the Meta plugin 0.15.1; tested with a fake Playwright (`tests/tiktok_blocked.test.mjs`).
+- A text cut at an emoji left half of it (a lone surrogate) and could stop the Excel save: safe cut in
+  `collector.js`, stray surrogates replaced in `export_xlsx.py`.
+
+ - 2026-10-10
 
 ### Fixed
 - Real company and brand names left in the tests (`tests/run.js`) and in a fixture ad text
