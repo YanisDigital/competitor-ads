@@ -34,7 +34,7 @@
       "оружие/регулируемое": "\\b(knife|knives|gun|firearm|taser|pepper spray|ammo|vape|alcohol)\\b",
       "бренд/патент": "\\b(patented|patent pending|trademark|official (?:store|site|website)|licensed|family.owned|founded in|since (?:18|19|20)\\d\\d)\\b|[®™]",
       "декор/новинка": "\\b(decor|figurine|poster|wall art|night light|toy|gift for|personali[sz]ed|engraved|custom name|name necklace)\\b",
-      "известный бренд": "\\b(lifestraw|sawyer|katadyn|grayl|zippo|victorinox|yeti|stanley|oxo|simplehuman|dyson|shark|rubbermaid|clorox|lysol|scotch.?brite|3m|dewalt|milwaukee|bosch|black diamond|black beard|swiss army|bic|coleman|osprey|nalgene|hydro flask)\\b",
+      "известный бренд": "\\b(lifestraw|sawyer|katadyn|grayl|zippo|victorinox|yeti|stanley|oxo|simplehuman|dyson|shark|rubbermaid|clorox|lysol|scotch.?brite|3m|dewalt|milwaukee|bosch|black diamond|black beard|swiss army|bic|coleman|osprey|nalgene|hydro flask|tubshroom|drainshroom)\\b",
       "локальные услуги/ремонт": "\\b(free (?:in.?home )?(?:estimates?|consultations?|quotes?)|get a (?:free )?quote|installed in as little|licensed (?:and|&) insured|home improvement|remodel\\w*|contractors?|walk.?in (?:shower|tub)|replacement windows?|roofing|plumbing services|hvac|pest control|lawn care|book your \\w+(?: \\w+)? (?:cleaning|service|appointment|inspection)|dryer vent (?:wizard|cleaning)|(?:vent|duct|gutter|carpet|window|chimney) cleaning|handyman|locksmith|pressure washing|junk removal|maid service|house cleaning service)\\b",
       "огнеопасное/химическое": "\\b(flammable|accelerant|lighter fluid|fuel (?:tabs?|gel|cubes?)|fire ?plugs?|burn time|petroleum|butane|propane|kerosene|waxed? fire)\\b"
     },

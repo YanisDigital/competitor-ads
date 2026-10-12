@@ -3,6 +3,11 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [tiktok-ads-niche-report 0.1.5] - 2026-10-12
+
+### Changed
+- Marketplaces: Alibaba, SHEIN, DHgate and Wish are now "Маркетплейс" (door classification), as in the Meta plugin 0.15.6.
+
 ## [0.15.6] - 2026-10-12
 
 From a manual check of the long-running list of the live US report: affiliate links to Amazon (TubShroom,
