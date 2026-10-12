@@ -109,6 +109,16 @@ function buildHtml(m) {
     out.push(table(['Страница', 'Дней', 'Вариантов', 'Формат', 'CTA', 'Дверь', 'Хуки', 'Текст'], fr.top.map(l => [esc(l.page), esc(l.days), esc(l.variants), esc(l.fmt), esc(l.cta), esc(l.door), l.hooks.map(h => chip(h)).join(''), link(l.url, l.text)])));
   }
 
+  const prods = r.products;
+  if (prods && prods.top && prods.top.length) {
+    const c = prods.criteria;
+    out.push('<h2>Ранние продукты</h2><p class="mut">Продукт здесь это группа объявлений с одним Shopify-товаром в ссылке или с одним текстом. Критерии: старейшее объявление ' + esc(c.min_days) + '–' + esc(c.max_days) + ' дней, магазинов не больше ' + esc(c.max_stores) + (c.min_price ? ', цена в рекламе от $' + esc(c.min_price) : '') + ', без красных флагов. Найдено продуктов: ' + esc(prods.found) + ', подходят: ' + esc(prods.early) + ' (сильных: ' + esc(prods.strong) + '), в окне по возрасту: ' + esc(prods.in_window) + ', старше окна: ' + esc(prods.too_old) + ', с красным флагом: ' + esc(prods.flagged) + '. Просмотров и лайков в Библиотеке Meta для коммерческой рекламы нет: рост виден по вариантам и свежим запускам. Это кандидаты для проверки, а не вывод.</p>');
+    out.push(table(['Продукт', 'Оценка', 'Магазинов', 'Дней', 'Объявл.', 'Вариантов', 'Новых за 7 дн.', 'Цена', 'Замечания', 'Объявление', 'Магазин'],
+      prods.top.slice(0, 25).map(p => [esc(p.name), p.strong ? chip('сильный', 'ok') : p.early ? chip('подходит') : chip('нет', 'warn'), esc(p.stores), esc(p.oldest_days), esc(p.ads), esc(p.variants), esc(p.fresh_ads),
+        p.price ? esc('$' + (p.price.min === p.price.max ? p.price.min : p.price.min + '–' + p.price.max)) : '-', esc((p.red_flags.length ? p.red_flags : p.reasons).join('; ')),
+        p.ad_urls.map((u, k) => link(u, 'объявление ' + (k + 1))).join(' '), p.store_urls.map((u, k) => link(u, 'магазин ' + (k + 1))).join(' ')])));
+  }
+
   const v = m.visuals;
   if (v && v.items.length) {
     const KIND = { image: 'картинка', carousel: 'карусель', video_preview: 'кадр видео' };

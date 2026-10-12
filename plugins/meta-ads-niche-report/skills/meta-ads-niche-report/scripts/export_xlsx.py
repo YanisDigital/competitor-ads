@@ -124,6 +124,8 @@ def main() -> None:
 
     def put(ws, row, values):
         for c, v in enumerate(values, 1):
+            if isinstance(v, str) and not isinstance(v, F):
+                v = v.encode("utf-8", "replace").decode("utf-8")  # a lone surrogate (half an emoji) would stop the save
             ws.cell(row=row, column=c, value=v).font = f_base
             if isinstance(v, F):
                 own_formulas.add((ws.title, row, c))
@@ -320,6 +322,31 @@ def main() -> None:
             "молодое объявление ещё не доказало, что работает. Не больше 2 на страницу."
             + (f" Запустили пачку (3+): {bursts}." if bursts else ""))).font = f_note
         wf.freeze_panes = "A2"
+
+    # ---- Early products (presets with a "products" block) ----
+    prods = report.get("products") or {}
+    if prods.get("top"):
+        wpr = wb.create_sheet("Продукты")
+        crit = prods["criteria"]
+        header(wpr, 1, ["Продукт", "Проблема (одной фразой, вручную)", "Подходит", "Магазинов", "Дней (старейшее)", "Активных объявл.", "Вариантов", "Запущено за 7 дн.",
+                        "Цена в рекламе, $", "Объявления", "Магазины", "Красные флаги / почему нет", "Вес, габариты (вручную)", "Ссылка на поставщика (вручную)", "Закупка, $ (вручную)",
+                        "Почему рано и выиграет (вручную)"],
+               [34, 30, 12, 10, 12, 12, 11, 12, 14, 52, 44, 40, 22, 30, 16, 40])
+        for i, p in enumerate(prods["top"], 2):
+            price = p.get("price")
+            shown = ("$%g" % price["min"] if price["min"] == price["max"] else "$%g-%g" % (price["min"], price["max"])) if price else ""
+            put(wpr, i, [p["name"], "", "сильный" if p.get("strong") else "подходит" if p.get("early") else "нет", p["stores"], p["oldest_days"], p["ads"], p["variants"], p["fresh_ads"],
+                         shown, "  ".join(p["ad_urls"]), "  ".join(p["store_urls"]), "; ".join(p["red_flags"] or p["reasons"]), "", "", None, ""])
+            for col, key in ((10, "ad_urls"), (11, "store_urls")):
+                if p[key]:
+                    wpr.cell(row=i, column=col).hyperlink = p[key][0]
+                    wpr.cell(row=i, column=col).font = f_link
+        wpr.cell(row=len(prods["top"]) + 3, column=1, value=(
+            f"Критерии: самое старое объявление {crit['min_days']}-{crit['max_days']} дней, магазинов не больше {crit['max_stores']}, "
+            f"цена в рекламе от ${crit['min_price']:g} (если цены в рекламе нет, смотри сайт), без красных флагов. «Сильный» = подходит и есть новые варианты или запуск за неделю. "
+            "Продукт = группа объявлений с одним Shopify-товаром в ссылке или одним текстом. Просмотров и лайков в Библиотеке Meta для коммерческой рекламы нет. "
+            "Пустые колонки заполняются вручную; патент и габариты проверяй до закупки.")).font = f_note
+        wpr.freeze_panes = "A2"
 
     # ---- Creatives (only when fetch_creatives.py was run) ----
     if visuals and visuals.get("items"):

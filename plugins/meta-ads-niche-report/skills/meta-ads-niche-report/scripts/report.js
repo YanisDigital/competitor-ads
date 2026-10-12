@@ -53,6 +53,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     if (preset.currency) opts.currency = preset.currency;
     if (preset.base_hooks === false) opts.baseHooks = false;
     if (preset.online_only) opts.onlineOnly = true;
+    if (preset.products) opts.products = preset.products;
   }
   // No preset currency: price the ads in the currency of the run's country (KZ: tenge).
   if (!opts.currency && currencyForCountry(meta.country)) opts.currency = currencyForCountry(meta.country);

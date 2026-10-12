@@ -93,6 +93,8 @@ def main() -> None:
     link_font = Font(color="1A56DB", underline="single")
 
     def text(cell, v):
+        if isinstance(v, str):
+            v = v.encode("utf-8", "replace").decode("utf-8")  # a lone surrogate (half an emoji) would stop the save
         cell.value = v
         if isinstance(v, str):
             cell.data_type = "s"  # third-party text: never a formula

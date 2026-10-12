@@ -3,6 +3,34 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.0] - 2026-10-12
+
+Product research for online stores: early products that solve a problem. Prompted by a real freelance
+brief for a US Shopify owner (5 products a week: 3 home, 1 outdoor, 1 open find; a problem solved in
+3-6 seconds of video, retail price $45+, compact, ads 7-45 days old, new variants, 1-3 stores selling it).
+
+### Added
+- Preset `ecom-problem-solvers-us`: 15 queries by problem (clogged drain, grout stains, dryer lint,
+  fire starter, ...), not by product names, so products that are already everywhere do not fill the
+  report. Offers ("50% off", "free shipping") stay hooks: the Library matches any word of a query.
+  Hooks "problem -> fix", "before/after", "hack", "compact", and red flags for health claims, kids' products,
+  weapons and regulated goods, brand and patent words, decor and novelty.
+- Report block `products` (`earlyProducts` in `collector.js`): ads grouped into products by a shared
+  Shopify handle (`/products/<handle>`) or by the same ad copy on several pages; per product the age of
+  the oldest live ad, stores (pages on one site count once; tracker links are not stores), ads, variants,
+  launches in the last 7 days, price in the ad, red flags and the reasons it does not fit. `early` = all
+  criteria met, `strong` = early plus new variants or a launch this week. Criteria come from the
+  preset's `products` block (`min_days`, `max_days`, `max_stores`, `min_price`, `red_flags`); other
+  presets get `products: null` and nothing changes for them.
+- HTML section "Early products" and Excel sheet "Продукты" with the columns of the brief, the manual ones
+  (problem, weight and size, supplier link, cost, why it will win) left empty.
+- `SKILL.md`: section "Ранние продукты" (candidates, not conclusions; what the Library cannot show:
+  views and likes of commercial ads, weight, supplier, cost, patent; repeat the slice after 5-7 days).
+
+### Fixed
+- A text cut at an emoji left half of it (a lone surrogate) and stopped the Excel save. The snippets are now
+  cut safely in both plugins, and the Excel writers replace a stray surrogate. (Found on a real snapshot.)
+
 ## [0.14.8] - 2026-10-10
 
 Fixes from a privacy and security review of the whole repository.

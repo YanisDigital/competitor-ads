@@ -162,6 +162,7 @@ listed, it builds the queries itself.
 | Gyms, fitness studios, trainers | `fitness` | Ukrainian/Russian, needs a city |
 | Car service, tires, detailing | `auto-service` | Ukrainian/Russian, needs a city |
 | Dropshipping / Shopify stores selling to the US | `ecom-dropship-us` | English, country US, prices in $, no city, product-level queries |
+| Early problem-solving products for US Shopify stores (home, outdoor, open find) | `ecom-problem-solvers-us` | English, country US, 15 queries by problem (`--max-queries 15`), adds the "Early products" report block and Excel sheet: product groups, age 7-45 days, up to 3 stores, price from $45, red flags |
 | Online courses: targeting, SMM, marketing | `infobiz-marketing` | Ukrainian/Russian, no city |
 | Courses for beauty professionals | `infobiz-beauty` | Ukrainian/Russian, no city |
 | Craft beer (breweries, beer shops), Ukraine | `craft-beer-ua` | Ukrainian, no city; broad queries ("on tap", "gift") bring noise, review advertisers by hand |

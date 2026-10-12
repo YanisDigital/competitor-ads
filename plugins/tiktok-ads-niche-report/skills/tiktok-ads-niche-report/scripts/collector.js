@@ -66,6 +66,8 @@
   const adUrl = (r, country) => (r.source === 'cc' ? ccAdUrl(r.id, country) : libraryAdUrl(r.id));
   const advertiserUrl = (advId, country) => (advId ? 'https://library.tiktok.com/ads?region=' + (country || 'all') + '&adv_biz_ids=' + advId + '&query_type=1' : '');
 
+  // Cuts a string to n UTF-16 units without leaving half of an emoji (a lone surrogate breaks Excel and JSON consumers).
+  const cut = (s, n) => (s.length <= n ? s : s.slice(0, n).replace(/[\ud800-\udbff]$/, ''));
   function unwrapUrl(u) {
     try { return new URL(u); } catch (e) { return null; }
   }
@@ -877,7 +879,7 @@
   }
 
   const textOf = r => String(r.title || '').toLowerCase();
-  const snip = r => String(r.title || '').replace(/\s+/g, ' ').slice(0, 160);
+  const snip = r => cut(String(r.title || '').replace(/\s+/g, ' '), 160);
   const cnt = a => a.reduce((m, k) => (m[k] = (m[k] || 0) + 1, m), {});
   const tally = (rs, f) => rs.reduce((m, r) => { const k = f(r); if (k !== '' && k !== null && k !== undefined) m[k] = (m[k] || 0) + 1; return m; }, {});
   const topShares = (rs, f, n) => Object.entries(tally(rs, f)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ value: k, share: share(v, rs.length) }));
@@ -1158,7 +1160,7 @@
     const currQueries = new Set(curr.flatMap(r => r.kws || []));
     const surely = r => (r.kws || []).some(k => currQueries.has(k)) && !(r.kws || []).some(k => capped.has(k));
     const activeAt = (r, ts) => !!(r && r.last && ts - r.last <= activeDays * DAY);
-    const snipD = r => String(r.title || '').replace(/\s+/g, ' ').slice(0, 140);
+    const snipD = r => cut(String(r.title || '').replace(/\s+/g, ' '), 140);
     // Ads.
     const confirmed = prev.filter(r => activeAt(r, prevTs) && C.has(r.id) && !activeAt(C.get(r.id), currTs)).map(r => C.get(r.id));
     const missing = prev.filter(r => !C.has(r.id)).map(r => ({ page: r.page, id: r.id, url: libraryAdUrl(r.id), confidence: surely(r) ? 'high' : 'low', text: snipD(r) }));
@@ -1243,7 +1245,7 @@
     const entered = curr.filter(r => !P.has(r.id)), dropped = prev.filter(r => !C.has(r.id));
     const kept = curr.filter(r => P.has(r.id));
     const hooks = hookPatterns(opts.hookOpts || {});
-    const card = r => ({ id: r.id, url: ccAdUrl(r.id, country), ctr_top: r.ctr_top, likes: r.likes, text: String(r.title || '').slice(0, 140) });
+    const card = r => ({ id: r.id, url: ccAdUrl(r.id, country), ctr_top: r.ctr_top, likes: r.likes, text: cut(String(r.title || ''), 140) });
     return {
       source: 'cc', interval_days: Math.round((opts.currTs - opts.prevTs) / DAY),
       prev_ads: prev.length, curr_ads: curr.length, kept: kept.length,

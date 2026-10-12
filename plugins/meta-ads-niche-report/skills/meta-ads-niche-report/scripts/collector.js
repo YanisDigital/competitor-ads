@@ -34,6 +34,8 @@
   // An ad the Library marks as no longer running (active_status inactive/all runs).
   const isStoppedAd = r => r.active === false || r.active === 'false';
 
+  // Cuts a string to n UTF-16 units without leaving half of an emoji (a lone surrogate breaks Excel and JSON consumers).
+  const cut = (s, n) => (s.length <= n ? s : s.slice(0, n).replace(/[\ud800-\udbff]$/, ''));
   const pick = (x) => (x && typeof x === 'object') ? (x.text || '') : (x || '');
 
   // Resolves an Ads Library link to a bare domain, unwrapping the
@@ -966,6 +968,120 @@
     return { rounds, excluded, assumptions: { variants_per_test: variants, events_per_variant: events, target_cpa: cpa, per_test_budget: perTest, min_days_per_round: 7, max_parallel_tests: maxParallel } };
   }
 
+  // "Early products" (online stores): groups the running ads into products and
+  // checks each one against the criteria of a product-research brief. Rows are
+  // the live ads of advertisers that count. cfg comes from a preset's `products`:
+  //   min_days / max_days  the age window of the product's oldest live ad (default 7..45)
+  //   max_stores           how many stores may already sell it (default 3)
+  //   min_price            retail price the ad should reach (default 0 = not checked)
+  //   red_flags            { label: regexSource } regulated or excluded categories
+  // A product is a group of ads joined by a shared Shopify product handle
+  // (/products/<handle> in the link, trailing -2 / -copy removed) or by the same
+  // ad copy (first 70 letters and digits, like creative_clusters). Ads with neither
+  // are not products (a store's brand ads). The Library shows no views or likes for
+  // commercial ads, so "engagement" is not here; scaling is read from new variants
+  // and from ads launched in the last 7 days.
+  const snippet = r => cut(((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' '), 140);
+
+  function earlyProducts(rows, opts = {}) {
+    const cfg = opts.config || {};
+    const now = opts.now || Date.now() / 1000;
+    const currency = String(opts.currency || 'USD').toUpperCase();
+    const minDays = Number.isFinite(cfg.min_days) ? cfg.min_days : 7;
+    const maxDays = Number.isFinite(cfg.max_days) ? cfg.max_days : 45;
+    const maxStores = Number.isFinite(cfg.max_stores) ? cfg.max_stores : 3;
+    const minPrice = Number.isFinite(cfg.min_price) ? cfg.min_price : 0;
+    const flags = Object.entries(cfg.red_flags || {}).map(([label, src]) => [label, new RegExp(src, 'i')]);
+    const age = r => Math.max(0, Math.round((now - r.start) / 86400));
+    const textOf = r => ((r.title || '') + ' ' + (r.body || '')).toLowerCase();
+    const handleOf = r => {
+      const u = unwrapUrl(r.link || '');
+      const m = u && /\/products\/([a-z0-9][a-z0-9_-]*)/i.exec(u.pathname);
+      return m ? m[1].toLowerCase().replace(/-(?:copy|\d{1,2})$/, '') : '';
+    };
+    const siteOf = r => (isTrackerLink(r.link || '') ? '' : domainOf(r.link || ''));
+    const textKey = r => { const k = textOf(r).replace(/[^a-zа-яіїєґ0-9]/g, ''); return k.length >= 30 ? k.slice(0, 70) : ''; };
+    const byVariants = (a, b) => (b.variants || 1) - (a.variants || 1) || a.start - b.start;
+
+    // union-find over rows, joined by handle or by copy
+    const parent = rows.map((_, i) => i);
+    const find = i => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    const byKey = new Map();
+    rows.forEach((r, i) => {
+      const h = handleOf(r), t = textKey(r);
+      for (const k of [h && 'h:' + h, t && 't:' + t].filter(Boolean)) {
+        if (byKey.has(k)) parent[find(i)] = find(byKey.get(k)); else byKey.set(k, i);
+      }
+    });
+    const groups = new Map();
+    rows.forEach((r, i) => {
+      const g = find(i);
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(r);
+    });
+
+    const products = [];
+    for (const rs of groups.values()) {
+      const handles = rs.map(handleOf).filter(Boolean);
+      const pages = new Set(rs.map(r => r.page));
+      if (!handles.length && pages.size < 2) continue; // no product link and not a copied creative: a brand ad, not a product
+      const sites = [...new Set(rs.map(siteOf).filter(Boolean))];
+      const stores = sites.length || pages.size;
+      const ages = rs.map(age);
+      const oldest = Math.max(...ages);
+      const newest = Math.min(...ages);
+      const freshAds = ages.filter(a => a < 7).length;
+      const variants = rs.reduce((n, r) => n + (r.variants || 1), 0);
+      const amounts = rs.flatMap(r => priceHits(textOf(r), currency).amounts);
+      const price = amounts.length ? { min: Math.min(...amounts), max: Math.max(...amounts) } : null;
+      const big = rs.map(r => textOf(r) + ' ' + handleOf(r).replace(/-/g, ' ')).join(' ').slice(0, MAX_TEXT);
+      const redFlags = flags.filter(([, re]) => re.test(big)).map(([label]) => label);
+      const counts = {};
+      for (const h of handles) counts[h] = (counts[h] || 0) + 1;
+      const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      const handle = top ? top[0] : '';
+      const sorted = rs.slice().sort(byVariants);
+      const checks = {
+        window: oldest >= minDays && oldest <= maxDays,
+        stores: stores <= maxStores,
+        scaling: variants >= 3 || freshAds > 0,
+        price: price === null || !minPrice ? null : price.max >= minPrice,
+        clean: redFlags.length === 0
+      };
+      const reasons = [];
+      if (!checks.window) reasons.push(oldest < minDays ? 'слишком свежий (' + oldest + ' дн.)' : 'старый (' + oldest + ' дн.)');
+      if (!checks.stores) reasons.push('уже ' + stores + ' магазинов');
+      if (!checks.clean) reasons.push('красный флаг: ' + redFlags.join(', '));
+      if (checks.price === false) reasons.push('цена в рекламе до $' + price.max);
+      products.push({
+        name: handle ? handle.replace(/[-_]/g, ' ') : cut(snippet(sorted[0]), 60),
+        handle,
+        stores, sites: sites.slice(0, 5), pages: [...pages].slice(0, 5),
+        ads: rs.length, variants, oldest_days: oldest, newest_days: newest, fresh_ads: freshAds,
+        price, red_flags: redFlags, checks,
+        early: checks.window && checks.stores && checks.clean && checks.price !== false,
+        strong: checks.window && checks.stores && checks.clean && checks.price !== false && checks.scaling,
+        reasons,
+        ad_urls: sorted.slice(0, 3).map(r => 'https://www.facebook.com/ads/library/?id=' + r.id),
+        store_urls: [...new Set(rs.map(r => { const u = unwrapUrl(r.link || ''); return u && !isTrackerLink(r.link || '') ? u.origin + u.pathname : ''; }).filter(Boolean))].slice(0, 3),
+        text: snippet(sorted[0])
+      });
+    }
+    // best first: every criterion met and scaling (strong), then every criterion met (early), then more variants, then younger
+    products.sort((a, b) => (b.strong - a.strong) || (b.early - a.early) || (b.checks.scaling - a.checks.scaling) || (b.variants - a.variants) || (a.oldest_days - b.oldest_days));
+    return {
+      criteria: { min_days: minDays, max_days: maxDays, max_stores: maxStores, min_price: minPrice, currency },
+      found: products.length,
+      early: products.filter(p => p.early).length,
+      strong: products.filter(p => p.strong).length,
+      in_window: products.filter(p => p.checks.window).length,
+      too_old: products.filter(p => p.oldest_days > maxDays).length,
+      too_many_stores: products.filter(p => !p.checks.stores).length,
+      flagged: products.filter(p => !p.checks.clean).length,
+      top: products.slice(0, 40)
+    };
+  }
+
   // Aggregates normalized rows into the report shape consumed by SKILL.md's
   // Step 5-7. `opts.now` (unix seconds) lets tests pin "today" instead of
   // depending on the wall clock; defaults to Date.now() otherwise.
@@ -1027,7 +1143,7 @@
     const noise_candidates = Object.entries(noiseCount).map(([page, ads]) => ({ page, ads_matching: ads, ads_total: pages[page].ads })).sort((a, b) => b.ads_matching - a.ads_matching);
     const buckets = { '<7': 0, '7-30': 0, '30-90': 0, '90-365': 0, '>365': 0 };
     liveRows.forEach(r => { const a = age(r); buckets[a < 7 ? '<7' : a < 30 ? '7-30' : a < 90 ? '30-90' : a < 365 ? '90-365' : '>365']++; });
-    const snip = r => ((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' ').slice(0, 160);
+    const snip = r => cut(((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' '), 160);
     // Max 2 longrun entries per advertiser, so one advertiser running many
     // copies of the same creative can't fill the whole list.
     const perPage = {};
@@ -1177,6 +1293,7 @@
       top_pages: pageList.slice(0, 15),
       longrun,
       fresh,
+      products: opts.products ? earlyProducts(liveRows.filter(r => !outOfNiche.has(r.page)), { now, currency, config: opts.products }) : null,
       status_counts: { active: liveRows.length, stopped: stoppedRows.length },
       stopped,
       samples
@@ -1241,7 +1358,7 @@
     const kwCurr = kwCount(curr);
     const ageAtPrev = r => Math.round((opts.prevTs - r.start) / 86400);
     const url = id => 'https://www.facebook.com/ads/library/?id=' + id;
-    const snip = r => ((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' ').slice(0, 140);
+    const snip = r => cut(((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' '), 140);
     const reliable = r => (r.kws || []).some(k => k in kwCurr && kwCurr[k] < cap);
 
     const stopped = prev.filter(r => !C.has(r.id)).map(r => ({
@@ -1439,7 +1556,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

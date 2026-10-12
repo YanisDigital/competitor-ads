@@ -1,0 +1,58 @@
+{
+  "id": "ecom-problem-solvers-us",
+  "title": "Early problem-solving products for US Shopify stores (home, outdoor, open find)",
+  "country": "US",
+  "currency": "USD",
+  "base_hooks": false,
+  "online_only": true,
+  "languages": ["en"],
+  "services": [
+    { "en": "clogged drain" },
+    { "en": "grout stains" },
+    { "en": "shower mold" },
+    { "en": "under sink organizer" },
+    { "en": "dryer lint" },
+    { "en": "stripped screw" },
+    { "en": "hard water stains" },
+    { "en": "pantry organizer" },
+    { "en": "leaking faucet" },
+    { "en": "fire starter" },
+    { "en": "camping water filter" },
+    { "en": "emergency survival" },
+    { "en": "tired of" },
+    { "en": "finally a solution" },
+    { "en": "genius invention" }
+  ],
+  "products": {
+    "min_days": 7,
+    "max_days": 45,
+    "max_stores": 3,
+    "min_price": 45,
+    "red_flags": {
+      "здоровье/медицина": "\\b(cure[sd]?|heals?|healing|pain relief|arthritis|diabet\\w*|fda|supplements?|weight loss|anti.?aging|detox|cbd|hair growth|posture|vagus|nerve|menopause|joint|inflammation|clinical|thyroid|hormon\\w*|menopaus\\w*|meno|vitamins?|probiotics?|postbiotics?|collagen|gut health|bloat\\w*|anxiety|sleep aid|treats|pet food|dog food)\\b",
+      "детские товары": "\\b(baby|babies|toddler|kids?|child|children|infant|newborn|pacifier|stroller)\\b",
+      "оружие/регулируемое": "\\b(knife|knives|gun|firearm|taser|pepper spray|ammo|vape|alcohol)\\b",
+      "бренд/патент": "\\b(patented|patent pending|trademark|official store|licensed)\\b|[®™]",
+      "декор/новинка": "\\b(decor|figurine|poster|wall art|night light|toy|gift for|personali[sz]ed|engraved|custom name|name necklace)\\b"
+    }
+  },
+  "extra_hooks": {
+    "проблема → решение": "tired of|sick of|struggling with|no more|say goodbye|stop wasting|finally|never again",
+    "до/после": "before.{0,12}after|before and after|\\bvs\\.? ",
+    "лайфхак": "\\bhacks?\\b|genius|game.?changer|must.?have",
+    "компактный/складной": "compact|foldable|collapsible|portable|lightweight|flat.?pack|travel size",
+    "скидка %": "\\d{1,2}\\s?%\\s?off|save \\d{1,2}\\s?%|\\d{1,2}\\s?% discount",
+    "бесплатная доставка": "free shipping|free delivery",
+    "BOGO/комплект": "buy \\d+ get \\d+|bogo|bundle|\\d+ ?(?:pack|pcs|piece)|2 for \\$",
+    "ограниченный запас": "limited stock|selling fast|almost gone|sold out|only \\d+ left|while supplies last",
+    "срочность": "today only|ends tonight|last day|last chance|24 hours|flash sale|ends soon|final hours",
+    "гарантия возврата": "money.back|\\d+.day (?:guarantee|return)|risk.free",
+    "отзывы/звёзды": "\\d[\\d,]* (?:reviews|happy customers)|★|⭐|5.star"
+  },
+  "noise": ["hiring", "podcast", "webinar", "course", "coaching", "coach", "realty", "real estate", "mortgage", "insurance", "donate", "charity", "foundation", "campus", "kindle", "audiobook", "novel", "chapter"],
+  "seasons": [
+    {"name": "Black Friday / Cyber Monday", "from": "11-10", "to": "12-02", "note": "скидки и дедлайны в рекламе временные, цены и офферы не типичны для обычного месяца; «ранние» продукты в эти недели путаются с распродажей"},
+    {"name": "Рождественские подарки", "from": "12-03", "to": "12-20", "note": "подарочные углы и доставка к празднику"}
+  ],
+  "policy": "Исключены категории с обещаниями здоровья, детские товары, оружие и регулируемое, брендовые и запатентованные (проверь патент вручную, например в USPTO). Окно «раннего» продукта 7–45 дней, до 3 магазинов, цена в рекламе от $45 (если цены в рекламе нет, это надо смотреть на сайте). Просмотров и лайков в Библиотеке Meta для коммерческой рекламы нет: рост считаем по новым вариантам и свежим запускам. Вес, габариты, поставщик и закупка заполняются вручную."
+}
