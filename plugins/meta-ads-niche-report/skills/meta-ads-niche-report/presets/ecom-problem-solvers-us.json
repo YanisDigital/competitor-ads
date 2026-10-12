@@ -37,7 +37,11 @@
       "известный бренд": "\\b(lifestraw|sawyer|katadyn|grayl|zippo|victorinox|yeti|stanley|oxo|simplehuman|dyson|shark|rubbermaid|clorox|lysol|scotch.?brite|3m|dewalt|milwaukee|bosch|black diamond|black beard|swiss army|bic|coleman|osprey|nalgene|hydro flask)\\b",
       "локальные услуги/ремонт": "\\b(free (?:in.?home )?(?:estimates?|consultations?|quotes?)|get a (?:free )?quote|installed in as little|licensed (?:and|&) insured|home improvement|remodel\\w*|contractors?|walk.?in (?:shower|tub)|replacement windows?|roofing|plumbing services|hvac|pest control|lawn care|book your \\w+(?: \\w+)? (?:cleaning|service|appointment|inspection)|dryer vent (?:wizard|cleaning)|(?:vent|duct|gutter|carpet|window|chimney) cleaning|handyman|locksmith|pressure washing|junk removal|maid service|house cleaning service)\\b",
       "огнеопасное/химическое": "\\b(flammable|accelerant|lighter fluid|fuel (?:tabs?|gel|cubes?)|fire ?plugs?|burn time|petroleum|butane|propane|kerosene|waxed? fire)\\b"
-    }
+    },
+    "page_name_flags": {
+      "локальные услуги/ремонт": "\\b(plumbing|plumbers?|rooter|hvac|heating|air conditioning|electric(?:al)?|llc|services?|cleaning pros|janitor\\w*|restoration|roofing|remodel\\w*|contractors?|home improvement|pest|lawn|pool|sir grout|dryer vent wizard|handyman|movers?)\\b"
+    },
+    "query_match": true
   },
   "extra_hooks": {
     "проблема → решение": "tired of|sick of|struggling with|no more|say goodbye|stop wasting|finally|never again",

@@ -22,7 +22,7 @@ let seq = 100;
 const ad = (page, daysAgo, link, title, body = '', variants = 1) => normalizeAd({
   ad_archive_id: String(seq++), page_id: 'p' + page, page_name: page, is_active: true, start_date: NOW - daysAgo * DAY, end_date: NOW, publisher_platform: ['facebook'],
   collation_count: variants, snapshot: { title, body: { text: body }, cta_text: 'Shop now', link_url: link, display_format: 'IMAGE' }
-}, 'q');
+}, title); // the query is the ad's own title: these tests are not about the query check
 
 const ROWS = [
   // the three pages found in the first live report

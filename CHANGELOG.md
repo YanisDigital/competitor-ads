@@ -3,6 +3,27 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.4] - 2026-10-12
+
+The cause of the remaining noise found in a manual check of the live US report (nutra stories about kidney
+disease and a plumbing company in the ads for "clogged drain"): every ad the Library returned was taken as an
+answer to the query, but the Library matches ANY word of a query and also text we never collect (other creative
+variants, text on the picture or in the video). On that snapshot 716 of 1,043 ads (69%) had none of the query's
+key words in their own text.
+
+### Fixed
+- `queryMatch` in `collector.js`: does the ad's own text (title, body, caption, link) hold every key word of a
+  query that found it (word endings ignored, short words and fillers not required). For presets with a products
+  block (`products.query_match: true`, set in `ecom-problem-solvers-us`; off unless set) a loose match stays in the counts but out of
+  the long-running ads, fresh launches, samples, stopped ads and products; `products.loose_ads` /
+  `ads_checked` give the numbers. The HTML says how many ads were loose; the Excel ads sheet gets a column
+  "Слова запроса в тексте". Other presets are unchanged (a local query with a city name would fail the check).
+- Service companies are recognised by their page name (`products.page_name_flags`: plumbing, rooter, HVAC,
+  heating and air, LLC, services ...): these words are normal in a product ad ("curves around the plumbing"),
+  so they are not matched in ad text. With the loose matches gone, local plumbers had moved up into the
+  long-running list.
+- On the live snapshot: products 90 -> 37, fitting the brief 25 -> 13 (all home products), out-of-niche pages 227 -> 253.
+
 ## [0.15.3] - 2026-10-12
 
 Fixes from a manual check of the first live report (`ecom-problem-solvers-us`, US): pages that are not

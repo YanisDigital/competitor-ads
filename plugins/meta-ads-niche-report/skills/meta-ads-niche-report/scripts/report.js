@@ -14,7 +14,7 @@
 //   node report.js out/ecom-dropship-us/2026-09-30 [preset-id]
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, nextSteps, currencyForCountry, euSummary, creativesSummary, isEuCountry } = require('./collector.js');
+const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, nextSteps, currencyForCountry, euSummary, creativesSummary, isEuCountry, queryMatch } = require('./collector.js');
 
 const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null);
 
@@ -58,6 +58,8 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   // No preset currency: price the ads in the currency of the run's country (KZ: tenge).
   if (!opts.currency && currencyForCountry(meta.country)) opts.currency = currencyForCountry(meta.country);
   const doors = Object.fromEntries(rows.map(r => [r.id, classifyDoor(r)]));
+  // presets with a products block: does each ad's own text hold the words of its query (Excel column)
+  const query_match = preset && preset.products && preset.products.query_match === true ? Object.fromEntries(rows.map(r => [r.id, queryMatch(r)])) : null;
   const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
   const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
   const euData = readJson(path.join(dir, 'eu.json')); // EU reach and audience, collected by eu_details.py
@@ -82,7 +84,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     rate_limited: (meta.rate_limited_queries || []).length, queries: (meta.queries || []).length,
     blocked: !!meta.blocked, queries_remaining: (meta.queries_remaining || []).length
   });
-  return { report, doors, rows, query_stats: stats, warnings, eu, visuals, next_steps,
+  return { report, doors, query_match, rows, query_stats: stats, warnings, eu, visuals, next_steps,
     meta: { ...meta, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };
 }
 
@@ -101,6 +103,6 @@ if (require.main === module) {
     console.error(e.message);
     process.exit(1);
   }
-  const { report, doors, meta, query_stats, warnings, eu, visuals, next_steps } = snap;
-  process.stdout.write(JSON.stringify({ report, doors, meta, query_stats, warnings, eu, visuals, next_steps }));
+  const { report, doors, query_match, meta, query_stats, warnings, eu, visuals, next_steps } = snap;
+  process.stdout.write(JSON.stringify({ report, doors, query_match, meta, query_stats, warnings, eu, visuals, next_steps }));
 }

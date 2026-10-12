@@ -19,7 +19,7 @@ const DAY = 86400;
 const ad = (id, page, daysAgo, link, text, variants = 1) => normalizeAd({
   ad_archive_id: String(id), page_id: 'p' + page, page_name: page, is_active: true, start_date: NOW - daysAgo * DAY, end_date: NOW, publisher_platform: ['facebook'],
   collation_count: variants, snapshot: { title: text, body: { text: '' }, cta_text: 'Shop now', link_url: link, display_format: 'IMAGE' }
-}, 'q');
+}, text); // the query is the ad's own text: these tests are not about the query check
 const cfg = { min_days: 7, max_days: 45, max_stores: 3, min_price: 45, red_flags: PRESET.products.red_flags };
 const run = rows => earlyProducts(rows, { now: NOW, currency: 'USD', config: cfg });
 const byHandle = (res, h) => res.top.find(p => p.handle === h);

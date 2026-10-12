@@ -236,6 +236,30 @@
   const CURRENCY_BY_COUNTRY = { UA: 'UAH', KZ: 'KZT', US: 'USD' };
   const currencyForCountry = c => CURRENCY_BY_COUNTRY[String(c || '').toUpperCase()] || null;
 
+  // Does the ad's own text hold the words of a query that found it? The Library matches ANY word of a
+  // query, and also text we never see (other creative variants, text on the picture or in the video), so a
+  // story about kidney disease comes back for "clogged drain". Word endings are ignored (clogs, clogged;
+  // organizers), short words and fillers are not required. true / false, or null when the ad has no query.
+  const QUERY_FILLERS = new Set(['the', 'and', 'for', 'with', 'under', 'from', 'your', 'that', 'this', 'into', 'over']);
+  const stemWord = w => w.toLowerCase().replace(/(?:ing|ed|es|s)$/, '').replace(/([b-df-hj-np-tv-z])\1$/, '$1');
+  const wordsOf = t => String(t || '').toLowerCase().slice(0, MAX_TEXT).match(/[a-z0-9а-яіїєґё]+/g) || [];
+  function queryMatch(r, queries) {
+    const qs = (queries || r.kws || []).filter(Boolean);
+    if (!qs.length) return null;
+    const stems = new Set(wordsOf([r.title, r.body, r.caption, r.link].join(' ')).map(stemWord));
+    const has = w => {
+      const s = stemWord(w);
+      if (stems.has(s)) return true;
+      if (s.length >= 4) for (const t of stems) if (t.startsWith(s)) return true;
+      return false;
+    };
+    return qs.some(q => {
+      const ws = wordsOf(q);
+      const need = ws.filter(w => w.length > 3 && !QUERY_FILLERS.has(w));
+      return (need.length ? need : ws).every(has);
+    });
+  }
+
   // Prices, "was/instead of" discount pairs and "N% off" mentions in one text
   // (already lowercased). currency: 'UAH' (default), 'USD' or 'KZT' (₸, тг, тенге).
   const MAX_TEXT = 30000; // characters analysed: page and ad text are third-party input for regexes
@@ -1142,6 +1166,7 @@
     // It stays out of the lists that show what works (longrun, fresh, samples, stopped), is marked in
     // top_pages (out_of_niche) and is listed with the reasons in products.excluded_pages: nothing disappears silently.
     const redRes = Object.entries((opts.products && opts.products.red_flags) || {}).map(([label, src]) => [label, new RegExp(src, 'i')]);
+    const nameRes = Object.entries((opts.products && opts.products.page_name_flags) || {}).map(([label, src]) => [label, new RegExp(src, 'i')]);
     const excludedPages = [];
     if (redRes.length) {
       const per = {};
@@ -1150,7 +1175,7 @@
         const full = (text(r) + ' ' + nameText + ' ' + domainStem(r.link)).slice(0, MAX_TEXT);
         const e = per[r.page] || (per[r.page] = { page: r.page, ads: 0, hit: 0, flags: new Set() });
         e.ads++;
-        const nameHits = redRes.filter(([, re]) => re.test(nameText)).map(([l]) => l);
+        const nameHits = [...redRes, ...nameRes].filter(([, re]) => re.test(nameText)).map(([l]) => l);
         const hits = redRes.filter(([, re]) => re.test(full)).map(([l]) => l);
         if (nameHits.length) { e.named = true; nameHits.forEach(l => e.flags.add(l)); }
         if (hits.length) { e.hit++; hits.forEach(l => e.flags.add(l)); }
@@ -1165,6 +1190,11 @@
       const marked = Object.fromEntries(excludedPages.map(e => [e.page, e.flags]));
       for (const p of pageList) if (marked[p.page]) p.out_of_niche = marked[p.page];
     }
+    // ...and an ad whose own text lacks the words of every query that found it is a loose match of the
+    // Library's search, not evidence: it stays in the counts but out of the lists and the products.
+    const checkQuery = !!(opts.products && opts.products.query_match === true);
+    const loose = new Set(checkQuery ? rows.filter(r => queryMatch(r) === false).map(r => r.id) : []);
+    const fits = r => !outOfNiche.has(r.page) && !loose.has(r.id);
     const freq = {};
     // opts.extraHooks: { label: regexSource } from a niche preset.
     // opts.baseHooks === false: only the preset's hooks (e.g. a US preset
@@ -1184,12 +1214,12 @@
     const perPage = {};
     // Ranked by creative variants first (many variants of one ad = active
     // testing/scaling), then by age.
-    const longrun = liveRows.filter(r => age(r) >= longDays && !outOfNiche.has(r.page)).sort((a, b) => (b.variants - a.variants) || (a.start - b.start))
+    const longrun = liveRows.filter(r => age(r) >= longDays && fits(r)).sort((a, b) => (b.variants - a.variants) || (a.start - b.start))
       .filter(r => (perPage[r.page] = (perPage[r.page] || 0) + 1) <= 2).slice(0, 25)
       .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, door: classifyDoor(r), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }));
     // One sample per advertiser: the oldest ad, i.e. the most battle-tested one.
     const seen = new Set();
-    const samples = liveRows.filter(r => !outOfNiche.has(r.page)).sort((a, b) => a.start - b.start)
+    const samples = liveRows.filter(fits).sort((a, b) => a.start - b.start)
       .filter(r => !seen.has(r.page) && seen.add(r.page)).slice(0, 35).map(r => ({ page: r.page, text: snip(r) }));
     // Ads that stopped: how long they ran (end - start), the lower median, how many
     // died within two weeks (a test that did not work) and the longest runs.
@@ -1201,7 +1231,7 @@
       advertisers: new Set(stoppedRows.map(r => r.page)).size,
       median_run_days: median(runs),
       short_lived: runs.filter(d => d < 14).length,
-      top: stoppedRows.filter(r => !outOfNiche.has(r.page)).sort((a, b) => runDays(b) - runDays(a))
+      top: stoppedRows.filter(fits).sort((a, b) => runDays(b) - runDays(a))
         .filter(r => (perStop[r.page] = (perStop[r.page] || 0) + 1) <= 2).slice(0, 15)
         .map(r => ({ page: r.page, run_days: runDays(r), fmt: r.fmt, variants: r.variants, door: classifyDoor(r), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }))
     };
@@ -1247,8 +1277,8 @@
     // Evidence only; writing the hypotheses is Claude's job (see SKILL.md).
     const share = (n, d) => (d ? Math.round(100 * n / d) / 100 : 0);
     const hp = hookPatterns(opts);
-    const longRows = liveRows.filter(r => age(r) >= longDays && !outOfNiche.has(r.page));
-    const restRows = liveRows.filter(r => !(age(r) >= longDays && !outOfNiche.has(r.page)));
+    const longRows = liveRows.filter(r => age(r) >= longDays && fits(r));
+    const restRows = liveRows.filter(r => !(age(r) >= longDays && fits(r)));
     const tally = (rs, f) => rs.reduce((m, r) => (m[f(r)] = (m[f(r)] || 0) + 1, m), {});
     const top = (rs, f, n) => Object.entries(tally(rs, f)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => ({ value: k, share: share(v, rs.length) }));
     const enough = longRows.length >= 5;
@@ -1300,7 +1330,7 @@
       ads: freshRows.length,
       advertisers: Object.keys(freshBy).length,
       bursts: Object.entries(freshBy).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).map(([page, ads]) => ({ page, ads })),
-      top: freshRows.filter(r => !outOfNiche.has(r.page)).sort((a, b) => (b.variants - a.variants) || (b.start - a.start))
+      top: freshRows.filter(fits).sort((a, b) => (b.variants - a.variants) || (b.start - a.start))
         .filter(r => (perFresh[r.page] = (perFresh[r.page] || 0) + 1) <= 2).slice(0, 25)
         .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, cta: r.cta || '', door: classifyDoor(r), hooks: Object.keys(hp).filter(k => hp[k].test(text(r))), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }))
     };
@@ -1328,7 +1358,7 @@
       top_pages: pageList.slice(0, 15),
       longrun,
       fresh,
-      products: opts.products ? { ...earlyProducts(liveRows.filter(r => !outOfNiche.has(r.page)), { now, currency, config: opts.products }), excluded_count: excludedPages.length, excluded_pages: excludedPages } : null,
+      products: opts.products ? { ...earlyProducts(liveRows.filter(fits), { now, currency, config: opts.products }), excluded_count: excludedPages.length, excluded_pages: excludedPages, query_check: checkQuery, loose_ads: loose.size, ads_checked: rows.length } : null,
       status_counts: { active: liveRows.length, stopped: stoppedRows.length },
       stopped,
       samples
@@ -1591,7 +1621,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, queryMatch, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

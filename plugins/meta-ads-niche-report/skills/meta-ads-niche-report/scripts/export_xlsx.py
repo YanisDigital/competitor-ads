@@ -48,7 +48,7 @@ def load_report(folder: Path):
         if res.returncode == 0 and res.stdout.strip():
             data = json.loads(res.stdout)
             return (data["report"], data["doors"], data["meta"], data.get("query_stats", []), data.get("warnings", []), data.get("eu"), data.get("visuals"),
-                    data.get("next_steps", []))
+                    data.get("next_steps", []), data.get("query_match"))
         print("warning: report.js failed, using report.json:", res.stderr.strip(), file=sys.stderr)
     except FileNotFoundError:
         print("warning: node not found, using report.json (door column will be empty)", file=sys.stderr)
@@ -56,7 +56,7 @@ def load_report(folder: Path):
     if not rp.exists():
         sys.exit("No node and no report.json: cannot build the report.")
     meta = json.loads((folder / "run.json").read_text(encoding="utf-8")) if (folder / "run.json").exists() else {}
-    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], [], None, None, []
+    return json.loads(rp.read_text(encoding="utf-8")), {}, meta, [], [], None, None, [], None
 
 
 def days_shown(r, run_dt) -> int:
@@ -91,7 +91,7 @@ def main() -> None:
         sys.exit(f"No ads.csv in {folder}")
     out_path = Path(args.out) if args.out else folder / "report.xlsx"
 
-    report, doors, meta, query_stats, warnings, eu, visuals, next_steps = load_report(folder)
+    report, doors, meta, query_stats, warnings, eu, visuals, next_steps, query_match = load_report(folder)
     with open(folder / "ads.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     # curation.json (hand-checked list of competitors) was applied by report.js: drop the same advertisers here
@@ -151,6 +151,9 @@ def main() -> None:
         cols += ["Картинка", "Видео"]
         widths += [11, 9]
     media_start = len(cols) - 1  # 1-based column of "Картинка" when media_cols
+    if query_match is not None:  # presets with a products block: the Library matches any word of a query
+        cols += ["Слова запроса в тексте"]
+        widths += [14]
     header(wa, 1, cols, widths)
     for i, r in enumerate(rows, 2):
         start = datetime.strptime(r["start"], "%Y-%m-%d")
@@ -167,6 +170,8 @@ def main() -> None:
         if media_cols:
             values += ["превью" if shown.get("video") and shown.get("image") else "картинка" if shown.get("image") else None,
                        "видео" if shown.get("video") else None]
+        if query_match is not None:
+            values += [{True: "да", False: "нет — случайное совпадение поиска"}.get(query_match.get(r["id"]), "")]
         put(wa, i, values)
         for offset, key in ((0, "image"), (1, "video")):
             if key in shown:
