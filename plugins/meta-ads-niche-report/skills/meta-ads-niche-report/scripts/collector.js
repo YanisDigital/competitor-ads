@@ -985,6 +985,7 @@
   // commercial ads, so "engagement" is not here; scaling is read from new variants
   // and from ads launched in the last 7 days.
   const snippet = r => cut(((r.title ? r.title + ' | ' : '') + (r.body || '')).replace(/\s+/g, ' '), 140);
+  const domainStem = u => (isTrackerLink(u || '') ? '' : domainOf(u || '').replace(/\.(?:com|net|org|shop|store|co|io|us|biz|info|app)(?:\.[a-z]{2})?$/, '').replace(/[.-]/g, ' '));
 
   function earlyProducts(rows, opts = {}) {
     const cfg = opts.config || {};
@@ -1040,7 +1041,7 @@
       const variants = rs.reduce((n, r) => n + (r.variants || 1), 0);
       const amounts = rs.flatMap(r => priceHits(textOf(r), currency).amounts);
       const price = amounts.length ? { min: Math.min(...amounts), max: Math.max(...amounts) } : null;
-      const big = rs.map(r => textOf(r) + ' ' + handleOf(r).replace(/-/g, ' ') + ' ' + String(r.page || '').toLowerCase() + ' ' + siteOf(r).replace(/\.[a-z.]+$/, '')).join(' ').slice(0, MAX_TEXT);
+      const big = rs.map(r => textOf(r) + ' ' + handleOf(r).replace(/-/g, ' ') + ' ' + String(r.page || '').toLowerCase() + ' ' + domainStem(r.link)).join(' ').slice(0, MAX_TEXT);
       const redFlags = flags.filter(([, re]) => re.test(big)).map(([label]) => label);
       const counts = {};
       for (const h of handles) counts[h] = (counts[h] || 0) + 1;
@@ -1136,6 +1137,34 @@
     const outOfNiche = new Set(opts.onlineOnly ? pageList.filter(p => p.local || p.platform).map(p => p.page) : []);
     const shopify_stores = pageList.filter(p => /(^|, )[^,]*\.myshopify\.com/.test(p.sites)).map(p => ({ page: p.page, sites: p.sites }));
     const text = r => ((r.title || '') + ' ' + (r.body || '')).toLowerCase();
+    // Presets with a products block: a page whose name, or a third of whose ads, hit the preset's red flags
+    // (health claims, kids, regulated, brands, local services, flammables) is not a competitor for this brief.
+    // It stays out of the lists that show what works (longrun, fresh, samples, stopped), is marked in
+    // top_pages (out_of_niche) and is listed with the reasons in products.excluded_pages: nothing disappears silently.
+    const redRes = Object.entries((opts.products && opts.products.red_flags) || {}).map(([label, src]) => [label, new RegExp(src, 'i')]);
+    const excludedPages = [];
+    if (redRes.length) {
+      const per = {};
+      for (const r of rows) {
+        const nameText = String(r.page || '').toLowerCase();
+        const full = (text(r) + ' ' + nameText + ' ' + domainStem(r.link)).slice(0, MAX_TEXT);
+        const e = per[r.page] || (per[r.page] = { page: r.page, ads: 0, hit: 0, flags: new Set() });
+        e.ads++;
+        const nameHits = redRes.filter(([, re]) => re.test(nameText)).map(([l]) => l);
+        const hits = redRes.filter(([, re]) => re.test(full)).map(([l]) => l);
+        if (nameHits.length) { e.named = true; nameHits.forEach(l => e.flags.add(l)); }
+        if (hits.length) { e.hit++; hits.forEach(l => e.flags.add(l)); }
+      }
+      for (const e of Object.values(per)) {
+        if (e.named || e.hit * 3 >= e.ads) {
+          excludedPages.push({ page: e.page, ads: e.ads, flagged_ads: e.named ? e.ads : e.hit, flags: [...e.flags] });
+          outOfNiche.add(e.page);
+        }
+      }
+      excludedPages.sort((a, b) => b.ads - a.ads || a.page.localeCompare(b.page));
+      const marked = Object.fromEntries(excludedPages.map(e => [e.page, e.flags]));
+      for (const p of pageList) if (marked[p.page]) p.out_of_niche = marked[p.page];
+    }
     const freq = {};
     // opts.extraHooks: { label: regexSource } from a niche preset.
     // opts.baseHooks === false: only the preset's hooks (e.g. a US preset
@@ -1299,7 +1328,7 @@
       top_pages: pageList.slice(0, 15),
       longrun,
       fresh,
-      products: opts.products ? earlyProducts(liveRows.filter(r => !outOfNiche.has(r.page)), { now, currency, config: opts.products }) : null,
+      products: opts.products ? { ...earlyProducts(liveRows.filter(r => !outOfNiche.has(r.page)), { now, currency, config: opts.products }), excluded_count: excludedPages.length, excluded_pages: excludedPages } : null,
       status_counts: { active: liveRows.length, stopped: stoppedRows.length },
       stopped,
       samples

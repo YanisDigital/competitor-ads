@@ -347,6 +347,16 @@ def main() -> None:
             "Продукт = группа объявлений с одним Shopify-товаром в ссылке или одним текстом. Просмотров и лайков в Библиотеке Meta для коммерческой рекламы нет. "
             "Пустые колонки заполняются вручную; патент и габариты проверяй до закупки.")).font = f_note
         wpr.freeze_panes = "A2"
+        excl = prods.get("excluded_pages") or []
+        if excl:
+            wex = wb.create_sheet("Вне ниши")
+            header(wex, 1, ["Страница", "Объявлений", "С красным флагом", "Причины"], [44, 12, 16, 70])
+            for i, e in enumerate(excl, 2):
+                put(wex, i, [e["page"], e["ads"], e["flagged_ads"], "; ".join(e["flags"])])
+            wex.cell(row=len(excl) + 3, column=1, value=(
+                "Страницы, у которых красный флаг пресета в названии или в трети объявлений. Они не попадают в долгожители, свежие запуски, образцы и продукты. "
+                "Флаги грубые (слова, не смысл): просмотри список и, если страница исключена зря, скажи об этом.")).font = f_note
+            wex.freeze_panes = "A2"
 
     # ---- Creatives (only when fetch_creatives.py was run) ----
     if visuals and visuals.get("items"):

@@ -3,6 +3,29 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.3] - 2026-10-12
+
+Fixes from a manual check of the first live report (`ecom-problem-solvers-us`, US): pages that are not
+competitors for a product-research brief were still in the general lists. Examples found: a hair-growth page
+(health), a bathroom remodeling company (local service) and a chemical fire-starter shop (flammable goods, hard to dropship).
+
+### Changed
+- A page whose name, or a third of whose ads, hit the preset's red flags is left out of the lists that show
+  what works (long-running ads, fresh launches, samples, stopped ads) and out of the products. It is marked
+  in the top-advertisers table (`out_of_niche`) and listed with the reasons in `products.excluded_pages`
+  (`excluded_count`; the list is complete). HTML says how many pages were left out; Excel has a new sheet "Вне ниши".
+  Nothing disappears silently. On the live snapshot 227 of 519 pages were left out (health pages dominate this search).
+- Preset `ecom-problem-solvers-us`: new flags "локальные услуги/ремонт" (free estimate, remodel, contractors,
+  installed in as little as, dryer vent cleaning ...) and "огнеопасное/химическое" (burn time, fire plugs,
+  flammable, accelerant ...); health flags also catch hair loss, follicles, hormonal, pills, lymph; "tablets"
+  and "capsules" were taken out (cleaning tablets and laundry capsules are home products).
+- The flags also read the store domain without its TLD.
+
+### Fixed
+- The two network SSRF tests (`check_sites`, TikTok) went to httpbin.org and failed when it answered slowly:
+  a third-party service no longer decides the verdict. A blocked URL still must raise or never complete, the local
+  server must receive no request, and a legitimate redirect blocked by the guard still fails the test.
+
 ## [0.15.2] - 2026-10-12
 
 Refinements of the "Early products" block after the first live run of the preset on the US Library

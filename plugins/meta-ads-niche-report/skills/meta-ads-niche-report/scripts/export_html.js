@@ -86,7 +86,7 @@ function buildHtml(m) {
   const hasLikes = (r.top_pages || []).some(p => Number.isFinite(p.page_likes));
   out.push(table(['Страница', ...(hasTypes ? ['Тип'] : []), ...(hasLikes ? ['Подписчики'] : []), 'Объявл.', 'Старейшее, дн.', 'Дверь', 'Сайты', 'Пометки'], (r.top_pages || []).map(p => [
     link(p.library_url || p.page_url, p.page), ...(hasTypes ? [esc(types[p.page] || '')] : []), ...(hasLikes ? [num(p.page_likes)] : []), esc(p.ads), esc(p.oldest_days), esc(p.doors), esc(p.sites),
-    (p.local ? chip('локальный', 'warn') : '') + (p.platform ? chip('платформа', 'warn') : '')
+    (p.local ? chip('локальный', 'warn') : '') + (p.platform ? chip('платформа', 'warn') : '') + (p.out_of_niche ? p.out_of_niche.map(f => chip('вне ниши: ' + f, 'warn')).join('') : '')
   ])));
 
   if ((m.query_stats || []).length) {
@@ -113,6 +113,9 @@ function buildHtml(m) {
   if (prods && prods.top && prods.top.length) {
     const c = prods.criteria;
     out.push('<h2>Ранние продукты</h2><p class="mut">Продукт здесь это группа объявлений с одним Shopify-товаром в ссылке или с одним текстом. Критерии: старейшее объявление ' + esc(c.min_days) + '–' + esc(c.max_days) + ' дней, магазинов не больше ' + esc(c.max_stores) + (c.min_price ? ', цена в рекламе от $' + esc(c.min_price) : '') + ', без красных флагов. Найдено продуктов: ' + esc(prods.found) + ', подходят: ' + esc(prods.early) + ' (сильных: ' + esc(prods.strong) + '), в окне по возрасту: ' + esc(prods.in_window) + ', старше окна: ' + esc(prods.too_old) + ', с красным флагом: ' + esc(prods.flagged) + '. Просмотров и лайков в Библиотеке Meta для коммерческой рекламы нет: рост виден по вариантам и свежим запускам. Это кандидаты для проверки, а не вывод.</p>');
+    if (prods.excluded_pages && prods.excluded_pages.length) {
+      out.push('<p class="mut">Исключено как вне ниши (' + esc(prods.excluded_count) + ' страниц; красный флаг в названии или в трети объявлений): ' + prods.excluded_pages.slice(0, 40).map(e => esc(e.page) + ' (' + e.flags.map(esc).join(', ') + ')').join('; ') + (prods.excluded_count > 40 ? ' и ещё ' + esc(prods.excluded_count - 40) + ' (полный список в Excel, лист «Вне ниши»)' : '') + '. Эти страницы не попадают в долгожители, свежие запуски и образцы; решение за вами.</p>');
+    }
     out.push(table(['Продукт', 'Оценка', 'Магазинов', 'Дней', 'Объявл.', 'Вариантов', 'Новых за 7 дн.', 'Цена', 'Замечания', 'Объявление', 'Магазин'],
       prods.top.slice(0, 25).map(p => [esc(p.name), p.strong ? chip('сильный', 'ok') : p.early ? chip('подходит') : chip('нет', 'warn'), esc(p.stores), esc(p.oldest_days), esc(p.ads), esc(p.variants), esc(p.fresh_ads),
         p.price ? esc('$' + (p.price.min === p.price.max ? p.price.min : p.price.min + '–' + p.price.max)) : '-', esc((p.red_flags.length ? p.red_flags : p.reasons).join('; ')),
