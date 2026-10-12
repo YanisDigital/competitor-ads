@@ -288,9 +288,16 @@ async def run(args, keywords: list[str]) -> None:
 
             store = {}  # records so far; every page load starts a fresh window.__mai
             rate_limited = []  # queries where Meta refused "load more" (see collector.js)
+            blocked = ""  # a login wall or captcha stops the run; what was collected so far is still saved
+            done = []
             for i, kw in enumerate(keywords):
                 print(f"[{i + 1}/{len(keywords)}] opening Ads Library for: {kw}")
-                await open_query(page, country, kw, args.exact, page_urls.get(kw), window)
+                try:
+                    await open_query(page, country, kw, args.exact, page_urls.get(kw), window)
+                except BlockedError as e:
+                    blocked = str(e)
+                    print(f"Stopped at query {i + 1} of {len(keywords)}: {e}")
+                    break
                 if store:
                     await page.evaluate("(s) => window.__mai.load(s)", store)
 
@@ -305,10 +312,16 @@ async def run(args, keywords: list[str]) -> None:
                 )
                 if summary.get("rate_limited"):
                     rate_limited.append(kw)
+                done.append(kw)
 
                 if i < len(keywords) - 1:
                     await asyncio.sleep(args.delay)
 
+            if blocked:
+                if not store:
+                    sys.exit(f"Stopped: {blocked} Nothing was collected, so nothing is saved.")
+                await page.goto("about:blank")  # the blocked page is left; collector.js is installed here too
+                await page.evaluate("(s) => window.__mai.load(s)", store)
             report_opts = {"longDays": args.long_days}
             if preset:
                 report_opts["extraHooks"] = preset.get("extra_hooks", {})
@@ -325,7 +338,7 @@ async def run(args, keywords: list[str]) -> None:
                     report_opts["currency"] = country_currency
             report = await page.evaluate("(opts) => window.__mai.report(opts)", report_opts)
             csv_text = await page.evaluate("() => window.__mai.csv()")
-        except BlockedError as e:
+        except BlockedError as e:  # raised outside the query loop (nothing to save yet)
             sys.exit(f"Stopped: {e}")
         finally:
             await browser.close()
@@ -335,13 +348,15 @@ async def run(args, keywords: list[str]) -> None:
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     csv_path.write_text(csv_text, encoding="utf-8")
     (out_dir / "run.json").write_text(
-        json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": keywords,
+        json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": done,
                     "preset": args.preset, "rate_limited_queries": rate_limited,
                     "search_type": "exact_phrase" if args.exact else "any_words", "headed": bool(args.headed), "status": args.status,
                     **({"language": args.language} if args.language else {}), **({"media": args.media} if args.media != "all" else {}),
                     **({"sort": args.sort} if args.sort != "impressions" else {}),
                     **({"date_from": args.date_from} if args.date_from else {}), **({"date_to": args.date_to} if args.date_to else {}),
-                    **({"pages_of": str(args.pages_of)} if args.pages_of else {})}, ensure_ascii=False, indent=2),
+                    **({"pages_of": str(args.pages_of)} if args.pages_of else {}),
+                    **({"blocked": blocked, "queries_planned": len(keywords), "queries_remaining": keywords[len(done):]} if blocked else {})},
+                   ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -360,6 +375,11 @@ async def run(args, keywords: list[str]) -> None:
         )
     print(f"Saved: {report_path}")
     print(f"Saved: {csv_path}")
+    if blocked:
+        print()
+        print(f"PARTIAL snapshot: {len(done)} of {len(keywords)} queries ran. Meta stopped the run ({blocked}) and nothing was done to get around it. "
+              "Wait several hours before the next live run, use a longer --delay (6 or more), and run only the remaining queries (listed in run.json).")
+        sys.exit(3)
     if args.creatives and report["ads"]:
         print()
         if creatives_step(out_dir) == "fetch":

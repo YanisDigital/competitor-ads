@@ -67,7 +67,8 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const manifest = readJson(path.join(dir, 'creatives', 'manifest.json'));
   const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
   const report = buildReport(rows, opts);
-  const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads })
+  const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads,
+    blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   // What the folder already has, for the "what else can be done" block.
   const has = f => fs.existsSync(path.join(dir, f));
@@ -78,7 +79,8 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     sites: has('sites.json'), client: has('client.json') || fs.existsSync(path.join(path.dirname(path.resolve(dir)), 'client.json')),
     hypotheses: has('hypotheses.json'), plan: has('test_plan.json'), diff: has('diff.json'), eu_country: isEuCountry(meta.country), eu: !!euData,
     preset: !!niche.preset_id, niche: niche.niche_file, pages_of: !!meta.pages_of,
-    rate_limited: (meta.rate_limited_queries || []).length, queries: (meta.queries || []).length
+    rate_limited: (meta.rate_limited_queries || []).length, queries: (meta.queries || []).length,
+    blocked: !!meta.blocked, queries_remaining: (meta.queries_remaining || []).length
   });
   return { report, doors, rows, query_stats: stats, warnings, eu, visuals, next_steps,
     meta: { ...meta, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };

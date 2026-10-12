@@ -10,6 +10,15 @@ real user machine, not a cloud container) is the only supported fix. In
 CLI mode, `scrape.py` already detects both cases and stops with a clear
 error (`BlockedError`) instead of trying to work around them.
 
+Since 0.15.1 the queries that finished before the block are **saved** as a
+partial snapshot (`ads.csv`, `report.json`, `run.json`; exit code 3). `run.json`
+gets `blocked` (the message), `queries` (only those that ran), `queries_planned`
+and `queries_remaining`; the report warns that the sample is partial and
+"What else can be done" lists finishing the rest. A block on the very first
+query saves nothing. Do not rerun at once: a captcha means Meta noticed the
+pace. Wait several hours, use `--delay 6` or more, and run only
+`queries_remaining` into a separate folder.
+
 ## `facebook.com` returns 403 / nothing loads
 
 Cloud containers are blocked by Meta outright. This only works from an

@@ -3,6 +3,18 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.1] - 2026-10-12
+
+### Fixed
+- A captcha or login wall in the middle of a CLI run lost everything collected before it: on a live run
+  of 15 queries the block came at query 13 and 12 queries (1,637 ads) were thrown away. `scrape.py` now
+  stops at the block as before (no retry, no bypass) but saves the finished queries as a partial snapshot
+  and exits with code 3. `run.json` gets `blocked`, `queries` (only those that ran), `queries_planned`
+  and `queries_remaining`; the report adds the warning `collection_stopped` and the urgent step `resume`.
+  A block on the first query saves nothing. Tested with a fake Playwright (`tests/scrape_blocked.test.mjs`).
+- `references/troubleshooting.md`: what a partial snapshot is and how to finish it (wait, `--delay 6` or
+  more, only the remaining queries).
+
 ## [0.15.0] - 2026-10-12
 
 Product research for online stores: early products that solve a problem. Prompted by a real freelance
