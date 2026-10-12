@@ -3,6 +3,24 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.2] - 2026-10-12
+
+Refinements of the "Early products" block after the first live run of the preset on the US Library
+(12 queries, 1,043 ads, 164 products): supplements and branded stores slipped into the shortlist.
+
+### Changed
+- Preset `ecom-problem-solvers-us`: the red flags for health claims also catch supplements, oils, extracts
+  and conditions the run missed (gout, dementia, diagnosed, black seed, lion's mane, capsules ...); a new flag
+  "известный бренд" for a short list of known brands, and "official store / family owned / since 19xx"
+  wording under "бренд/патент". The flags look at the page names and the store domains too. The three generic
+  open-find queries (`tired of`, `finally a solution`, `genius invention`) triggered the captcha at query 13
+  in two runs and are replaced by `cable organizer`, `car trunk organizer`, `shoe odor`.
+- `earlyProducts`: ads with the same body text under different titles and handles join one product (a rivet
+  set sold under four names counted as four products with one store each; now one product with four stores).
+  A product name comes from the handle only when it reads as words; "hqasj" falls back to the ad text.
+- On the same snapshot: subset that fits the brief 42 -> 28, strong 8 -> 4, flagged 35 -> 69.
+- `SKILL.md`: what the flags cannot see (brands, supplements by meaning), merged groups, open-find queries.
+
 ## [0.15.1] - 2026-10-12
 
 ### Fixed

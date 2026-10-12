@@ -19,9 +19,9 @@
     { "en": "fire starter" },
     { "en": "camping water filter" },
     { "en": "emergency survival" },
-    { "en": "tired of" },
-    { "en": "finally a solution" },
-    { "en": "genius invention" }
+    { "en": "cable organizer" },
+    { "en": "car trunk organizer" },
+    { "en": "shoe odor" }
   ],
   "products": {
     "min_days": 7,
@@ -29,11 +29,12 @@
     "max_stores": 3,
     "min_price": 45,
     "red_flags": {
-      "здоровье/медицина": "\\b(cure[sd]?|heals?|healing|pain relief|arthritis|diabet\\w*|fda|supplements?|weight loss|anti.?aging|detox|cbd|hair growth|posture|vagus|nerve|menopause|joint|inflammation|clinical|thyroid|hormon\\w*|menopaus\\w*|meno|vitamins?|probiotics?|postbiotics?|collagen|gut health|bloat\\w*|anxiety|sleep aid|treats|pet food|dog food)\\b",
+      "здоровье/медицина": "\\b(cure[sd]?|heals?|healing|pain relief|arthritis|diabet\\w*|fda|supplements?|weight loss|anti.?aging|detox|cbd|hair growth|posture|vagus|nerve|menopaus\\w*|meno|joint|inflammation|clinical|thyroid|hormon\\w*|vitamins?|probiotics?|postbiotics?|collagen|gut health|bloat\\w*|anxiety|sleep aid|treats|pet food|dog food|gout|dementia|diagnos\\w*|gynecolog\\w*|doctor|medications?|medicine|natural support|extracts?|seed oil|black seed|fish oil|castor oil|essential oils?|lion'?s mane|mushroom|herbal|capsules?|tablets?|ointment|acne|eczema|psoriasis|tinnitus|neuropathy|cholesterol|blood pressure|blood sugar|immune|libido|prostate|hemorrhoids?|migraine)\\b",
       "детские товары": "\\b(baby|babies|toddler|kids?|child|children|infant|newborn|pacifier|stroller)\\b",
       "оружие/регулируемое": "\\b(knife|knives|gun|firearm|taser|pepper spray|ammo|vape|alcohol)\\b",
-      "бренд/патент": "\\b(patented|patent pending|trademark|official store|licensed)\\b|[®™]",
-      "декор/новинка": "\\b(decor|figurine|poster|wall art|night light|toy|gift for|personali[sz]ed|engraved|custom name|name necklace)\\b"
+      "бренд/патент": "\\b(patented|patent pending|trademark|official (?:store|site|website)|licensed|family.owned|founded in|since (?:18|19|20)\\d\\d)\\b|[®™]",
+      "декор/новинка": "\\b(decor|figurine|poster|wall art|night light|toy|gift for|personali[sz]ed|engraved|custom name|name necklace)\\b",
+      "известный бренд": "\\b(lifestraw|sawyer|katadyn|grayl|zippo|victorinox|yeti|stanley|oxo|simplehuman|dyson|shark|rubbermaid|clorox|lysol|scotch.?brite|3m|dewalt|milwaukee|bosch|black diamond|black beard|swiss army|bic|coleman|osprey|nalgene|hydro flask)\\b"
     }
   },
   "extra_hooks": {
@@ -54,5 +55,5 @@
     {"name": "Black Friday / Cyber Monday", "from": "11-10", "to": "12-02", "note": "скидки и дедлайны в рекламе временные, цены и офферы не типичны для обычного месяца; «ранние» продукты в эти недели путаются с распродажей"},
     {"name": "Рождественские подарки", "from": "12-03", "to": "12-20", "note": "подарочные углы и доставка к празднику"}
   ],
-  "policy": "Исключены категории с обещаниями здоровья, детские товары, оружие и регулируемое, брендовые и запатентованные (проверь патент вручную, например в USPTO). Окно «раннего» продукта 7–45 дней, до 3 магазинов, цена в рекламе от $45 (если цены в рекламе нет, это надо смотреть на сайте). Просмотров и лайков в Библиотеке Meta для коммерческой рекламы нет: рост считаем по новым вариантам и свежим запускам. Вес, габариты, поставщик и закупка заполняются вручную."
+  "policy": "Исключены категории с обещаниями здоровья, детские товары, оружие и регулируемое, брендовые и запатентованные (список известных брендов в пресете короткий, остальные бренды отличай сам: собственный магазин производителя не товар для перепродажи; патент проверь вручную, например в USPTO). Окно «раннего» продукта 7–45 дней, до 3 магазинов, цена в рекламе от $45 (если цены в рекламе нет, это надо смотреть на сайте). Просмотров и лайков в Библиотеке Meta для коммерческой рекламы нет: рост считаем по новым вариантам и свежим запускам. Вес, габариты, поставщик и закупка заполняются вручную."
 }

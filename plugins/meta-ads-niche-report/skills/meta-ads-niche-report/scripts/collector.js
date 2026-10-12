@@ -979,7 +979,8 @@
   //   red_flags            { label: regexSource } regulated or excluded categories
   // A product is a group of ads joined by a shared Shopify product handle
   // (/products/<handle> in the link, trailing -2 / -copy removed) or by the same
-  // ad copy (first 70 letters and digits, like creative_clusters). Ads with neither
+  // ad copy (first 70 letters and digits of title+body, like creative_clusters, or of
+  // the body alone: one product sold under different names). Ads with none
   // are not products (a store's brand ads). The Library shows no views or likes for
   // commercial ads, so "engagement" is not here; scaling is read from new variants
   // and from ads launched in the last 7 days.
@@ -1003,6 +1004,9 @@
     };
     const siteOf = r => (isTrackerLink(r.link || '') ? '' : domainOf(r.link || ''));
     const textKey = r => { const k = textOf(r).replace(/[^a-zа-яіїєґ0-9]/g, ''); return k.length >= 30 ? k.slice(0, 70) : ''; };
+    const bodyKey = r => { const k = String(r.body || '').toLowerCase().replace(/[^a-zа-яіїєґ0-9]/g, ''); return k.length >= 40 ? k.slice(0, 70) : ''; };
+    // a handle that reads as words is a good product name; "hqasj" is not
+    const readable = h => !!h && (h.includes('-') ? h.split('-').filter(x => x.length > 1).length >= 2 : h.length >= 4 && ((h.match(/[aeiouy]/g) || []).length / h.length) >= 0.25);
     const byVariants = (a, b) => (b.variants || 1) - (a.variants || 1) || a.start - b.start;
 
     // union-find over rows, joined by handle or by copy
@@ -1010,8 +1014,8 @@
     const find = i => (parent[i] === i ? i : (parent[i] = find(parent[i])));
     const byKey = new Map();
     rows.forEach((r, i) => {
-      const h = handleOf(r), t = textKey(r);
-      for (const k of [h && 'h:' + h, t && 't:' + t].filter(Boolean)) {
+      const h = handleOf(r), t = textKey(r), b = bodyKey(r);
+      for (const k of [h && 'h:' + h, t && 't:' + t, b && 'b:' + b].filter(Boolean)) {
         if (byKey.has(k)) parent[find(i)] = find(byKey.get(k)); else byKey.set(k, i);
       }
     });
@@ -1036,7 +1040,7 @@
       const variants = rs.reduce((n, r) => n + (r.variants || 1), 0);
       const amounts = rs.flatMap(r => priceHits(textOf(r), currency).amounts);
       const price = amounts.length ? { min: Math.min(...amounts), max: Math.max(...amounts) } : null;
-      const big = rs.map(r => textOf(r) + ' ' + handleOf(r).replace(/-/g, ' ')).join(' ').slice(0, MAX_TEXT);
+      const big = rs.map(r => textOf(r) + ' ' + handleOf(r).replace(/-/g, ' ') + ' ' + String(r.page || '').toLowerCase() + ' ' + siteOf(r).replace(/\.[a-z.]+$/, '')).join(' ').slice(0, MAX_TEXT);
       const redFlags = flags.filter(([, re]) => re.test(big)).map(([label]) => label);
       const counts = {};
       for (const h of handles) counts[h] = (counts[h] || 0) + 1;
@@ -1056,7 +1060,7 @@
       if (!checks.clean) reasons.push('красный флаг: ' + redFlags.join(', '));
       if (checks.price === false) reasons.push('цена в рекламе до $' + price.max);
       products.push({
-        name: handle ? handle.replace(/[-_]/g, ' ') : cut(snippet(sorted[0]), 60),
+        name: readable(handle) ? handle.replace(/[-_]/g, ' ') : cut(snippet(sorted[0]), 60),
         handle,
         stores, sites: sites.slice(0, 5), pages: [...pages].slice(0, 5),
         ads: rs.length, variants, oldest_days: oldest, newest_days: newest, fresh_ads: freshAds,
