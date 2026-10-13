@@ -22,6 +22,8 @@ creatives*.json
 report.json
 run.json
 diff.json
+report_full.json
+disputed.json
 niche.json
 selection.json
 *.mp4

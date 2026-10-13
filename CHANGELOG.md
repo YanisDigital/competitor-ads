@@ -3,6 +3,27 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.8] - 2026-10-13
+
+Less manual work around cleaning and re-collecting, from what the agent had to improvise in the used-laptops and
+Czech travel studies (two folders glued by hand for 22 pages, a private `disputed.json`, throwaway scripts that
+list advertisers and save the report).
+
+### Added
+- `--pages-of` with more than 15 advertisers runs in batches of 15 into one folder (`--batch-pause`, default 180 s,
+  minimum 30), each batch is a normal run that is merged into the folder. A captcha in a batch keeps what it
+  collected and stops the run (exit code 3, `run.json`: `blocked`, `queries_planned`, `queries_remaining`); the
+  same command later continues with the pages that are left. Nothing is retried or worked around.
+- `merge.js <out> <folder> ...`: joins snapshot folders (one row per ad id, queries joined, queries united,
+  fresh `report.json`, `curation.json` and `niche.json` copied); refuses folders that are not comparable
+  (country, status, language, media, sort, search type, dates) unless `--force`.
+- `curation.json` key `disputed` (`{ "Page": "why" }` or `{ "why": ... }`): not counted as competitors, listed with
+  the reason, the ads and an example text in the HTML report (section "Спорные рекламодатели") and in the Excel
+  sheet "Спорные"; a typo is reported in `not_found`.
+- `curate.js list <slice> [--undecided] [--min-ads N] [--limit N] [--json]`: a reading list for cleaning by meaning
+  (ads, active, door, site, button, start of the text and the decision already in `curation.json`).
+- `report.js <slice> --save [file]`: the report after curation, niche and preset in `report_full.json`.
+
 ## [0.15.7] - 2026-10-13
 
 From two studies run with the skill (used laptops in Ukraine and six EU countries in Russian; online travel for

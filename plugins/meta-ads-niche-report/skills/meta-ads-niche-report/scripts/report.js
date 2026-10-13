@@ -67,7 +67,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const queryEnforced = opts.queryMatch === true || !!(preset && preset.products && preset.products.query_match === true);
   const query_match = (!curation || queryEnforced) && rows.some(r => (r.kws || []).length) ? Object.fromEntries(rows.map(r => [r.id, queryMatch(r, null, opts.queryIgnore)])) : null;
   const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
-  const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
+  const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, disputed: cur.disputed, notes: curation.notes || '' } } : {};
   const euData = readJson(path.join(dir, 'eu.json')); // EU reach and audience, collected by eu_details.py
   const eu = euData ? euSummary(euData, rows) : null;
   // Pictures downloaded by fetch_creatives.py (creatives/manifest.json) and the
@@ -99,18 +99,28 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
 module.exports = { loadSnapshot, loadNicheConfig };
 
 if (require.main === module) {
-  const dir = process.argv[2];
+  const argv = process.argv.slice(2);
+  const si = argv.indexOf('--save');
+  const dir = argv[0];
+  const saveTo = si >= 0 ? (argv[si + 1] && !argv[si + 1].startsWith('--') ? argv[si + 1] : path.join(dir || '.', 'report_full.json')) : null;
+  const positional = argv.filter((a, i) => !a.startsWith('--') && !(si >= 0 && i === si + 1));
   if (!dir || !fs.existsSync(path.join(dir, 'ads.csv'))) {
-    console.error('Usage: node report.js <snapshot-folder-with-ads.csv> [preset-id]');
+    console.error('Usage: node report.js <snapshot-folder-with-ads.csv> [preset-id] [--save [file]]');
     process.exit(1);
   }
   let snap;
   try {
-    snap = loadSnapshot(dir, process.argv[3]);
+    snap = loadSnapshot(dir, positional[1]);
   } catch (e) {
     console.error(e.message);
     process.exit(1);
   }
   const { report, doors, query_match, meta, query_stats, warnings, eu, visuals, next_steps } = snap;
-  process.stdout.write(JSON.stringify({ report, doors, query_match, meta, query_stats, warnings, eu, visuals, next_steps }));
+  const json = JSON.stringify({ report, doors, query_match, meta, query_stats, warnings, eu, visuals, next_steps });
+  if (saveTo) {
+    fs.writeFileSync(saveTo, json, 'utf8');
+    console.log(`Saved: ${saveTo} (the report after curation.json, niche.json and the preset)`);
+  } else {
+    process.stdout.write(json);
+  }
 }

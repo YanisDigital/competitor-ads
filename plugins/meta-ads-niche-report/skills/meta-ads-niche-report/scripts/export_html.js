@@ -89,6 +89,11 @@ function buildHtml(m) {
     (p.local ? chip('локальный', 'warn') : '') + (p.platform ? chip('платформа', 'warn') : '') + (p.out_of_niche ? p.out_of_niche.map(f => chip('вне ниши: ' + f, 'warn')).join('') : '')
   ])));
 
+  if (cur && (cur.disputed || []).length) {
+    out.push('<h2>Спорные рекламодатели (не учтены)</h2><p class="mut">По объявлениям не определить, конкурент ли это (смешанный ассортимент, сервис рядом с продажей). В цифры отчёта они не вошли; решение за вами.</p>');
+    out.push(table(['Страница', 'Объявл.', 'Активных', 'Почему спорный', 'Пример текста'], cur.disputed.map(d => [esc(d.page), esc(d.ads), esc(d.active), esc(d.why), esc(d.sample)])));
+  }
+
   if ((m.query_stats || []).length) {
     const curated = m.query_stats.some(q => q.relevant_advertisers !== null);
     out.push('<h2>Запросы: что нашли</h2><p class="mut">Какие запросы приводят конкурентов, а какие шум. ' + (curated ? 'Колонка «Из них конкуренты» после ручной проверки.' : 'Ручной проверки (curation.json) пока нет.') + ' «Лимит Meta»: подгрузка следующих страниц отклонена, по запросу только первая партия (~30 объявлений).</p>');

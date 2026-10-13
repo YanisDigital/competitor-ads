@@ -439,11 +439,20 @@
     const includeSet = include ? new Set(Object.keys(include)) : null;
     const excludeSet = new Set(Array.isArray(c.exclude) ? c.exclude : []);
     const types = { ...(c.types || {}), ...(include || {}) };
-    const keep = r => !excludeSet.has(r.page) && (!includeSet || includeSet.has(r.page));
+    // disputed: advertisers that cannot be told by their ads (mixed range, service next to sales). They are not
+    // counted as competitors, and are listed with the reason and their ads so the reader can decide.
+    const disputedRaw = c.disputed && typeof c.disputed === 'object' && !Array.isArray(c.disputed) ? c.disputed : {};
+    const disputedWhy = Object.fromEntries(Object.entries(disputedRaw).map(([p, v]) => [p, typeof v === 'string' ? v : (v && v.why) || '']));
+    const disputedSet = new Set(Object.keys(disputedWhy));
+    const keep = r => !excludeSet.has(r.page) && !disputedSet.has(r.page) && (!includeSet || includeSet.has(r.page));
     const kept = rows.filter(keep);
     const present = new Set(rows.map(r => r.page));
-    const named = [...new Set([...excludeSet, ...(includeSet || []), ...Object.keys(c.types || {})])];
+    const named = [...new Set([...excludeSet, ...disputedSet, ...(includeSet || []), ...Object.keys(c.types || {})])];
     return {
+      disputed: [...disputedSet].filter(p => present.has(p)).map(p => {
+        const ads = rows.filter(r => r.page === p);
+        return { page: p, why: disputedWhy[p], ads: ads.length, active: ads.filter(r => !isStoppedAd(r)).length, sample: ((ads[0].title ? ads[0].title + ' | ' : '') + (ads[0].body || '')).replace(/\s+/g, ' ').slice(0, 120) };
+      }).sort((a, b) => b.ads - a.ads),
       rows: kept,
       excluded_ads: rows.length - kept.length,
       excluded_pages: [...new Set(rows.filter(r => !keep(r)).map(r => r.page))].sort(),

@@ -30,8 +30,10 @@ import argparse
 import asyncio
 import json
 import re
+import shutil
 import subprocess
 import sys
+import time
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -195,6 +197,106 @@ def pages_from_snapshot(folder) -> list[dict]:
     return [p for p in pages if re.fullmatch(r"\d{1,25}", p["page_id"])]
 
 
+def pages_state(out: Path, pages_of) -> dict | None:
+    """run.json of an earlier (partial) --pages-of run in the same folder, or None."""
+    f = out / "run.json"
+    if not f.exists():
+        return None
+    try:
+        run = json.loads(f.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+    return run if run.get("pages_of") == str(pages_of) else None
+
+
+def batch_command(args, tmp: Path, names_file: Path) -> list[str]:
+    """The command of one batch: this script again, for at most MAX_KEYWORDS pages, with the same filters."""
+    cmd = [sys.executable, str(Path(__file__).resolve()), "--pages-of", str(args.pages_of), "--out", str(tmp), "--pages-file", str(names_file),
+           "--status", args.status, "--media", args.media, "--sort", args.sort, "--delay", str(args.delay), "--long-days", str(args.long_days)]
+    for flag, value in (("--country", args.country), ("--date-from", args.date_from), ("--date-to", args.date_to)):
+        if value:
+            cmd += [flag, value]
+    if args.language:
+        cmd += ["--language", *args.language]
+    if args.exact:
+        cmd.append("--exact")
+    if args.headed:
+        cmd.append("--headed")
+    return cmd
+
+
+def run_batch_subprocess(args, tmp: Path, names_file: Path) -> int:
+    return subprocess.run(batch_command(args, tmp, names_file), check=False).returncode
+
+
+def merge_into(out: Path, tmp: Path) -> bool:
+    """node merge.js: the batch joins the snapshot (collector.js writes the CSV, as everywhere)."""
+    res = subprocess.run(["node", str(HERE / "merge.js"), str(out), str(tmp)], capture_output=True, encoding="utf-8", timeout=300)
+    print((res.stdout or res.stderr).strip())
+    return res.returncode == 0
+
+
+def run_in_batches(args, pages: list[dict], run_batch=run_batch_subprocess, merge=merge_into, sleep=time.sleep) -> int:
+    """All the pages of a --pages-of run, MAX_KEYWORDS at a time, into one folder.
+
+    Between two batches the script waits --batch-pause seconds (Meta shows a captcha to a fast pace). A batch that
+    ends with a captcha (exit code 3) keeps what it collected; the run stops there and says how to go on: the same
+    command again continues with the pages that are not done (their labels are in run.json: queries / queries_remaining).
+    Nothing is retried and nothing is done to get around the block."""
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    prev = pages_state(out, args.pages_of)
+    done = {q[len("page: "):] for q in (prev or {}).get("queries", []) if q.startswith("page: ")}
+    todo = [p for p in pages if p["name"] not in done]
+    if not todo:
+        print(f"Nothing left to collect: all {len(pages)} pages are in {out}.")
+        return 0
+    batches = [todo[i:i + MAX_KEYWORDS] for i in range(0, len(todo), MAX_KEYWORDS)]
+    print(f"{len(pages)} pages, {len(done)} done, {len(todo)} to collect in {len(batches)} batches of up to {MAX_KEYWORDS}, "
+          f"{args.batch_pause:g} s between batches.")
+    code = 0
+    for k, batch in enumerate(batches, 1):
+        tmp = out / f"_batch{k}"
+        shutil.rmtree(tmp, ignore_errors=True)
+        names_file = out / f"_batch{k}.pages.json"
+        names_file.write_text(json.dumps([p["name"] for p in batch], ensure_ascii=False), encoding="utf-8")
+        print(f"--- batch {k} of {len(batches)}: {len(batch)} pages")
+        code = run_batch(args, tmp, names_file)
+        merged = (tmp / "ads.csv").exists() and merge(out, tmp)
+        shutil.rmtree(tmp, ignore_errors=True)
+        names_file.unlink(missing_ok=True)
+        if not merged and code in (0, 3):
+            print("Nothing was collected in this batch.")
+        if code not in (0, 3):
+            print(f"Batch {k} failed (exit code {code}); what was collected before it is saved in {out}.")
+            return code
+        if code == 3:
+            break
+        if k < len(batches):
+            print(f"Pause of {args.batch_pause:g} s before the next batch (a captcha follows a fast pace).")
+            sleep(args.batch_pause)
+    run_file = out / "run.json"
+    run = json.loads(run_file.read_text(encoding="utf-8")) if run_file.exists() else {}
+    got = {q[len("page: "):] for q in run.get("queries", []) if q.startswith("page: ")}
+    remaining = [f"page: {p['name']}" for p in pages if p["name"] not in got]
+    if remaining and code == 3:
+        run.update({"queries_planned": len(pages), "queries_remaining": remaining})
+        run.setdefault("blocked", "Meta showed a captcha/checkpoint. Stopping: this tool never bypasses captchas.")
+        run_file.write_text(json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"PARTIAL: {len(pages) - len(remaining)} of {len(pages)} pages are in {out}; Meta stopped the run and nothing was done to get around it. "
+              f"Wait several hours, then run the same command again: it continues with the {len(remaining)} pages that are left.")
+        return 3
+    for key in ("blocked", "queries_planned", "queries_remaining"):
+        run.pop(key, None)
+    run_file.write_text(json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"All {len(pages)} pages collected into {out}.")
+    if args.creatives:
+        print()
+        if creatives_step(out) == "fetch":
+            subprocess.run([sys.executable, str(HERE / "fetch_creatives.py"), str(out), *DEFAULT_CREATIVE_ARGS], check=False)
+    return 0
+
+
 def read_keywords(args) -> list[str]:
     if args.pages_of:
         return []  # targets come from the snapshot inside run()
@@ -260,7 +362,11 @@ async def run(args, keywords: list[str]) -> None:
         src_run = Path(args.pages_of) / "run.json"
         if not args.country and src_run.exists():
             country = validate_country(json.loads(src_run.read_text(encoding="utf-8")).get("country") or country)
-        pages = pages_from_snapshot(args.pages_of)[:MAX_KEYWORDS]
+        pages = pages_from_snapshot(args.pages_of)
+        if args.pages_file:  # one batch of a run_in_batches() run
+            wanted = set(json.loads(Path(args.pages_file).read_text(encoding="utf-8")))
+            pages = [p for p in pages if p["name"] in wanted]
+        pages = pages[:MAX_KEYWORDS]
         keywords = [f"page: {p['name']}" for p in pages]
         page_urls = {f"page: {p['name']}": page_library_url(country, p["page_id"], *window) for p in pages}
 
@@ -411,6 +517,8 @@ def main() -> None:
     parser.add_argument("--city-ru", default="", dest="city_ru", help="City name in Russian for preset queries")
     parser.add_argument("--max-queries", type=int, default=12, dest="max_queries", help="Max preset-built queries (default: 12)")
     parser.add_argument("--pages-of", dest="pages_of", help="Snapshot folder: collect ALL active ads of the advertisers that count there (curation.json applied), instead of keyword searches. Needs a snapshot with page ids (collected by v0.12.4 or newer)")
+    parser.add_argument("--batch-pause", type=float, default=180.0, dest="batch_pause", help="--pages-of with more than 15 advertisers runs in batches of 15 into one folder; seconds to wait between batches (default 180, minimum 30)")
+    parser.add_argument("--pages-file", dest="pages_file", help=argparse.SUPPRESS)
     parser.add_argument("--status", choices=VALID_STATUSES, default="active", help="active (default), inactive (stopped ads only) or all. Stopped ads show what competitors tried and switched off")
     parser.add_argument("--date-from", dest="date_from", help="YYYY-MM-DD: only ads that were delivered on or after this day")
     parser.add_argument("--date-to", dest="date_to", help="YYYY-MM-DD: only ads that were delivered on or before this day")
@@ -431,7 +539,14 @@ def main() -> None:
         sys.exit(f"--max-queries above {MAX_KEYWORDS} is not allowed.")
     if args.pages_of and not args.out:
         sys.exit("--pages-of needs --out (a new snapshot folder), so the full page collection does not mix with the original snapshot.")
+    if args.batch_pause < 30:
+        sys.exit("--batch-pause below 30 seconds is not allowed.")
     keywords = read_keywords(args)  # validated before importing/launching Playwright
+    if args.pages_of and not args.pages_file:
+        pages = pages_from_snapshot(args.pages_of)
+        prev = pages_state(Path(args.out), args.pages_of)
+        if len(pages) > MAX_KEYWORDS or (prev and (prev.get("queries_remaining") or prev.get("blocked"))):
+            sys.exit(run_in_batches(args, pages))
 
     asyncio.run(run(args, keywords))
 

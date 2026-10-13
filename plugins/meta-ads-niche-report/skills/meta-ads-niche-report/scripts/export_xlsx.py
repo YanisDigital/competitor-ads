@@ -328,6 +328,17 @@ def main() -> None:
             + (f" Запустили пачку (3+): {bursts}." if bursts else ""))).font = f_note
         wf.freeze_panes = "A2"
 
+    # ---- Disputed advertisers (curation.json "disputed") ----
+    disputed = (meta.get("curation") or {}).get("disputed") or []
+    if disputed:
+        wdi = wb.create_sheet("Спорные")
+        header(wdi, 1, ["Страница", "Объявлений", "Активных", "Почему спорный", "Пример текста"], [44, 12, 12, 60, 80])
+        for i, d in enumerate(disputed, 2):
+            put(wdi, i, [d["page"], d["ads"], d["active"], d["why"], d["sample"]])
+        wdi.cell(row=len(disputed) + 3, column=1, value=(
+            "По объявлениям не определить, конкурент ли это. В цифры отчёта эти рекламодатели не вошли (curation.json, ключ disputed); решение за вами.")).font = f_note
+        wdi.freeze_panes = "A2"
+
     # ---- Early products (presets with a "products" block) ----
     prods = report.get("products") or {}
     if prods.get("top"):
