@@ -95,5 +95,5 @@ test('Excel: column "Слова запроса в тексте" on the ads sheet
     'print(sorted(str(r[col]) for r in ws.iter_rows(min_row=2, values_only=True)))'
   ].join('\n'), path.join(dir, 'report.xlsx')]);
   assert.equal(out.status, 0, out.stderr);
-  assert.match(out.stdout, /'да', 'да', 'да', 'да', 'нет — случайное совпадение поиска', 'нет — случайное совпадение поиска'/);
+  assert.match(out.stdout, /'да', 'да', 'да', 'да', 'нет', 'нет'/);
 });

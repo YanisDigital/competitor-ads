@@ -14,7 +14,10 @@ test('currencyForCountry maps the countries we work in and returns null for unkn
   assert.equal(currencyForCountry('kz'), 'KZT');
   assert.equal(currencyForCountry('UA'), 'UAH');
   assert.equal(currencyForCountry('US'), 'USD');
-  assert.equal(currencyForCountry('DE'), null);
+  assert.equal(currencyForCountry('DE'), 'EUR');
+  assert.equal(currencyForCountry('CZ'), 'CZK');
+  assert.equal(currencyForCountry('PL'), 'PLN');
+  assert.equal(currencyForCountry('BR'), null);
   assert.equal(currencyForCountry(undefined), null);
 });
 
@@ -58,7 +61,9 @@ test('loadSnapshot takes the currency from the run country when the preset names
   assert.equal(loadSnapshot(snapshot('KZ')).report.prices.currency, 'KZT');
   assert.equal(loadSnapshot(snapshot('US')).report.prices.currency, 'USD');
   assert.equal(loadSnapshot(snapshot('UA')).report.prices.currency, 'UAH');
-  assert.equal(loadSnapshot(snapshot('DE')).report.prices.currency, 'UAH'); // unknown country keeps the old default
+  assert.equal(loadSnapshot(snapshot('DE')).report.prices.currency, 'EUR');
+  assert.equal(loadSnapshot(snapshot('CZ')).report.prices.currency, 'CZK');
+  assert.equal(loadSnapshot(snapshot('BR')).report.prices.currency, 'UAH'); // unknown country keeps the old default
 });
 
 test('a preset currency wins over the run country', () => {

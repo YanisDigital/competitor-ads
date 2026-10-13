@@ -348,7 +348,7 @@ async def run(args, keywords: list[str]) -> None:
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     csv_path.write_text(csv_text, encoding="utf-8")
     (out_dir / "run.json").write_text(
-        json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": done,
+        json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": done, **({"cities": [c for c in (args.city_uk, args.city_ru) if c]} if (args.city_uk or args.city_ru) else {}),
                     "preset": args.preset, "rate_limited_queries": rate_limited,
                     "search_type": "exact_phrase" if args.exact else "any_words", "headed": bool(args.headed), "status": args.status,
                     **({"language": args.language} if args.language else {}), **({"media": args.media} if args.media != "all" else {}),

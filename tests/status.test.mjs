@@ -123,7 +123,7 @@ wb = load_workbook(sys.argv[1])
 ws = wb['Объявления']
 head = [c.value for c in ws[1]]
 rows = {r[0]: dict(zip(head, r)) for r in ws.iter_rows(min_row=2, values_only=True)}
-print(json.dumps({'sheets': wb.sheetnames, 'head': head[-3:], 'days': {k: v['Дней на дату сбора'] for k, v in rows.items()}}, ensure_ascii=False))
+print(json.dumps({'sheets': wb.sheetnames, 'head': head, 'days': {k: v['Дней на дату сбора'] for k, v in rows.items()}}, ensure_ascii=False))
 `, path.join(dir, 'report.xlsx')], { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
   const out = JSON.parse(check.stdout);
   assert.ok(out.sheets.includes('Остановленные'));

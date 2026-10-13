@@ -53,13 +53,19 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     if (preset.currency) opts.currency = preset.currency;
     if (preset.base_hooks === false) opts.baseHooks = false;
     if (preset.online_only) opts.onlineOnly = true;
+    if (preset.local === false || preset.online_only) opts.local = false; // an online niche: no "first visit", "before/after", "sign up", "address" among the free angles
+    if (Array.isArray(preset.skip_hooks)) opts.skipHooks = preset.skip_hooks;
+    if (preset.query_match === true) opts.queryMatch = true; // keep ads without the query words out of the lists (also under products.query_match)
+    opts.queryIgnore = [...(preset.query_ignore || []), ...(meta.cities || [])]; // words of a query that are not about the ad: the city
     if (preset.products) opts.products = preset.products;
   }
   // No preset currency: price the ads in the currency of the run's country (KZ: tenge).
   if (!opts.currency && currencyForCountry(meta.country)) opts.currency = currencyForCountry(meta.country);
   const doors = Object.fromEntries(rows.map(r => [r.id, classifyDoor(r)]));
   // presets with a products block: does each ad's own text hold the words of its query (Excel column)
-  const query_match = preset && preset.products && preset.products.query_match === true ? Object.fromEntries(rows.map(r => [r.id, queryMatch(r)])) : null;
+  // after curation the advertisers are chosen by meaning, and a competitor's ad often lacks the words of the query (a city, a synonym): the column is shown only when the check is enforced
+  const queryEnforced = opts.queryMatch === true || !!(preset && preset.products && preset.products.query_match === true);
+  const query_match = (!curation || queryEnforced) && rows.some(r => (r.kws || []).length) ? Object.fromEntries(rows.map(r => [r.id, queryMatch(r, null, opts.queryIgnore)])) : null;
   const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
   const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
   const euData = readJson(path.join(dir, 'eu.json')); // EU reach and audience, collected by eu_details.py
@@ -70,6 +76,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
   const report = buildReport(rows, opts);
   const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads,
+    curated: !!curation, activeAds: report.status_counts.active, queryCheck: report.query_check,
     blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   // What the folder already has, for the "what else can be done" block.
@@ -82,7 +89,8 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     hypotheses: has('hypotheses.json'), plan: has('test_plan.json'), diff: has('diff.json'), eu_country: isEuCountry(meta.country), eu: !!euData,
     preset: !!niche.preset_id, niche: niche.niche_file, pages_of: !!meta.pages_of,
     rate_limited: (meta.rate_limited_queries || []).length, queries: (meta.queries || []).length,
-    blocked: !!meta.blocked, queries_remaining: (meta.queries_remaining || []).length
+    blocked: !!meta.blocked, queries_remaining: (meta.queries_remaining || []).length,
+    empty_market: !!curation && report.advertisers <= 2
   });
   return { report, doors, query_match, rows, query_stats: stats, warnings, eu, visuals, next_steps,
     meta: { ...meta, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };

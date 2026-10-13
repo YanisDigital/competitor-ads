@@ -222,8 +222,19 @@
   // Hook regexes for a run: the base set plus a preset's extraHooks
   // ({ label: regexSource }); opts.baseHooks === false drops the base set
   // (e.g. a US preset shouldn't report Ukrainian-language hooks).
+  // Hooks that only make sense for a business with a place and appointments: "first visit", before/after, sign up, address.
+  const LOCAL_HOOKS = ['первый визит', 'до/после', 'запись/бронь', 'адрес/район'];
   function hookPatterns(opts = {}) {
     const hooks = opts.baseHooks === false ? {} : { ...HOOK_PATTERNS };
+    if (opts.baseHooks !== false) {
+      if (opts.local === false) for (const k of LOCAL_HOOKS) delete hooks[k]; // an online niche: not "free angles" there
+      for (const k of opts.skipHooks || []) delete hooks[k];
+      const cur = String(opts.currency || '').toUpperCase();
+      if (cur && cur !== 'UAH' && CURRENCY_RE[cur] && hooks['цена в грн']) { // "price in hryvnias" counts prices in the niche's own currency
+        delete hooks['цена в грн'];
+        hooks['цена в ' + cur] = new RegExp('\\d[\\d\\s.,]{0,12}\\s?' + CURRENCY_RE[cur] + (CURRENCY_PREFIX[cur] ? '|' + CURRENCY_PREFIX[cur] + '\\s?\\d' : ''));
+      }
+    }
     for (const [k, src] of Object.entries(opts.extraHooks || {})) hooks[k] = new RegExp(src);
     return hooks;
   }
@@ -233,8 +244,20 @@
 
   // Currency a country's ads are priced in (the report's price block, the site
   // check). null for countries without a rule: callers then keep the UAH default.
-  const CURRENCY_BY_COUNTRY = { UA: 'UAH', KZ: 'KZT', US: 'USD' };
-  const currencyForCountry = c => CURRENCY_BY_COUNTRY[String(c || '').toUpperCase()] || null;
+  // Country -> price currency (UA, KZ and US as before; the Library countries of the EU, GB, CH, TR ... as in the TikTok plugin).
+  const CURRENCY_BY_COUNTRY = {
+    UA: 'UAH', KZ: 'KZT', US: 'USD', GB: 'GBP', PL: 'PLN', TR: 'TRY', CH: 'CHF', LI: 'CHF', CZ: 'CZK', RO: 'RON', HU: 'HUF',
+    SE: 'SEK', DK: 'DKK', NO: 'NOK', IS: 'ISK', BG: 'BGN'
+  };
+  const EURO = new Set(['AT', 'BE', 'CY', 'DE', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK']);
+  const currencyForCountry = c => { const k = String(c || '').toUpperCase(); return CURRENCY_BY_COUNTRY[k] || (EURO.has(k) ? 'EUR' : null); };
+  // How an amount is written after (or before) the number, per currency; UAH, USD and KZT keep their own older rules in priceHits.
+  const CURRENCY_RE = {
+    UAH: '(?:грн|₴|uah|гривен|гривень)', KZT: '(?:₸|тг(?![а-яё])|тенге|kzt)', USD: '(?:usd|dollars?)', EUR: '(?:€|eur\\b|euro)',
+    GBP: '(?:£|gbp)', PLN: '(?:zł|zl\\b|pln)', TRY: '(?:₺|\\btl\\b|try\\b)', CHF: '(?:chf|fr\\.)', CZK: '(?:kč|czk|крон)', RON: '(?:lei\\b|ron\\b)',
+    HUF: '(?:ft\\b|huf)', SEK: '(?:kr\\b|sek)', DKK: '(?:kr\\b|dkk)', NOK: '(?:kr\\b|nok)', ISK: '(?:kr\\b|isk)', BGN: '(?:лв|bgn)'
+  };
+  const CURRENCY_PREFIX = { USD: '\\$', EUR: '€', GBP: '£', TRY: '₺' };
 
   // Does the ad's own text hold the words of a query that found it? The Library matches ANY word of a
   // query, and also text we never see (other creative variants, text on the picture or in the video), so a
@@ -243,9 +266,11 @@
   const QUERY_FILLERS = new Set(['the', 'and', 'for', 'with', 'under', 'from', 'your', 'that', 'this', 'into', 'over']);
   const stemWord = w => w.toLowerCase().replace(/(?:ing|ed|es|s)$/, '').replace(/([b-df-hj-np-tv-z])\1$/, '$1');
   const wordsOf = t => String(t || '').toLowerCase().slice(0, MAX_TEXT).match(/[a-z0-9а-яіїєґё]+/g) || [];
-  function queryMatch(r, queries) {
+  function queryMatch(r, queries, ignore) {
     const qs = (queries || r.kws || []).filter(Boolean);
     if (!qs.length) return null;
+    const skipStems = (ignore || []).flatMap(w => wordsOf(w)).map(stemWord); // words that are not about the ad (the city of the query)
+    const skip = { has: s => skipStems.some(k => k === s || (k.length >= 4 && s.length >= 4 && k.slice(0, 4) === s.slice(0, 4))) }; // Прага / Праги: same stem
     const stems = new Set(wordsOf([r.title, r.body, r.caption, r.link].join(' ')).map(stemWord));
     const has = w => {
       const s = stemWord(w);
@@ -255,16 +280,34 @@
     };
     return qs.some(q => {
       const ws = wordsOf(q);
-      const need = ws.filter(w => w.length > 3 && !QUERY_FILLERS.has(w));
-      return (need.length ? need : ws).every(has);
+      const need = ws.filter(w => w.length > 3 && !QUERY_FILLERS.has(w) && !skip.has(stemWord(w)));
+      return (need.length ? need : ws.filter(w => !skip.has(stemWord(w)))).every(has);
     });
   }
 
   // Prices, "was/instead of" discount pairs and "N% off" mentions in one text
   // (already lowercased). currency: 'UAH' (default), 'USD' or 'KZT' (₸, тг, тенге).
   const MAX_TEXT = 30000; // characters analysed: page and ad text are third-party input for regexes
+  // Prices of the other currencies: "199 Kč", "€49", "49,90 EUR"; pairs "X instead of Y"; the same rules as in the TikTok plugin.
+  function genericPrices(t, cur) {
+    const n = '(\\d{1,3}(?:[ .\\u00a0]\\d{3}){0,3}(?:[.,]\\d{1,2})?|\\d{1,9}(?:[.,]\\d{1,2})?)';
+    const toN = s => num(String(s).replace(/[ . ](?=\d{3}\b)/g, ''));
+    const re = new RegExp(n + '\\s?' + CURRENCY_RE[cur] + (CURRENCY_PREFIX[cur] ? '|' + CURRENCY_PREFIX[cur] + '\\s?' + n : ''), 'g');
+    const amounts = [...t.matchAll(re)].map(m => toN(m[1] || m[2])).filter(x => x > 0 && x < 1e7);
+    const pairRe = new RegExp(n + '\\s?(?:' + CURRENCY_RE[cur].slice(3, -1) + ')?\\s*\\(?(?:instead of|was|вместо|замість|statt|anstatt|zamiast|místo|namísto|asemel|vietoj|nevis)\\s*' + n, 'g');
+    const discounts = [];
+    for (const m of t.matchAll(pairRe)) {
+      const nw = toN(m[1]), old = toN(m[2]);
+      if (old > nw && nw > 0) discounts.push(Math.round((1 - nw / old) * 100));
+    }
+    const off = 'off|знижк|скидк|rabatt|zniżk|sleva|slevu|zľava|allahindlus|nuolaid|atlaid|alennus|rabat|reducere';
+    const pctOff = [...t.matchAll(new RegExp('(\\d{1,2})\\s*%\\s*(?:' + off + ')|(?:знижк\\S*|скидк\\S*|save|rabatt|zniżk\\S*|sleva|slevy)\\s*(?:до\\s*|up to\\s*|bis zu\\s*|do\\s*)?-?(\\d{1,2})\\s*%|(?:^|\\s)-(\\d{1,2})\\s*%', 'g'))].map(m => +(m[1] || m[2] || m[3]));
+    return { amounts, discounts, pctOff };
+  }
+
   function priceHits(t, currency) {
     t = String(t || '').slice(0, MAX_TEXT);
+    if (!['UAH', 'USD', 'KZT'].includes(currency) && CURRENCY_RE[currency]) return genericPrices(t, currency);
     const amounts = currency === 'USD'
       ? [...t.matchAll(/\$\s?(\d{1,5}(?:[.,]\d{1,2})?)|(\d{1,5}(?:\.\d{1,2})?)\s?(?:usd|dollars?)\b/g)].map(m => num(m[1] || m[2])).filter(n => n >= 1 && n <= 10000)
       : currency === 'KZT'
@@ -445,7 +488,15 @@
     const w = [];
     const add = (code, severity, message) => w.push({ code, severity, message });
     const stats = info.queryStats || [];
-    if (info.advertisers < SMALL_SAMPLE) add('small_sample', 'warn', 'В выборке только ' + info.advertisers + ' рекламодателей: выводы про хуки, форматы и «что работает» это гипотезы для проверки, а не тренд ниши.');
+    if (info.curated && info.advertisers <= 2) {
+      add('empty_market', 'warn', 'После чистки в срезе ' + info.advertisers + ' конкурентов и ' + (info.activeAds || 0) + ' активных объявлений' + (info.stoppedAds ? ' (остановленных: ' + info.stoppedAds + ')' : '') + '. Это не «мало данных», а вывод: по этим запросам, языку и гео рынок сейчас почти пуст, или так не ищут. Скажи это первой строкой отчёта. Что можно: другой язык и соседние страны, запуск с --status all (что рекламировали раньше), повтор через 2-4 недели.');
+    } else if (info.advertisers < SMALL_SAMPLE) add('small_sample', 'warn', 'В выборке только ' + info.advertisers + ' рекламодателей: выводы про хуки, форматы и «что работает» это гипотезы для проверки, а не тренд ниши.');
+    const qc = info.queryCheck;
+    if (qc && qc.ads_checked >= 20 && qc.loose_ads / qc.ads_checked >= 0.3) {
+      const pct = Math.round(100 * qc.loose_ads / qc.ads_checked);
+      if (qc.enforced) add('loose_excluded', 'info', 'У ' + qc.loose_ads + ' из ' + qc.ads_checked + ' объявлений (' + pct + '%) в тексте нет слов запроса: поиск Meta находит любое слово запроса и текст, которого мы не собираем. Они в общих числах, но не в списках и продуктах (колонка «Слова запроса в тексте» в Excel).');
+      else if (!info.curated) add('loose_matches', 'warn', 'У ' + qc.loose_ads + ' из ' + qc.ads_checked + ' объявлений (' + pct + '%) в тексте нет слов запроса: поиск Meta находит любое слово запроса и текст, которого мы не собираем. Это шум выдачи: чисти рекламодателей по смыслу (curation.json) или включи "query_match": true в niche.json, иначе в долгожителях и образцах окажутся случайные объявления (колонка «Слова запроса в тексте» в Excel).');
+    }
     const limited = stats.filter(q => q.rate_limited);
     if (limited.length) add('rate_limited', 'warn', 'Meta отказала в подгрузке следующих страниц по ' + limited.length + ' из ' + stats.length + ' запросов (' + limited.map(q => q.query).join(', ') + '): по ним только первая партия, около 30 самых показываемых объявлений, а не весь рынок.');
     if (info.blocked) add('collection_stopped', 'warn', 'Сбор остановлен: Meta показала капчу или окно входа (' + info.blocked + '). Выполнено ' + (info.queriesDone || 0) + ' из ' + (info.queriesPlanned || '?') + ' запросов, срез неполный: выводы только по тому, что успело собраться.');
@@ -470,6 +521,11 @@
     const s = st || {};
     const out = [];
     const add = (code, title, why, how, extra = {}) => out.push({ code, title, why, urgent: false, needs: '', how, ...extra });
+    if (s.empty_market) { // nothing to analyse: no creatives, sites, briefs or hypotheses on two advertisers
+      add('empty_market', 'Рынок пуст: решить, что дальше', 'После чистки конкурентов не больше двух. Креативы, сайты, гипотезы и сбор всех объявлений конкурентов здесь ничего не дадут.', 'Сказать пользователю вывод «рынок на этом языке и гео почти пуст». Если нужно проверить глубже: другой язык, соседние страны, --status all для истории; либо брать смежную нишу.', { urgent: true });
+      add('compare', 'Повторить срез через 2-4 недели', 'Пустой рынок может измениться: сезон, новый игрок.', 'Те же запросы и фильтры, затем node compare.js <старый> <новый>.');
+      return out;
+    }
     const curateFirst = s.curated ? '' : 'сначала отобрать конкурентов (curation.json)';
     if (!s.curated) add('curate', 'Отобрать конкурентов (curation.json)', 'Поиск идёт по тексту объявлений, поэтому в срезе есть не конкуренты. Без чистки креативы, гипотезы и сбор всех объявлений конкурентов уходят на чужих.', 'Прочитать топ рекламодателей по смыслу, спорных обсудить, решение записать в curation.json рядом с ads.csv.');
     if (!s.preset && !s.niche) add('niche_hooks', 'Хуки ниши в niche.json', 'Для ниши нет пресета: в отчёте посчитаны только базовые хуки (цена, скидка, запись, адрес и т.п.), приёмы этой ниши в них не видны.', 'Записать niche.json рядом с ads.csv (extra_hooks, noise, currency) и пересобрать отчёт: хуки ниши получат силу сигнала по рекламодателям.');
@@ -1197,8 +1253,9 @@
     }
     // ...and an ad whose own text lacks the words of every query that found it is a loose match of the
     // Library's search, not evidence: it stays in the counts but out of the lists and the products.
-    const checkQuery = !!(opts.products && opts.products.query_match === true);
-    const loose = new Set(checkQuery ? rows.filter(r => queryMatch(r) === false).map(r => r.id) : []);
+    const checkQuery = opts.queryMatch === true || !!(opts.products && opts.products.query_match === true);
+    const looseAll = new Set(rows.filter(r => queryMatch(r, null, opts.queryIgnore) === false).map(r => r.id)); // always counted
+    const loose = checkQuery ? looseAll : new Set(); // ...and kept out of the lists only when the niche asks for it
     // ...and an ad that does not lead to the advertiser's own site (an affiliate link to Amazon, a marketplace,
     // a phone call, messages, no link) is not a store selling the product: products.doors lists the doors kept.
     const keepDoors = opts.products && Array.isArray(opts.products.doors) && opts.products.doors.length ? new Set(opts.products.doors) : null;
@@ -1369,6 +1426,7 @@
       fresh,
       products: opts.products ? { ...earlyProducts(liveRows.filter(fits), { now, currency, config: opts.products }), excluded_count: excludedPages.length, excluded_pages: excludedPages, query_check: checkQuery, loose_ads: loose.size, ads_checked: rows.length,
         doors_kept: keepDoors ? [...keepDoors] : null, other_door_ads: offDoor.size, other_doors: cnt([...offDoor.values()]) } : null,
+      query_check: { loose_ads: looseAll.size, ads_checked: rows.length, enforced: checkQuery },
       status_counts: { active: liveRows.length, stopped: stoppedRows.length },
       stopped,
       samples

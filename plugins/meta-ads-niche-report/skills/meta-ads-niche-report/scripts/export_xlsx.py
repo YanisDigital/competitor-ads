@@ -171,7 +171,7 @@ def main() -> None:
             values += ["превью" if shown.get("video") and shown.get("image") else "картинка" if shown.get("image") else None,
                        "видео" if shown.get("video") else None]
         if query_match is not None:
-            values += [{True: "да", False: "нет — случайное совпадение поиска"}.get(query_match.get(r["id"]), "")]
+            values += [{True: "да", False: "нет"}.get(query_match.get(r["id"]), "")]
         put(wa, i, values)
         for offset, key in ((0, "image"), (1, "video")):
             if key in shown:

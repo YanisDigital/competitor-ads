@@ -3,6 +3,29 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.15.7] - 2026-10-13
+
+From two studies run with the skill (used laptops in Ukraine and six EU countries in Russian; online travel for
+Russian speakers in Czechia). Both ran without a captcha or a rate limit, but the reports had four faults.
+
+### Fixed
+- Prices in other currencies were not counted: a Czech niche (`currency: CZK` in `niche.json`) showed 0 ads
+  with a price although 53 texts had "Kč". The price rules of the TikTok plugin are ported: CZK, EUR, PLN, GBP,
+  CHF, TRY, RON, HUF, SEK, DKK, NOK, ISK, BGN (amounts, "X instead of Y" pairs, "N% off" in several languages).
+  `currencyForCountry` knows the countries of the Library (CZ → CZK, PL → PLN, DE and the euro zone → EUR ...);
+  an unknown country keeps UAH. The base hook "цена в грн" counts the niche's own currency ("цена в CZK").
+- The base hooks of local services ("первый визит", "до/после", "запись/бронь", "адрес/район") were offered
+  as free angles for a travel niche. `local: false` (or an `online_only` preset) drops them; `skip_hooks` drops any base hook.
+- The search noise check (`queryMatch`, 0.15.4) worked for one preset only. It is now counted for every slice
+  (`report.query_check`; Excel ads sheet column "Слова запроса в тексте"). A slice that is not cleaned yet gets
+  the warning `loose_matches` when 30% or more of its ads lack the query words (on the two studies 69-97%).
+  `query_match: true` in `niche.json` or a preset keeps them out of the lists; `query_ignore` and the cities of
+  `run.json` (`scrape.py` now saves `--city-uk/--city-ru` as `cities`) are not required in the ad text.
+  After curation the column and the warning are off: a competitor's ad often has no query word.
+- An empty market was reported as "small sample" and the next steps offered creatives, sites and `--pages-of`
+  for zero advertisers. With a `curation.json` and two advertisers or fewer: the warning `empty_market` (with
+  active and stopped counts) and two next steps only, "decide what next" and "repeat in 2-4 weeks".
+
 ## [tiktok-ads-niche-report 0.1.5] - 2026-10-12
 
 ### Changed
