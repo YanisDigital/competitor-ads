@@ -3,6 +3,22 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [tiktok-ads-niche-report 0.1.6] - 2026-10-13
+
+The checks added to the Meta plugin in 0.15.7, for the TikTok plugin (the currencies were already there).
+
+### Fixed
+- The base hooks of a business with an address and appointments ("первый визит/заказ", "запись/бронь", "до/после",
+  "адрес/район") were offered as free angles for an online niche. `local: false` in `niche.json` or a preset drops
+  them; `skip_hooks` drops any base hook.
+- The search noise check, for every Ad Library slice: `queryMatch` (word endings ignored, short words and fillers
+  not required, the advertiser's name does not count, Creative Center ads are not checked), `query_check` in the
+  report, the warning `loose_matches` for a slice that is not cleaned when 30% or more of the ads lack the query
+  words. `query_match: true` in `niche.json` or a preset takes them out of the report (`loose_excluded` explains);
+  `query_ignore` and the cities of `run.json` are not required in the ad text.
+- An empty market was reported as "small sample" and the next steps offered details, creatives and sites for two
+  advertisers. After curation with two advertisers or fewer: the warning `empty_market` and two next steps only.
+
 ## [0.15.8] - 2026-10-13
 
 Less manual work around cleaning and re-collecting, from what the agent had to improvise in the used-laptops and

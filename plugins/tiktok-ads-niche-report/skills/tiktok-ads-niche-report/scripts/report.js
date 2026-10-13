@@ -42,15 +42,25 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   // opts0.curation: another snapshot's curation (compare.js applies the older one to a newer snapshot without its own).
   const curation = opts0.curation !== undefined ? opts0.curation : readJson(path.join(dir, 'curation.json'));
   const cur = C.applyCuration(allRows, curation);
-  const rows = cur.rows;
+  let rows = cur.rows;
   const opts = { longDays: meta.long_days || 60, now: ts, country: meta.country || '', source };
   if (preset) {
     opts.extraHooks = preset.extra_hooks || {};
     opts.noise = preset.noise || [];
     if (preset.currency) opts.currency = preset.currency;
     if (preset.base_hooks === false) opts.baseHooks = false;
+    if (preset.local === false) opts.local = false; // an online niche: no "first visit", "before/after", "sign up", "address" among the free angles
+    if (Array.isArray(preset.skip_hooks)) opts.skipHooks = preset.skip_hooks;
   }
   if (meta.cities && meta.cities.length) opts.cities = meta.cities;
+  // The Library matches any word of a query, also in the advertiser's name: how many ads lack the words of their query?
+  // (the cities of the run and query_ignore are not required in the ad text). With "query_match": true in niche.json
+  // or a preset those ads leave the report; otherwise they are only counted and warned about.
+  const queryIgnore = [...((preset && preset.query_ignore) || []), ...(meta.cities || [])];
+  const queryEnforced = !!(preset && preset.query_match === true);
+  const looseIds = new Set(source === 'library' ? rows.filter(r => C.queryMatch(r, null, queryIgnore) === false).map(r => r.id) : []);
+  const queryCheck = { loose_ads: looseIds.size, ads_checked: source === 'library' ? rows.length : 0, enforced: queryEnforced };
+  if (queryEnforced && looseIds.size) rows = rows.filter(r => !looseIds.has(r.id));
   const stats = C.queryStats(allRows, rows, { queries: meta.queries, limited: meta.capped_queries, totals: meta.totals, curated: !!curation });
   const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
   const manifest = readJson(path.join(dir, 'creatives', 'manifest.json'));
@@ -60,6 +70,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const creatives = C.uniqueTexts(rows.filter(r => r.source === 'library')).uniqRows;
   const unchecked = creatives.filter(r => !r.details).length;
   const warnings = C.snapshotWarnings({ source, advertisers: report.advertisers, ads: report.ads, creatives: creatives.length, unchecked, queryStats: stats, ts, preset,
+    curated: !!curation, queryCheck,
     blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   const has = f => fs.existsSync(path.join(dir, f));
@@ -70,9 +81,10 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     client: has('client.json') || fs.existsSync(path.join(path.dirname(path.resolve(dir)), 'client.json')),
     hypotheses: has('hypotheses.json'), lint: has('hypotheses_lint.json'), plan: has('test_plan.json'), sites: has('sites.json'), diff: has('diff.json'), preset: !!niche.preset_id, niche: niche.niche_file,
     cc_details: source === 'cc' && rows.some(r => r.details), library_country: C.isLibraryCountry(meta.country),
-    blocked: !!meta.blocked, queries: (meta.queries || []).length, queries_remaining: (meta.queries_remaining || []).length
+    blocked: !!meta.blocked, queries: (meta.queries || []).length, queries_remaining: (meta.queries_remaining || []).length,
+    empty_market: !!curation && source === 'library' && report.advertisers <= 2
   });
-  return { report, rows, query_stats: stats, warnings, visuals, next_steps,
+  return { report, rows, query_check: queryCheck, query_stats: stats, warnings, visuals, next_steps,
     meta: { ...meta, source, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };
 }
 

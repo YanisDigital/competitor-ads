@@ -317,10 +317,43 @@
     return 'Без ссылки';
   }
 
+  // Hooks that only make sense for a business with a place and appointments (an online niche has none of them).
+  const LOCAL_HOOKS = ['первый визит/заказ', 'запись/бронь', 'до/после', 'адрес/район'];
   function hookPatterns(opts = {}) {
     const hooks = opts.baseHooks === false ? {} : { ...HOOK_PATTERNS };
+    if (opts.baseHooks !== false) {
+      if (opts.local === false) for (const k of LOCAL_HOOKS) delete hooks[k];
+      for (const k of opts.skipHooks || []) delete hooks[k];
+    }
     for (const [k, src] of Object.entries(opts.extraHooks || {})) hooks[k] = new RegExp(src, 'u');
     return hooks;
+  }
+
+  // Does the ad's own text hold the words of a query that found it? The Library matches ANY word of a query, in the
+  // text and in the advertiser's name, so most of what comes back for "klub fitness" is not about fitness. Word endings
+  // are ignored (siłownia / siłowni), short words and fillers are not required, the advertiser's name does not count.
+  // true / false, or null when there is nothing to check (no query, or a Creative Center ad: it has no search).
+  const QUERY_FILLERS = new Set(['the', 'and', 'for', 'with', 'from', 'your', 'that', 'this', 'und', 'der', 'die', 'das', 'mit', 'für', 'dla', 'oraz', 'les', 'des', 'pour']);
+  const wordsOf = t => String(t || '').toLowerCase().slice(0, MAX_TEXT).match(/[\p{L}\d]+/gu) || [];
+  const sameWord = (a, b) => {
+    if (a === b) return true;
+    const m = Math.min(a.length, b.length);
+    if (m < 4) return false;
+    let i = 0;
+    while (i < m && a[i] === b[i]) i++;
+    return i >= Math.max(4, m - 2);
+  };
+  function queryMatch(r, queries, ignore) {
+    if (r.source === 'cc') return null;
+    const qs = (queries || r.kws || []).filter(Boolean);
+    if (!qs.length) return null;
+    const have = wordsOf([r.title, r.link, r.caption].join(' '));
+    const skip = (ignore || []).flatMap(w => wordsOf(w));
+    return qs.some(q => {
+      const ws = wordsOf(q).filter(w => !skip.some(k => sameWord(k, w)));
+      const need = ws.filter(w => w.length > 3 && !QUERY_FILLERS.has(w));
+      return (need.length ? need : ws).every(w => have.some(h => sameWord(h, w)));
+    });
   }
 
   // Prices in one (lowercased) text in a currency; "N% off" mentions.
@@ -488,8 +521,16 @@
     if (info.source === 'cc') {
       add('cc_sample', 'warn', 'Источник — Creative Center (Top Ads): это подборка самых результативных аукционных объявлений, которую делает TikTok, а не вся реклама ниши. Рекламодатели почти всегда скрыты, поиска по нише по сути нет (фильтр по отрасли и слову). Выводы — «что работает в отрасли», а не «что делают конкуренты».');
       if ((info.ads || 0) < 30) add('small_sample', 'warn', 'В выборке только ' + info.ads + ' объявлений: частоты хуков и форматов — гипотезы, не тренд.');
+    } else if (info.curated && (info.advertisers || 0) <= 2) {
+      add('empty_market', 'warn', 'После чистки в срезе ' + (info.advertisers || 0) + ' конкурентов и ' + (info.ads || 0) + ' объявлений. Это не «мало данных», а вывод: по этим запросам, стране и языку рынок в TikTok сейчас почти пуст, или так не ищут. Скажи это первой строкой отчёта. Что можно: другой язык и соседние страны, более длинный период показа (--period), повтор через 2-4 недели.');
     } else if ((info.advertisers || 0) < SMALL_SAMPLE) {
       add('small_sample', 'warn', 'В выборке только ' + info.advertisers + ' рекламодателей: выводы про хуки, форматы и «что работает» — гипотезы для проверки, а не тренд ниши.');
+    }
+    const qc = info.queryCheck;
+    if (info.source === 'library' && qc && qc.ads_checked >= 20 && qc.loose_ads / qc.ads_checked >= 0.3) {
+      const pct = Math.round(100 * qc.loose_ads / qc.ads_checked);
+      if (qc.enforced) add('loose_excluded', 'info', 'У ' + qc.loose_ads + ' из ' + qc.ads_checked + ' объявлений (' + pct + '%) в тексте нет слов запроса: TikTok ищет любое слово запроса, в том числе в названии рекламодателя. В отчёт они не вошли (query_match в niche.json).');
+      else if (!info.curated) add('loose_matches', 'warn', 'У ' + qc.loose_ads + ' из ' + qc.ads_checked + ' объявлений (' + pct + '%) в тексте нет слов запроса: TikTok ищет любое слово запроса, в том числе в названии рекламодателя. Это шум выдачи: чисти рекламодателей по смыслу (curation.json) или включи "query_match": true в niche.json, иначе хуки и долгожители посчитаны и по чужим объявлениям.');
     }
     const capped = stats.filter(q => q.capped);
     if (capped.length) add('capped', 'info', 'По ' + capped.length + ' из ' + stats.length + ' запросов собрана только часть выдачи (лимит страниц за прогон): ' + capped.map(q => q.query).join(', ') + '.');
@@ -510,6 +551,11 @@
     const s = st || {};
     const out = [];
     const add = (code, title, why, how, extra = {}) => out.push({ code, title, why, urgent: false, needs: '', how, ...extra });
+    if (s.empty_market) { // nothing to analyse: no details, creatives, sites, briefs or hypotheses on two advertisers
+      add('empty_market', 'Рынок пуст: решить, что дальше', 'После чистки конкурентов не больше двух. Детали, креативы, сайты и гипотезы здесь ничего не дадут.', 'Сказать пользователю вывод «в TikTok по этим запросам, стране и языку конкурентов почти нет». Если нужно глубже: другой язык, соседние страны, --period 365; либо смежная ниша.', { urgent: true });
+      add('compare', 'Повторить срез через 2-4 недели', 'Пустой рынок может измениться: сезон, новый игрок.', 'Те же запросы и фильтры, затем node compare.js <старый> <новый>.');
+      return out;
+    }
     if (s.blocked) add('resume', 'Дособрать запросы, которые не успели', 'TikTok остановил сбор (капча или окно входа): в срезе ' + (s.queries || 0) + ' запросов, ещё ' + (s.queries_remaining || 0) + ' не выполнены.', 'Подождать несколько часов, затем запустить только оставшиеся запросы из run.json (queries_remaining) с большей паузой --delay, в отдельную папку; обхода капчи нет.', { urgent: true });
     if (s.source === 'library' && !s.curated) add('curate', 'Отобрать конкурентов (curation.json)', 'Поиск идёт по тексту объявлений и названию рекламодателя, поэтому в срезе есть не конкуренты. Без чистки детали, креативы и гипотезы уходят на чужих.', 'Прочитать топ рекламодателей по смыслу, спорных обсудить, решение записать в curation.json рядом с ads.csv.');
     if (s.source === 'cc' && !s.curated) add('curate_cc', 'Убрать нерелевантные объявления (curation.json → exclude_ids)', 'Отрасль в Creative Center широкая: в подборку попадают соседние товары и услуги.', 'Просмотреть объявления, id лишних записать в curation.json → "exclude_ids".');
@@ -1512,7 +1558,7 @@
       applyCuration, queryStats, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, strengthOf,
       CREATIVE_TAGS, videoFramePlan, aspectOf, creativeMedia, selectCreatives, lintCreatives, creativesSummary,
       lintHypotheses, TIKTOK_CTAS, CC_INDUSTRIES, COST_NAMES, buildReport,
-      siteFacts, compareAdVsSite, pixelsIn, isTrackerLink, payerDiffers, prioritizeHypotheses, planTests, VARIABLE_TYPES, diffSnapshots, runDays, isActive, reachRank, pickForDetails,
+      siteFacts, compareAdVsSite, pixelsIn, isTrackerLink, queryMatch, payerDiffers, prioritizeHypotheses, planTests, VARIABLE_TYPES, diffSnapshots, runDays, isActive, reachRank, pickForDetails,
       toCsv, parseCsv, CSV_COLS, uniqueTexts, libraryAdUrl, ccAdUrl, adUrl, advertiserUrl
     };
   }
