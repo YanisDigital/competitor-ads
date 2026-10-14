@@ -113,3 +113,21 @@ Expected — the Library searches ad *text*, not advertiser category. Use
 `report().top_pages`, or call out irrelevant categories as a separate
 paragraph in the report instead of silently dropping them (e.g. "courses
 for beauty professionals" is real signal, just not a competitor).
+
+## Google Trends (`trends.py`): 429, empty phrases, brands in the rising queries
+
+- **`Google Trends answered 429` / "unusual traffic" on every phrase.** Google throttles the
+  address (it happens after a few dozen loads in an evening). The script already waits 60 s once
+  and stops after two failures in a row, keeping what it fetched. Wait several hours; keep
+  `--delay` at 15 s or more and `--max-phrases` small. Phrases fetched are cached for 3 days in
+  `<folder>/trends/cache/` and are not requested again. There is no way around it, and none is tried.
+- **Every phrase is `insufficient`.** A narrow or local phrase has no measurable search
+  volume. Use a wider phrase (the service without the city) through `--phrases`, and a narrower
+  `--geo` only if the region has volume.
+- **A clinic or network name in `trends/suggested-queries.txt`.** Rising queries often include
+  brands. Delete those lines before searching the Ad Library with the file.
+- **`Bad --geo` / `Bad --lang`.** A country (`UA`) or a region (`UA-51`) in capitals; a language such as `uk`, `ru`, `pl`, `en-US`.
+- **The Explore page changed and nothing is captured.** The script reads the page's own
+  `widgetdata/multiline` and `relatedsearches` answers. If Google renames them, the run ends
+  with "no timeline data"; read the curve by hand (Explore, download the CSV) and write
+  `trends/raw.json` (format in the header of `trends.js`).

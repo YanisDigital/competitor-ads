@@ -50,6 +50,8 @@ dl{margin:.4em 0;display:grid;grid-template-columns:minmax(0,max-content) minmax
 .note.urgent{border-left-color:var(--err)}.gal{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-top:12px}figure{margin:0;font-size:.85rem}figure.wide{grid-column:span 2}@media(max-width:420px){figure.wide{grid-column:auto}}img.cr{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:6px}
 @media print{body{background:#fff;color:#000}details{border:1px solid #999}details>*{display:block}details:not([open])>*:not(summary){display:block}.card,.tw{break-inside:avoid}}`;
 
+const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+
 function buildHtml(m) {
   const { report: r, meta = {}, rows = [] } = m;
   const total = r.ads || rows.length;
@@ -178,6 +180,28 @@ function buildHtml(m) {
     if (r.creative_clusters.length) out.push(`<section class="card"><h3>Один текст на разных страницах</h3>${r.creative_clusters.map(c => `<p><b>${esc(c.pages.length)} стр.</b>, старейшее ${esc(c.oldest_days)} дн.: ${esc(c.text)}<br><span class="mut">${esc(c.pages.join('; '))}</span></p>`).join('')}</section>`);
     if (r.store_groups.length) out.push(`<section class="card"><h3>Страницы с общим сайтом</h3>${r.store_groups.map(g => `<p><b>${esc(g.site)}</b><br><span class="mut">${esc(g.pages.join('; '))}</span></p>`).join('')}</section>`);
     out.push('</div>');
+  }
+
+  if (m.trends && m.trends.phrases && m.trends.phrases.length) {
+    const t = m.trends, n = t.niche || {};
+    const ST = { new: 'новый спрос', rising: 'растёт', flat: 'ровно', established: 'устойчивый', mature: 'старый пик', declining: 'падает', insufficient: 'мало данных', error: 'ошибка' };
+    const pctTxt = v => (v === null || v === undefined ? '-' : (v > 0 ? '+' : '') + Math.round(v * 100) + '%');
+    out.push('<h2>Спрос и сезонность (Google Trends)</h2><p class="mut">Поиск Google' + (t.geo ? ', ' + esc(t.geo) : '') + (t.period ? ', период ' + esc(t.period) : '') + '. Значения 0–100 относительны внутри одной фразы: фразы между собой по числам не сравнивать. Рост это последние 52 недели против предыдущих 52 (сезон не мешает). Узкая местная фраза часто «мало данных»: это ответ, а не ошибка. Спрос в поиске не равен спросу на ваши услуги и не доказывает, что реклама работает.</p>');
+    out.push('<div class="cards">' + [
+      ['Спрос', n.direction === 'growing' ? 'растёт' : n.direction === 'shrinking' ? 'падает' : n.direction === 'steady' ? 'ровный' : 'мало данных', n.growth_52w !== null && n.growth_52w !== undefined ? pctTxt(n.growth_52w) + ' за год (главные фразы)' : 'фраз с данными: ' + esc(n.measurable || 0)],
+      ['Пик спроса', n.season ? n.season.peak_name : '-', n.season ? 'провал: ' + n.season.low_name : 'устойчивого сезона нет'],
+      ['Срез сделан', n.season_now ? (n.season_now.level === 'peak' ? 'в пик' : n.season_now.level === 'low' ? 'в низкий сезон' : 'в норму') : '-', n.season_now ? n.season_now.month_name + ': ' + Math.round(n.season_now.index * 100) + '% от нормы' : 'сезон не определён']
+    ].map(([label, val, sub]) => `<div class="card kpi"><span>${esc(label)}</span><b>${esc(val)}</b><span>${esc(sub)}</span></div>`).join('') + '</div>');
+    const lead = (t.phrases || []).find(p => p.season && p.season.consistent);
+    if (lead) {
+      const mx = Math.max(...lead.season.months), now = n.season_now ? n.season_now.month : 0;
+      out.push('<section class="card"><h3>Какой месяц насколько сильный (по фразе «' + esc(lead.phrase) + '», 1.00 = обычный месяц)</h3>' + lead.season.months.map((v, i) =>
+        `<div class="bar"><span class="bl">${esc(MONTHS[i])}${now === i + 1 ? ' ◀ срез' : ''}</span><span class="bt"><i style="width:${Math.min(100, Math.round(100 * v / mx))}%"></i></span><span class="bn">${esc(v.toFixed(2))}</span></div>`).join('') + '</section>');
+    }
+    out.push(table(['Фраза', 'Статус', 'За год', 'Пик', 'Растущие запросы (для поиска в Библиотеке)', 'Растущие запросы (углы и офферы)'],
+      t.phrases.map(p => [esc(p.phrase), chip(ST[p.status] || p.status, p.status === 'error' ? 'error' : ''), p.growth_52w !== undefined ? esc(pctTxt(p.growth_52w)) : '-',
+        p.season && p.season.consistent ? esc(p.season.peak_name) : '-', (p.rising_queries || []).map(q => chip(q.query + (q.label ? ' ' + q.label : ''))).join('') || '-', (p.rising_angles || []).map(q => chip(q.query + (q.label ? ' ' + q.label : ''))).join('') || '-'])));
+    if (n.by_status && n.by_status.error) out.push('<div class="note">Часть фраз не получена: Google Trends ограничил запросы. Повтори через несколько часов, готовое берётся из кеша.</div>');
   }
 
   if (m.sites && m.sites.length) {

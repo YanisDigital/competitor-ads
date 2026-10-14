@@ -136,6 +136,7 @@ English version: [README.md](README.md)
 |---|---|---|---|
 | Сбор | «сделай срез по ...» | `scrape.py` | `ads.csv`, `report.json`, `run.json` |
 | Сайты лидеров | «проверь сайты лидеров» | `check_sites.py` | `sites.json`, `sites/*.png` |
+| Спрос и сезонность | «насколько велик и сезонен спрос» | `trends.py` + `trends.js` | `trends/raw.json`, `trends.json` |
 | Бриф клиента | (Claude задаёт до 5 вопросов) | `client_fit.js` | `client.json` (в папке среза или уровнем выше) |
 | Гипотезы | «напиши гипотезы объявлений» | Claude | `hypotheses.json` |
 | Проверка текстов | (автоматически) | `lint_hypotheses.js` | `hypotheses_lint.json` |
@@ -145,7 +146,7 @@ English version: [README.md](README.md)
 
 | Скрипт | Что нужно |
 |---|---|
-| `scrape.py`, `check_sites.py` | Python 3.10+, Playwright, а для `check_sites.py` ещё Node.js |
+| `scrape.py`, `check_sites.py`, `trends.py` | Python 3.10+, Playwright, а для `check_sites.py` и `trends.py` ещё Node.js |
 | `compare.js`, `client_fit.js`, `lint_hypotheses.js`, `plan_tests.js`, `export_html.js` | Node.js |
 | `export_xlsx.py` | Python, `openpyxl`, Node.js |
 
@@ -176,6 +177,22 @@ CLI: `python scrape.py --preset beauty --city-uk Одеса --city-ru Одесс
 `extra_hooks`, `noise` и положи в ту же папку. В пресете можно также задать
 `country`, `currency`, `base_hooks` и `online_only` (убирает локальные
 магазины и крупные платформы из списка долгожителей).
+
+## Спрос и сезонность (Google Trends)
+
+`trends.py <срез>` спрашивает у Google Trends, насколько велик и сезонен спрос на нишу. Берёт
+фразы ниши (услуги пресета на одном языке, слова запросов из `run.json` или `--phrases`),
+открывает страницу Explore в Playwright и читает её собственные ответы: без входа, без
+неофициальных библиотек и ключей. Затем `trends.js` считает `trends.json`: статус каждой
+фразы (`new`, `rising`, `flat`, `established`, `mature`, `declining`, `insufficient`; последние
+52 недели против предыдущих 52, поэтому сезон не выглядит ростом), профиль по месяцам (пик,
+провал и в какой точке сезона сделан срез) и растущие запросы в двух группах: запросы услуг
+для следующего поиска в Библиотеке и углы (цена, отзывы, рассрочка: идеи хуков и офферов). В
+отчёте появляются предупреждения `demand_peak` (срез из сезона высокого спроса, часть рекламы
+временная), `demand_low` и `demand_shrinking`, раздел в HTML и лист в Excel. `--geo UA-51`
+сужает до региона. Лимитов Google не публикует: скрипт делает одну загрузку на фразу с паузой
+15 с, один повтор через 60 с, кеширует на 3 дня и останавливается после двух неудач подряд
+(429 не обходит). У узкой местной фразы спроса часто не измерить: это ответ, а не ошибка.
 
 ## Проверка сайтов лидеров
 

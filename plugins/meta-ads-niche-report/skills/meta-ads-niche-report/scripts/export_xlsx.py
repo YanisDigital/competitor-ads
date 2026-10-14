@@ -8,7 +8,8 @@ Needs openpyxl (`pip install openpyxl`; not installed silently). The report
 numbers come from collector.js via report.js (node), so this script does not
 reimplement any aggregation; it only lays the results out. If node is not
 available it falls back to the folder's report.json (some columns stay empty).
-If the folder has a diff.json (from compare.js) a "Changes" sheet is added; with
+If the folder has a diff.json (from compare.js) a "Changes" sheet is added; with a
+trends.json (trends.py: Google Trends) a "Спрос (Trends)" sheet with demand, season and rising queries; with
 creatives/manifest.json (fetch_creatives.py) a "Creatives" sheet with thumbnails
 (embedded only when Pillow is installed) and a summary block of the tags.
 
@@ -491,6 +492,48 @@ def main() -> None:
         table("Новые страницы", ["Страница", "Объявлений"], [[p["page"], p["ads"]] for p in d["pages"]["new"]])
         table("Страницы, которые пропали", ["Страница"], [[p] for p in d["pages"]["gone"]])
         table("Страницы, выросшие на 3+ объявления", ["Страница", "Было", "Стало"], [[p["page"], p["prev"], p["curr"]] for p in d["pages"]["grew"]])
+
+    # ---- Demand and season (only if trends.py was run: trends.json from Google Trends) ----
+    tr_path = folder / "trends.json"
+    if tr_path.exists():
+        tr = json.loads(tr_path.read_text(encoding="utf-8"))
+        wt = wb.create_sheet("Спрос (Trends)")
+        for col, w in zip("ABCDEFGHI", (30, 16, 10, 12, 14, 12, 48, 48, 60)):
+            wt.column_dimensions[col].width = w
+        status_ru = {"new": "новый спрос", "rising": "растёт", "flat": "ровно", "established": "устойчивый", "mature": "старый пик",
+                     "declining": "падает", "insufficient": "мало данных", "error": "ошибка"}
+        niche = tr.get("niche") or {}
+        wt["A1"] = f"Google Trends: {tr.get('geo', '')}, период {tr.get('period', '')}"
+        wt["A1"].font = f_bold
+        direction = {"growing": "растёт", "steady": "ровный", "shrinking": "падает"}.get(niche.get("direction"), "мало данных")
+        season = niche.get("season") or {}
+        now = niche.get("season_now") or {}
+        info = [("Спрос по главным фразам", direction + (f" ({round(100 * niche['growth_52w'])}% за год)" if niche.get("growth_52w") is not None else "")),
+                ("Пик спроса / провал", f"{season.get('peak_name', '-')} / {season.get('low_name', '-')}" if season else "устойчивого сезона нет"),
+                ("Срез сделан", now.get("note", "сезон не определён"))]
+        for i, (k, v) in enumerate(info, 3):
+            put(wt, i, [k, v])
+        wt.cell(row=6, column=1, value="Значения 0-100 относительны внутри одной фразы; рост = последние 52 недели против предыдущих 52. Спрос в поиске не доказывает, что реклама работает.").font = f_note
+        heads = ["Фраза", "Статус", "За год, %", "Пик", "Сейчас от пика, %", "Мало данных", "Растущие запросы (для Библиотеки)", "Растущие запросы (углы и офферы)", "Заметка"]
+        for i, h in enumerate(heads, 1):
+            c = wt.cell(row=8, column=i, value=h)
+            c.font, c.fill = f_head, fill_head
+        for r_i, p in enumerate(tr.get("phrases", []), 9):
+            q = "; ".join(f"{x['query']} {x.get('label', '')}".strip() for x in p.get("rising_queries", []))
+            a = "; ".join(f"{x['query']} {x.get('label', '')}".strip() for x in p.get("rising_angles", []))
+            pk = (p.get("season") or {}).get("peak_name") if (p.get("season") or {}).get("consistent") else None
+            put(wt, r_i, [p["phrase"], status_ru.get(p.get("status"), p.get("status")),
+                          round(100 * p["growth_52w"]) if p.get("growth_52w") is not None else None, pk,
+                          round(100 * p["now_vs_peak"]) if p.get("now_vs_peak") is not None else None,
+                          "да" if p.get("low_volume") else None, q or None, a or None, p.get("note")])
+        lead = next((p for p in tr.get("phrases", []) if (p.get("season") or {}).get("consistent")), None)
+        if lead:
+            r0 = 9 + len(tr.get("phrases", [])) + 1
+            wt.cell(row=r0, column=1, value=f"Сезонность по фразе «{lead['phrase']}» (1.00 = обычный месяц)").font = f_bold
+            names = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]
+            for i, (nm, v) in enumerate(zip(names, lead["season"]["months"])):
+                put(wt, r0 + 1 + i, [nm, v])
+        wt.freeze_panes = "A9"
 
     # ---- Hypotheses (only if Claude saved hypotheses.json next to the snapshot) ----
     hyp_path = folder / "hypotheses.json"

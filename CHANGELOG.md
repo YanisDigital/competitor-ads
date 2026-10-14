@@ -3,6 +3,36 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.16.0] - 2026-10-14
+
+Demand and season of the niche from Google Trends, next to what the competitors advertise. The report said what
+competitors say; it could not say how many people search, when, or whether the snapshot was taken at a seasonal
+peak (when part of the ads is temporary).
+
+### Added
+- `trends.py <slice> [--geo UA-51] [--lang uk] [--phrases ...] [--period] [--max-phrases] [--delay] [--chrome]`: opens
+  Google Trends Explore in Playwright for the niche phrases (the preset's services in one language, the queries of
+  `run.json`, or `--phrases`) and keeps the page's own data answers in `trends/raw.json`: no login, no unofficial
+  library, no key. One page load per phrase, a warm-up visit, a pause of 15 s (never under 10), one retry after 60 s,
+  20 loads per run at most, raw answers cached for 3 days, a stop after two failures in a row (exit code 3, what was
+  fetched is kept). A 429 or an "unusual traffic" page is never worked around.
+- `trends.js <slice>`: computes `trends.json` from the raw answers (the single place for the numbers): a status per phrase
+  (`new`, `rising`, `flat`, `established`, `mature`, `declining`, `insufficient`; the last 52 weeks against the 52 before,
+  so a season does not look like growth), the month profile of the last full years (peak, low, steadiness) and where the
+  snapshot sits in it, and the rising and Breakout related queries in two groups: service queries for the next Ad Library
+  search and angles (price, reviews, instalments, "painless": ideas for hooks and offers). `trends.js queries <slice>` writes
+  them to `trends/suggested-queries.txt`.
+- The report: warnings `demand_peak` (a snapshot from a high season), `demand_low` (information only) and
+  `demand_shrinking`; `trends` in `report.js` output; a section "Спрос и сезонность (Google Trends)" in the HTML report; a
+  sheet "Спрос (Trends)" in the Excel table; the next step `trends` (on request only: it contacts a third-party site).
+- SKILL.md step 5Б, README sections, troubleshooting for 429 and empty phrases.
+
+### Notes
+- Google publishes no limits for Trends and its official API is a closed alpha; a narrow or local phrase often has no
+  measurable volume (`insufficient` is an answer, not an error), and the demand in search is not the demand for the client's
+  service and does not prove that the competitors' ads work.
+- Tests: `tests/trends.test.mjs`, `tests/trends_py.test.mjs`; `defaults.test.mjs` counts Trends among the steps of "everything done".
+
 ## [tiktok-ads-niche-report 0.1.6] - 2026-10-13
 
 The checks added to the Meta plugin in 0.15.7, for the TikTok plugin (the currencies were already there).

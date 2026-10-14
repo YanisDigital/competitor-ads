@@ -74,10 +74,11 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   // tags Claude wrote for them (creatives.json).
   const manifest = readJson(path.join(dir, 'creatives', 'manifest.json'));
   const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
+  const trends = readJson(path.join(dir, 'trends.json')); // demand and season from trends.py (Google Trends)
   const report = buildReport(rows, opts);
   const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads,
     curated: !!curation, activeAds: report.status_counts.active, queryCheck: report.query_check,
-    blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
+    blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned, trends })
     .concat(visuals ? visuals.warnings : []);
   // What the folder already has, for the "what else can be done" block.
   const has = f => fs.existsSync(path.join(dir, f));
@@ -85,14 +86,14 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const next_steps = nextSteps({
     curated: !!curation, has_image_links: allRows.some(r => r.image_url), has_page_id: allRows.some(r => r.page_id),
     age_days: Math.max(0, (now - ts) / 86400), manifest: !!manifest, downloaded: visuals ? visuals.downloaded : 0, labeled: visuals ? visuals.labeled : 0,
-    sites: has('sites.json'), client: has('client.json') || fs.existsSync(path.join(path.dirname(path.resolve(dir)), 'client.json')),
+    sites: has('sites.json'), trends: has('trends.json'), client: has('client.json') || fs.existsSync(path.join(path.dirname(path.resolve(dir)), 'client.json')),
     hypotheses: has('hypotheses.json'), plan: has('test_plan.json'), diff: has('diff.json'), eu_country: isEuCountry(meta.country), eu: !!euData,
     preset: !!niche.preset_id, niche: niche.niche_file, pages_of: !!meta.pages_of,
     rate_limited: (meta.rate_limited_queries || []).length, queries: (meta.queries || []).length,
     blocked: !!meta.blocked, queries_remaining: (meta.queries_remaining || []).length,
     empty_market: !!curation && report.advertisers <= 2
   });
-  return { report, doors, query_match, rows, query_stats: stats, warnings, eu, visuals, next_steps,
+  return { report, doors, query_match, rows, query_stats: stats, warnings, eu, visuals, trends, next_steps,
     meta: { ...meta, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };
 }
 
@@ -115,8 +116,8 @@ if (require.main === module) {
     console.error(e.message);
     process.exit(1);
   }
-  const { report, doors, query_match, meta, query_stats, warnings, eu, visuals, next_steps } = snap;
-  const json = JSON.stringify({ report, doors, query_match, meta, query_stats, warnings, eu, visuals, next_steps });
+  const { report, doors, query_match, meta, query_stats, warnings, eu, visuals, trends, next_steps } = snap;
+  const json = JSON.stringify({ report, doors, query_match, meta, query_stats, warnings, eu, visuals, trends, next_steps });
   if (saveTo) {
     fs.writeFileSync(saveTo, json, 'utf8');
     console.log(`Saved: ${saveTo} (the report after curation.json, niche.json and the preset)`);
