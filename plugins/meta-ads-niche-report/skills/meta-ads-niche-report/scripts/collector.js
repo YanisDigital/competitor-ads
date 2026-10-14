@@ -512,12 +512,6 @@
     const empty = stats.filter(q => q.ads === 0);
     if (empty.length) add('empty_queries', 'info', 'Запросы без единого объявления: ' + empty.map(q => q.query).join(', ') + '. Либо нишу так не ищут, либо формулировка не та.');
     for (const s of seasonWarnings(info.ts, info.preset && info.preset.seasons)) add('seasonal', 'warn', 'Срез сделан в сезон «' + s.name + '»' + (s.note ? ': ' + s.note : '') + '. Часть рекламы временная, повтори срез после сезона и не принимай её за обычное состояние ниши.');
-    // Google Trends of the niche (trends.json, scripts/trends.js): where the snapshot sits in the season and where demand goes.
-    // The season is computed from the demand curve, so no hand-written `seasons` window is needed for it.
-    const tn = info.trends && info.trends.niche;
-    if (tn && tn.season_now && tn.season_now.level === 'peak') add('demand_peak', 'warn', 'Срез сделан в сезон высокого спроса по Google Trends: ' + tn.season_now.note + '. Не принимай всю рекламу за обычное состояние ниши, повтори срез в сезон низкого спроса.');
-    else if (tn && tn.season_now && tn.season_now.level === 'low') add('demand_low', 'info', 'Срез сделан в сезон низкого спроса по Google Trends: ' + tn.season_now.note + '. Это нормальный уровень активности для этого месяца, а не провал ниши.');
-    if (tn && tn.direction === 'shrinking') add('demand_shrinking', 'warn', 'Спрос в поиске Google падает: за год ' + Math.round((tn.growth_52w || 0) * 100) + '% по главным фразам ниши (' + (tn.lead_phrases || []).join(', ') + '). Реклама конкурентов может держаться на инерции.');
     if (info.stoppedAds > 0) add('stopped_included', 'info', 'В выборке ' + info.stoppedAds + ' остановленных объявлений: возраст, долгожители и хуки долгожителей считаются только по работающим, остановленные вынесены в отдельный блок (сколько дней показывались).');
     if (info.preset && info.preset.policy) add('policy', 'info', info.preset.policy);
     return w;
@@ -556,7 +550,6 @@
     else if (!s.hypotheses) add('hypotheses', 'Гипотезы объявлений по брифу', 'Бриф есть, гипотез ещё нет.', 'Записать hypotheses.json по правилам SKILL.md, затем node lint_hypotheses.js <срез>.');
     else if (!s.plan) add('test_plan', 'Автопроверка текстов и план теста', 'Гипотезы есть, но порядок запуска и бюджет не посчитаны.', 'node lint_hypotheses.js <срез>, затем node plan_tests.js <срез>.');
     if (s.eu_country && !s.eu) add('eu', 'Охват и аудитория в ЕС', 'Для объявлений в ЕС Meta публикует охват и возраст/пол охваченных, в срезе их пока нет.', 'python eu_details.py <срез> --limit 20', { needs: 'только по просьбе пользователя: запросы к Meta' });
-    if (!s.trends) add('trends', 'Спрос и сезонность в Google Trends', 'Неизвестно, растёт ли спрос на нишу, в какой месяц пик и в сезон ли сделан срез: реклама в пик частично временная. Ещё Trends подсказывает растущие запросы для следующего поиска.', 'python trends.py <срез> (для региона --geo UA-51), затем отчёт пересобирается сам; запросы для Библиотеки: node trends.js queries <срез>.', { needs: 'только по просьбе пользователя: запросы к Google Trends' });
     if (!s.diff) add('compare', 'Повторить срез через 1-2 недели и сравнить', 'Один срез это снимок: что масштабируют конкуренты и какие тесты они выключили, видно только в динамике.', 'Тот же пресет или те же запросы без --out, затем node compare.js out/<ниша>.');
     return out;
   }

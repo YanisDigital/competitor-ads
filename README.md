@@ -132,7 +132,6 @@ never published). Each step reads what the earlier ones wrote:
 |---|---|---|---|
 | Collect | "make a snapshot for ..." | `scrape.py` | `ads.csv`, `report.json`, `run.json` |
 | Check the leaders' sites | "check the sites of the leaders" | `check_sites.py` | `sites.json`, `sites/*.png` |
-| Demand and season | "how big and how seasonal is the demand" | `trends.py` + `trends.js` | `trends/raw.json`, `trends.json` |
 | Client brief | (Claude asks up to 5 questions) | `client_fit.js` | `client.json` (in the folder or its parent) |
 | Hypotheses | "write ad hypotheses" | Claude | `hypotheses.json` |
 | Check the texts | (automatic) | `lint_hypotheses.js` | `hypotheses_lint.json` |
@@ -142,7 +141,7 @@ never published). Each step reads what the earlier ones wrote:
 
 | Script | Needs |
 |---|---|
-| `scrape.py`, `check_sites.py`, `trends.py` | Python 3.10+, Playwright, and for `check_sites.py` and `trends.py` Node.js |
+| `scrape.py`, `check_sites.py` | Python 3.10+, Playwright, and for `check_sites.py` Node.js |
 | `compare.js`, `client_fit.js`, `lint_hypotheses.js`, `plan_tests.js`, `export_html.js` | Node.js |
 | `export_xlsx.py` | Python, `openpyxl`, Node.js |
 
@@ -187,24 +186,6 @@ the page shows but the ads don't mention, ad prices not found on the page. A
 mismatch is a lead, not proof (banners and pop-ups may be missing from the
 page text). Sites with a bot challenge are skipped, never bypassed; at most 10
 sites per run.
-
-## Demand and season (Google Trends)
-
-`trends.py <snapshot>` asks Google Trends how big and how seasonal the demand for the niche is.
-It takes the niche phrases (the preset's services in one language, or the words of
-`run.json`'s queries, or `--phrases`), opens the Explore page in Playwright for each one and
-keeps the page's own data answers: no login, no unofficial library, no key. `trends.js` then
-computes `trends.json`: a status per phrase (`new`, `rising`, `flat`, `established`, `mature`,
-`declining`, `insufficient`; the last 52 weeks against the 52 before, so a season does not
-look like growth), the month profile (peak, low, and where the snapshot was taken), and the
-rising queries in two groups: service queries to search in the Ad Library next, and angles
-(price, reviews, instalments: ideas for hooks and offers). The report then carries the
-warnings `demand_peak` (the snapshot is from a high season, so part of the ads is
-temporary), `demand_low` and `demand_shrinking`, a section in the HTML report and a sheet in
-the Excel table. `--geo UA-51` narrows it to a region. Google publishes no limits: the script
-makes one page load per phrase with a 15 s pause, retries once after 60 s, caches for 3 days
-and stops after two failures in a row (it never works around a 429). A narrow local phrase
-often has no measurable demand: that is an answer, not an error.
 
 ## Ad hypotheses
 

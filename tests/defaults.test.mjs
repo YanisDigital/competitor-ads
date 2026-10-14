@@ -126,7 +126,7 @@ test('nextSteps: all ads of competitors, Meta limit, niche hooks, EU, brief and 
 });
 
 test('nextSteps: when everything is done only the comparison in 1-2 weeks is left', () => {
-  const all = { curated: true, manifest: true, downloaded: 30, labeled: 30, sites: true, client: true, hypotheses: true, plan: true, pages_of: true, niche: true, trends: true };
+  const all = { curated: true, manifest: true, downloaded: 30, labeled: 30, sites: true, client: true, hypotheses: true, plan: true, pages_of: true, niche: true };
   assert.deepEqual(codes(all), ['compare']);
   assert.deepEqual(codes({ ...all, diff: true }), []);
 });
