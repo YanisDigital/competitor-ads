@@ -41,7 +41,7 @@ const ROWS = [
   ad('Story Page', 20, 'https://story.example/products/kitchen-thing', 'The kitchen table again', 'A long story that has nothing to do with it', 'clogged drain'),
   ad('Store B', 20, 'https://store-b.example/products/drain-cover', 'Stop drain clogs', 'Hair catcher for every shower drain', 'clogged drain'),
   // a service company is recognised by its page name; a product ad may mention plumbing
-  ad('Bossier Elite Plumbing & Air', 120, 'https://bossier.example/', 'Clogged drain? Call us', 'Same-day drain clearing in Bossier', 'clogged drain'),
+  ad('Elite Plumbing & Air', 120, 'https://elite-plumbing.example/', 'Clogged drain? Call us', 'Same-day drain clearing in town', 'clogged drain'),
   ad('Store C', 20, 'https://store-c.example/products/c-shaped-organizer', 'Under sink organizer', 'Curves around the plumbing and doubles your space', 'under sink organizer')
 ];
 
@@ -53,7 +53,7 @@ test('buildReport (products preset): loose matches stay out of the lists and the
   const lists = [...r.longrun.map(x => x.page), ...r.samples.map(x => x.page), ...r.products.top.flatMap(p => p.pages)];
   assert.ok(!lists.includes('Story Page'));
   assert.ok(lists.includes('Store A') && lists.includes('Store B'));
-  assert.ok(r.products.excluded_pages.some(e => e.page === 'Bossier Elite Plumbing & Air' && e.flags.includes('локальные услуги/ремонт')), 'service company by its name');
+  assert.ok(r.products.excluded_pages.some(e => e.page === 'Elite Plumbing & Air' && e.flags.includes('локальные услуги/ремонт')), 'service company by its name');
   assert.ok(!r.products.excluded_pages.some(e => e.page === 'Store C'), 'a product ad that mentions plumbing stays');
   assert.equal(r.ads, ROWS.length, 'the counts still hold every ad');
 });

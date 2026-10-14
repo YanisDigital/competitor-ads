@@ -354,7 +354,7 @@ def main() -> None:
             put(wpr, i, [p["name"], "", "сильный" if p.get("strong") else "подходит" if p.get("early") else "нет", p["stores"], p["oldest_days"], p["ads"], p["variants"], p["fresh_ads"],
                          shown, "  ".join(p["ad_urls"]), "  ".join(p["store_urls"]), "; ".join(p["red_flags"] or p["reasons"]) + (("; осторожно: " + p["caution"]) if p.get("caution") else ""), "", "", None, ""])
             for col, key in ((10, "ad_urls"), (11, "store_urls")):
-                if p[key]:
+                if p[key] and str(p[key][0]).lower().startswith(("http://", "https://")):  # a link from an ad: web links only
                     wpr.cell(row=i, column=col).hyperlink = p[key][0]
                     wpr.cell(row=i, column=col).font = f_link
         wpr.cell(row=len(prods["top"]) + 3, column=1, value=(

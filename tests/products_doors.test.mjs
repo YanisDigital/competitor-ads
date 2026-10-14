@@ -29,8 +29,8 @@ const ROWS = [
   ad('Wholesale Page', 120, 'https://www.alibaba.com/product-detail/hair-catcher.html', 'Hair catcher'),
   ad('Call Page', 120, '', 'Hair catcher', 'Call now', 'CALL_NOW'),
   ad('Shower Pros', 20, 'https://own-2.example/products/hair-catcher-pro', 'Hair catcher pro'),
-  ad('Ultimate Finish Marble polishing and tile cleaning', 120, 'https://finish.example/', 'Hair catcher'),
-  ad('Advantage Water Conditioning', 120, 'https://advantage.example/', 'Hair catcher')
+  ad('Pro Marble polishing and tile cleaning', 120, 'https://pro-marble.example/', 'Hair catcher'),
+  ad('Clear Water Conditioning', 120, 'https://clear-water.example/', 'Hair catcher')
 ];
 
 test('marketplaces: every Amazon domain, Alibaba, SHEIN, DHgate, Wish (both plugins)', () => {
@@ -59,8 +59,8 @@ test('only ads leading to the own store count in the lists and the products; the
 test('service companies by page name: marble polishing, tile cleaning, water conditioning; a product store with "Pros" stays', () => {
   const r = buildReport(ROWS, { now: NOW, currency: 'USD', onlineOnly: true, baseHooks: false, products: PRESET.products });
   const ex = r.products.excluded_pages.map(e => e.page);
-  assert.ok(ex.includes('Ultimate Finish Marble polishing and tile cleaning'));
-  assert.ok(ex.includes('Advantage Water Conditioning'));
+  assert.ok(ex.includes('Pro Marble polishing and tile cleaning'));
+  assert.ok(ex.includes('Clear Water Conditioning'));
   assert.ok(!ex.includes('Shower Pros') && !ex.includes('Own Store'));
 });
 

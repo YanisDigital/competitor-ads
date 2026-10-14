@@ -16,7 +16,7 @@
     "пробная тренировка": "pierwszy trening|trening próbny|probetraining|free trial|trial class|clase de prueba|séance d'essai|prova gratuita|deneme dersi|пробн\\S* (тренуван|тренировк|заняття|занятие)",
     "без договора/заморозка": "bez umowy|ohne vertrag|no contract|sin permanencia|sans engagement|senza vincoli|taahhütsüz|без договор|заморозк",
     "24/7": "24/7|24h|całodobow|rund um die uhr|круглосуточ|цілодобов",
-    "трансформация/результат": "\\d+\\s*(kg|кг)|metamorfoz|transformation|verwandlung|трансформац|результат"
+    "трансформация/результат": "\\d{1,6}\\s*(kg|кг)|metamorfoz|transformation|verwandlung|трансформац|результат"
   },
   "noise": ["mieszkanie", "apartament", "nieruchomo", "immobilie", "wohnung", "real estate", "suplement", "supplement", "odzież", "kleidung", "apparel", "кредит", "недвиж", "нерухом"],
   "seasons": [

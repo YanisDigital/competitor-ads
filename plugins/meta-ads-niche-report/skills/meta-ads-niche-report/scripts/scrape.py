@@ -246,6 +246,9 @@ def run_in_batches(args, pages: list[dict], run_batch=run_batch_subprocess, merg
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     prev = pages_state(out, args.pages_of)
+    if prev is None and ((out / "ads.csv").exists() or (out / "run.json").exists()):
+        print(f"{out} already holds another snapshot (not a --pages-of run of {args.pages_of}); the batches would be mixed into it. Use a new folder.")
+        return 2
     done = {q[len("page: "):] for q in (prev or {}).get("queries", []) if q.startswith("page: ")}
     todo = [p for p in pages if p["name"] not in done]
     if not todo:

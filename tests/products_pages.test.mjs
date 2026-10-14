@@ -26,10 +26,10 @@ const ad = (page, daysAgo, link, title, body = '', variants = 1) => normalizeAd(
 
 const ROWS = [
   // the three pages found in the first live report
-  ad('Healthy Hair Growth Secrets', 100, 'https://pills.shop-h.example/quiz', 'Your follicles are last in line', 'Hair loss under stress, hormonal and nutritional. Take the quiz to find out why'),
-  ad('Yankee Home Improvement', 120, 'https://get.yankee-home.example/baths', 'This is what a shower should cost', 'Installed in as little as 1 day. Book a free in-home estimate today'),
-  ad('Yankee Home Improvement', 119, 'https://get.yankee-home.example/baths', 'Walk-in shower and bath remodel', 'Licensed and insured contractors'),
-  ad('Bigfoot Bushcraft', 110, 'https://bigfoot.example/products/fire-plug', 'Waterproof fire starter', 'Windproof, waterproof, 5+ minute burn time. Instant fire'),
+  ad('Fast Hair Growth Tips', 100, 'https://pills.shop-h.example/quiz', 'Your follicles are last in line', 'Hair loss under stress, hormonal and nutritional. Take the quiz to find out why'),
+  ad('Acme Home Improvement', 120, 'https://get.acme-home.example/baths', 'This is what a shower should cost', 'Installed in as little as 1 day. Book a free in-home estimate today'),
+  ad('Acme Home Improvement', 119, 'https://get.acme-home.example/baths', 'Walk-in shower and bath remodel', 'Licensed and insured contractors'),
+  ad('Trail Fire Supply', 110, 'https://trail-fire.example/products/fire-plug', 'Waterproof fire starter', 'Windproof, waterproof, 5+ minute burn time. Instant fire'),
   // ordinary dropshipped products that must stay
   ad('Store A', 120, 'https://store-a.example/products/drain-snake', 'Clogged drain? Clear it in seconds', 'Hair catcher for the shower drain, no tools needed', 3),
   ad('Store B', 20, 'https://store-b.example/products/ferro-rod-kit', 'Ferro rod fire starter kit', 'Strike sparks in any weather. Compact steel rod with striker'),
@@ -45,10 +45,10 @@ const report = buildReport(ROWS, opts);
 const byName = n => report.products.excluded_pages.find(e => e.page === n);
 
 test('pages with red flags are excluded and listed with the reason', () => {
-  assert.deepEqual(byName('Healthy Hair Growth Secrets').flags, ['здоровье/медицина']);
-  assert.ok(byName('Yankee Home Improvement').flags.includes('локальные услуги/ремонт'));
-  assert.deepEqual(byName('Bigfoot Bushcraft').flags, ['огнеопасное/химическое']);
-  assert.equal(byName('Yankee Home Improvement').ads, 2);
+  assert.deepEqual(byName('Fast Hair Growth Tips').flags, ['здоровье/медицина']);
+  assert.ok(byName('Acme Home Improvement').flags.includes('локальные услуги/ремонт'));
+  assert.deepEqual(byName('Trail Fire Supply').flags, ['огнеопасное/химическое']);
+  assert.equal(byName('Acme Home Improvement').ads, 2);
   assert.equal(report.products.excluded_count, report.products.excluded_pages.length, 'the list is complete, not cut');
   for (const n of ['Store A', 'Store B', 'Store C']) assert.equal(byName(n), undefined, n + ' is an ordinary store');
   assert.equal(byName('Store D'), undefined, 'one flagged ad out of four stays below the threshold');
@@ -56,12 +56,12 @@ test('pages with red flags are excluded and listed with the reason', () => {
 
 test('excluded pages are marked in top_pages and kept out of longrun, samples and products', () => {
   const marked = report.top_pages.filter(p => p.out_of_niche).map(p => p.page).sort();
-  assert.deepEqual(marked, ['Bigfoot Bushcraft', 'Healthy Hair Growth Secrets', 'Yankee Home Improvement']);
+  assert.deepEqual(marked, ['Acme Home Improvement', 'Fast Hair Growth Tips', 'Trail Fire Supply']);
   const lists = [...report.longrun.map(x => x.page), ...report.samples.map(x => x.page)];
-  for (const n of ['Healthy Hair Growth Secrets', 'Yankee Home Improvement', 'Bigfoot Bushcraft']) assert.ok(!lists.includes(n), n);
+  for (const n of ['Fast Hair Growth Tips', 'Acme Home Improvement', 'Trail Fire Supply']) assert.ok(!lists.includes(n), n);
   assert.ok(lists.includes('Store A'), 'an ordinary store stays in the lists');
   const productPages = report.products.top.flatMap(p => p.pages);
-  assert.ok(!productPages.includes('Bigfoot Bushcraft') && !productPages.includes('Healthy Hair Growth Secrets'));
+  assert.ok(!productPages.includes('Trail Fire Supply') && !productPages.includes('Fast Hair Growth Tips'));
   assert.ok(productPages.includes('Store A'));
 });
 
@@ -85,7 +85,7 @@ function snapshot() {
 test('HTML says which pages were left out and marks them in the top table', () => {
   const html = buildHtml({ ...loadSnapshot(snapshot()), images: {}, generated: '2026-10-12' });
   assert.match(html, /Исключено как вне ниши \(3 страниц/);
-  assert.match(html, /Healthy Hair Growth Secrets \(здоровье\/медицина\)/);
+  assert.match(html, /Fast Hair Growth Tips \(здоровье\/медицина\)/);
   assert.match(html, /вне ниши: локальные услуги\/ремонт/);
 });
 
@@ -103,6 +103,6 @@ test('Excel: sheet "Вне ниши" lists every excluded page with its reasons'
     'for r in ws.iter_rows(min_row=2, max_row=4, values_only=True): print("|".join(str(x) for x in r))'
   ].join('\n'), path.join(dir, 'report.xlsx')]);
   const lines = out.stdout.trim().split('\n');
-  assert.ok(lines.some(l => /^Yankee Home Improvement\|2\|2\|локальные услуги\/ремонт/.test(l)), out.stdout);
-  assert.ok(lines.some(l => /^Healthy Hair Growth Secrets\|1\|1\|здоровье\/медицина/.test(l)), out.stdout);
+  assert.ok(lines.some(l => /^Acme Home Improvement\|2\|2\|локальные услуги\/ремонт/.test(l)), out.stdout);
+  assert.ok(lines.some(l => /^Fast Hair Growth Tips\|1\|1\|здоровье\/медицина/.test(l)), out.stdout);
 });

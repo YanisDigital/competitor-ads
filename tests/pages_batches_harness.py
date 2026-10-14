@@ -45,6 +45,13 @@ def fake_batch(args, tmp: Path, names_file: Path) -> int:
 
 
 args = types.SimpleNamespace(out=OUT, pages_of=SRC, batch_pause=30.0, creatives=False)
+if SCENARIO == "foreign":  # the folder already holds another snapshot
+    Path(OUT).mkdir(parents=True, exist_ok=True)
+    (Path(OUT) / "ads.csv").write_text("id\n", encoding="utf-8")
+    (Path(OUT) / "run.json").write_text(json.dumps({"queries": ["keyword"], "country": "US"}), encoding="utf-8")
+    rc = scrape.run_in_batches(args, PAGES, run_batch=fake_batch, sleep=lambda s: None)
+    print(json.dumps({"rc": [rc], "calls": state["calls"], "kept": (Path(OUT) / "ads.csv").read_text(encoding="utf-8")}))
+    raise SystemExit(0)
 sleeps = []
 first = scrape.run_in_batches(args, PAGES, run_batch=fake_batch, sleep=sleeps.append)
 result = {"rc": [first]}

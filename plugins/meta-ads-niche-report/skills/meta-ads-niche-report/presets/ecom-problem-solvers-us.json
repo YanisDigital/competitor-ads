@@ -34,12 +34,12 @@
       "оружие/регулируемое": "\\b(knife|knives|gun|firearm|taser|pepper spray|ammo|vape|alcohol)\\b",
       "бренд/патент": "\\b(patented|patent pending|trademark|official (?:store|site|website)|licensed|family.owned|founded in|since (?:18|19|20)\\d\\d)\\b|[®™]",
       "декор/новинка": "\\b(decor|figurine|poster|wall art|night light|toy|gift for|personali[sz]ed|engraved|custom name|name necklace)\\b",
-      "известный бренд": "\\b(lifestraw|sawyer|katadyn|grayl|zippo|victorinox|yeti|stanley|oxo|simplehuman|dyson|shark|rubbermaid|clorox|lysol|scotch.?brite|3m|dewalt|milwaukee|bosch|black diamond|black beard|swiss army|bic|coleman|osprey|nalgene|hydro flask|tubshroom|drainshroom)\\b",
+      "известный бренд": "\\b(lifestraw|sawyer|katadyn|grayl|zippo|victorinox|yeti|stanley|oxo|simplehuman|dyson|shark|rubbermaid|clorox|lysol|scotch.?brite|3m|dewalt|milwaukee|bosch|black diamond|swiss army|bic|coleman|osprey|nalgene|hydro flask)\\b",
       "локальные услуги/ремонт": "\\b(free (?:in.?home )?(?:estimates?|consultations?|quotes?)|get a (?:free )?quote|installed in as little|licensed (?:and|&) insured|home improvement|remodel\\w*|contractors?|walk.?in (?:shower|tub)|replacement windows?|roofing|plumbing services|hvac|pest control|lawn care|book your \\w+(?: \\w+)? (?:cleaning|service|appointment|inspection)|dryer vent (?:wizard|cleaning)|(?:vent|duct|gutter|carpet|window|chimney) cleaning|handyman|locksmith|pressure washing|junk removal|maid service|house cleaning service)\\b",
       "огнеопасное/химическое": "\\b(flammable|accelerant|lighter fluid|fuel (?:tabs?|gel|cubes?)|fire ?plugs?|burn time|petroleum|butane|propane|kerosene|waxed? fire)\\b"
     },
     "page_name_flags": {
-      "локальные услуги/ремонт": "\\b(plumbing|plumbers?|rooter|hvac|heating|air conditioning|electric(?:al)?|llc|services?|cleaning pros|janitor\\w*|restoration|roofing|remodel\\w*|contractors?|home improvement|pest|lawn|pool|sir grout|dryer vent wizard|handyman|movers?|water conditioning|marble|polishing|tile cleaning|maintenance|repairs?)\\b"
+      "локальные услуги/ремонт": "\\b(plumbing|plumbers?|rooter|hvac|heating|air conditioning|electric(?:al)?|llc|services?|cleaning pros|janitor\\w*|restoration|roofing|remodel\\w*|contractors?|home improvement|pest|lawn|pool|handyman|movers?|water conditioning|marble|polishing|tile cleaning|maintenance|repairs?)\\b"
     },
     "soft_flags": {
       "обещание здоровья (мягкое)": "\\b(cure[sd]?|heals?|healing|pain relief|posture|joint|inflammation|clinical|detox|collagen|anti.?aging|weight loss|bloat\\w*|anxiety|doctor|immune|nerve|vagus)\\b"
@@ -54,11 +54,11 @@
     "компактный/складной": "compact|foldable|collapsible|portable|lightweight|flat.?pack|travel size",
     "скидка %": "\\d{1,2}\\s?%\\s?off|save \\d{1,2}\\s?%|\\d{1,2}\\s?% discount",
     "бесплатная доставка": "free shipping|free delivery",
-    "BOGO/комплект": "buy \\d+ get \\d+|bogo|bundle|\\d+ ?(?:pack|pcs|piece)|2 for \\$",
-    "ограниченный запас": "limited stock|selling fast|almost gone|sold out|only \\d+ left|while supplies last",
+    "BOGO/комплект": "buy \\d{1,6} get \\d{1,6}|bogo|bundle|\\d{1,6} ?(?:pack|pcs|piece)|2 for \\$",
+    "ограниченный запас": "limited stock|selling fast|almost gone|sold out|only \\d{1,6} left|while supplies last",
     "срочность": "today only|ends tonight|last day|last chance|24 hours|flash sale|ends soon|final hours",
-    "гарантия возврата": "money.back|\\d+.day (?:guarantee|return)|risk.free",
-    "отзывы/звёзды": "\\d[\\d,]* (?:reviews|happy customers)|★|⭐|5.star"
+    "гарантия возврата": "money.back|\\d{1,6}.day (?:guarantee|return)|risk.free",
+    "отзывы/звёзды": "\\d[\\d,]{0,12} (?:reviews|happy customers)|★|⭐|5.star"
   },
   "noise": ["hiring", "podcast", "webinar", "course", "coaching", "coach", "realty", "real estate", "mortgage", "insurance", "donate", "charity", "foundation", "campus", "kindle", "audiobook", "novel", "chapter"],
   "seasons": [

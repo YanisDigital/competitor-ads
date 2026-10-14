@@ -22,16 +22,36 @@ const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8'))
 // then the folder's niche.json on top of it (its extra_hooks are added to the
 // preset's, its other fields win). config is null when there is neither.
 // Every hook must be a valid regular expression; a broken one names itself.
+// A regular expression from niche.json runs over third-party text (ads, pages up to 30,000 characters): refuse one that
+// backtracks badly on hostile input (nested or unbounded repeats). Each probe runs in a vm with a 300 ms timeout, so even an
+// exponential expression cannot hang this check. Bounded quantifiers such as \\d{1,6} are fine.
+const vm = require('vm');
+const SLOW_INPUTS = ['1'.repeat(40) + '!', 'a'.repeat(40) + '!', '1 '.repeat(30) + '!', 'a-'.repeat(30) + '!', 'ab'.repeat(30) + '!', '1'.repeat(30000), 'a'.repeat(30000), '1 '.repeat(15000), 'aaaa-'.repeat(6000)];
+function checkRegex(label, src, flags) {
+  try { new RegExp(src, flags); } catch (e) { throw new Error('niche.json: ' + label + ' is not a valid regular expression: ' + e.message); }
+  for (const a of SLOW_INPUTS) {
+    try { vm.runInNewContext('new RegExp(src, flags).test(a)', { src, flags, a }, { timeout: 300 }); } catch (e) {
+      if (e && e.code === 'ERR_SCRIPT_EXECUTION_TIMEOUT') throw new Error('niche.json: ' + label + ' is too slow on a hostile text (nested or unbounded repeats): use bounded quantifiers like \\d{1,6}');
+      throw e;
+    }
+  }
+}
+
 function loadNicheConfig(dir, presetId) {
   const meta = readJson(path.join(dir, 'run.json')) || {};
   const id = presetId || meta.preset;
   if (id && !/^[a-z0-9-]+$/.test(id)) throw new Error('Bad preset id: ' + id);
   const preset = id ? readJson(path.join(__dirname, '..', 'presets', id + '.json')) : null;
   const niche = readJson(path.join(dir, 'niche.json'));
-  for (const [k, src] of Object.entries((niche && niche.extra_hooks) || {})) {
-    try { new RegExp(src); } catch (e) { throw new Error('niche.json: hook "' + k + '" is not a valid regular expression: ' + e.message); }
-  }
+  for (const [k, src] of Object.entries((niche && niche.extra_hooks) || {})) checkRegex('hook "' + k + '"', src, '');
+  const np = (niche && niche.products) || null; // your own flags (brands, categories) live in niche.json, not in the shared preset
+  for (const g of ['red_flags', 'page_name_flags', 'soft_flags']) for (const [k, src] of Object.entries((np && np[g]) || {})) checkRegex('products.' + g + ' "' + k + '"', src, 'i');
   const config = preset || niche ? { ...(preset || {}), ...(niche || {}), extra_hooks: { ...((preset && preset.extra_hooks) || {}), ...((niche && niche.extra_hooks) || {}) } } : null;
+  if (config && ((preset && preset.products) || np)) {
+    const pp = (preset && preset.products) || {};
+    config.products = { ...pp, ...(np || {}) };
+    for (const g of ['red_flags', 'page_name_flags', 'soft_flags']) config.products[g] = { ...(pp[g] || {}), ...((np && np[g]) || {}) };
+  }
   return { config, preset_id: preset ? id : null, niche_file: !!niche };
 }
 

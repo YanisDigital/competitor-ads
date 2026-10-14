@@ -32,19 +32,19 @@ test('generic wellness words are soft, conditions and diseases are red', () => {
   }
 });
 
-const HIZOO = [
-  ad('HiZoo', 120, 'https://hizoo.example/pages/stress-relief', 'The "Moon Face" Cure.', 'The Doc was right. The sensation was crazy. It was a clogged drain.'),
-  ad('HiZoo', 119, 'https://hizoo.example/pages/scm', 'The "Moon Face" Cure.', 'The Doc was right. The sensation was crazy. It was a clogged drain.'),
-  ad('HiZoo', 20, 'https://hizoo.example/pages/stress-relief', 'Diet bloat is real', 'Scale went down but the face stayed the same. A clogged drain of water weight'),
+const MASSAGER_PAGE = [
+  ad('Neck Massager Store', 120, 'https://massager.example/pages/stress-relief', 'The "Moon Face" Cure.', 'The Doc was right. The sensation was crazy. It was a clogged drain.'),
+  ad('Neck Massager Store', 119, 'https://massager.example/pages/scm', 'The "Moon Face" Cure.', 'The Doc was right. The sensation was crazy. It was a clogged drain.'),
+  ad('Neck Massager Store', 20, 'https://massager.example/pages/stress-relief', 'Diet bloat is real', 'Scale went down but the face stayed the same. A clogged drain of water weight'),
   ad('Kidney Page', 120, 'https://kidney.example/pages/adv', 'Why your kidney numbers get worse', 'My husband started dialysis. It is not what your doctor told you. A clogged drain')
 ];
 const opts = { now: NOW, currency: 'USD', onlineOnly: true, baseHooks: false, products: PRESET.products };
 
 test('a page with only soft health words stays; a page with diseases is excluded', () => {
-  const r = buildReport(HIZOO, opts);
-  assert.ok(!r.products.excluded_pages.some(e => e.page === 'HiZoo'), 'HiZoo is not excluded');
+  const r = buildReport(MASSAGER_PAGE, opts);
+  assert.ok(!r.products.excluded_pages.some(e => e.page === 'Neck Massager Store'), 'Neck Massager Store is not excluded');
   assert.ok(r.products.excluded_pages.some(e => e.page === 'Kidney Page'), 'the kidney page is');
-  assert.ok(r.longrun.some(x => x.page === 'HiZoo'));
+  assert.ok(r.longrun.some(x => x.page === 'Neck Massager Store'));
   assert.ok(!r.longrun.some(x => x.page === 'Kidney Page'));
 });
 

@@ -32,7 +32,7 @@ test('red flags: supplements and conditions the first live run missed are caught
 
 test('red flags: known brands and "official" wording are flagged, also from the page name and the domain', () => {
   assert.deepEqual(flagsOf('LifeStraw Go Series 650 ml'), ['известный бренд']);
-  assert.deepEqual(flagsOf('Black Beard fire starter'), ['известный бренд']);
+  assert.deepEqual(flagsOf('Yeti Rambler tumbler'), ['известный бренд']);
   assert.deepEqual(flagsOf('Our official store, family owned since 1998'), ['бренд/патент']);
   const r = run([
     ad(1, 'LifeStraw', 20, 'https://lifestraw.com/products/lifestraw-go-series-650-ml', 'Two filters in one bottle', 'Safe water wherever you go, every trip', 3),

@@ -3,6 +3,37 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [tiktok-ads-niche-report 0.1.7] - 2026-10-14
+
+From the privacy and security audit of 2026-10-14.
+
+### Security
+- Preset regular expressions `\d+` and `\d[\d,]*` (hook "трансформация/результат" in `fitness`, "BOGO" in `ecom-eu`) took
+  about a second on 30,000 digits: now bounded. A regular expression from `niche.json` is checked on hostile
+  inputs in a vm with a timeout and refused when it is slow (nested or unbounded repeats). Test over every regular
+  expression of every preset of both plugins and over the base hooks.
+
+## [0.15.9] - 2026-10-14
+
+From the privacy and security audit of 2026-10-14.
+
+### Privacy
+- Real advertiser names that had come into the tests, CHANGELOG and the product preset from the live studies are
+  replaced with invented ones; the businesses from the studies (small brands, service companies) are out of the
+  preset. The short list of world brands (LifeStraw, Yeti, OXO ...) stays. Your own flags (brands, categories) go
+  into `niche.json` under `products.red_flags`, `products.soft_flags`, `products.page_name_flags`: they are added
+  to the flags of the preset (the settings of `products` are merged, not replaced).
+
+### Security
+- Preset regular expressions with unbounded repeats (`\d+`, `\d[\d,]*` in "отзывы/звёзды", "гарантия возврата",
+  "BOGO/комплект" of `ecom-dropship-us` and `ecom-problem-solvers-us`, "результат/похудение" of `fitness`) took about
+  a second on 30,000 digits, and a site check runs hooks over a page text of that size: now bounded. A regular
+  expression from `niche.json` is run on hostile inputs in a vm with a timeout and refused when slow. A test checks
+  every regular expression of every preset and the base hooks of both plugins.
+- The Excel product sheet and `store_urls` take web links only (`file:` and `javascript:` links from an ad no longer
+  become hyperlinks).
+- `--pages-of` in batches refuses an `--out` folder that already holds another snapshot.
+
 ## [tiktok-ads-niche-report 0.1.6] - 2026-10-13
 
 The checks added to the Meta plugin in 0.15.7, for the TikTok plugin (the currencies were already there).
@@ -70,8 +101,8 @@ Russian speakers in Czechia). Both ran without a captcha or a rate limit, but th
 
 ## [0.15.6] - 2026-10-12
 
-From a manual check of the long-running list of the live US report: affiliate links to Amazon (TubShroom,
-Everything Envy) and phone-call ads of a local service (Virginia Environmental Resources) were there.
+From a manual check of the long-running list of the live US report: affiliate links to Amazon (two advertisers)
+and phone-call ads of a local service company were there.
 
 ### Changed
 - `products.doors` (set to `["Сайт"]` in `ecom-problem-solvers-us`): only ads that lead to the advertiser's own
@@ -87,7 +118,7 @@ Everything Envy) and phone-call ads of a local service (Virginia Environmental R
 ## [0.15.5] - 2026-10-12
 
 ### Changed
-- Soft health flags. A manual check of the live report showed a massager page (HiZoo) left out because its ads
+- Soft health flags. A manual check of the live report showed a massager page left out because its ads
   said "the Moon Face Cure" (a figure of speech) and "diet bloat". Generic wellness words (cure, heal, bloat,
   doctor, pain relief, posture, joint, detox, collagen, immune, nerve ...) moved from the red health flag to
   `products.soft_flags` in `ecom-problem-solvers-us`: they show as "осторожно" next to the product (HTML chip,

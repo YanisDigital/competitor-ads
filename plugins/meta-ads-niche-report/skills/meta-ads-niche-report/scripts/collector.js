@@ -1164,7 +1164,7 @@
         strong: checks.window && checks.stores && checks.clean && checks.price !== false && checks.scaling,
         reasons,
         ad_urls: sorted.slice(0, 3).map(r => 'https://www.facebook.com/ads/library/?id=' + r.id),
-        store_urls: [...new Set(rs.map(r => { const u = unwrapUrl(r.link || ''); return u && !isTrackerLink(r.link || '') ? u.origin + u.pathname : ''; }).filter(Boolean))].slice(0, 3),
+        store_urls: [...new Set(rs.map(r => { const u = unwrapUrl(r.link || ''); return u && /^https?:$/.test(u.protocol) && !isTrackerLink(r.link || '') ? u.origin + u.pathname : ''; }).filter(Boolean))].slice(0, 3),
         text: snippet(sorted[0])
       });
     }

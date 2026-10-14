@@ -9,7 +9,7 @@
     { "en": "money back guarantee", "de": "Geld-zurück-Garantie", "pl": "gwarancja zwrotu", "es": "garantía de devolución", "fr": "satisfait ou remboursé", "it": "soddisfatti o rimborsati", "nl": "geld terug garantie", "tr": "para iade garantisi" }
   ],
   "extra_hooks": {
-    "BOGO/комплект": "2\\s*\\+\\s*1|1\\s*\\+\\s*1|buy \\d+ get|kaufe \\d+|kup \\d+|2x1|3x2",
+    "BOGO/комплект": "2\\s*\\+\\s*1|1\\s*\\+\\s*1|buy \\d{1,6} get|kaufe \\d{1,6}|kup \\d{1,6}|2x1|3x2",
     "оплата при получении": "nachnahme|za pobraniem|cash on delivery|contrareembolso|paiement à la livraison|наложенн|накладен",
     "оригинал/подделки": "original|oryginał|genuine|оригинал|оригінал"
   },
