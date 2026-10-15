@@ -1,0 +1,21 @@
+{
+  "title": "Dried flower decor (example)",
+  "currency": "UAH",
+  "local": false,
+  "query_match": false,
+  "extra_hooks": {
+    "handmade": "ручн(а|ої) робот|handmade|hand-made",
+    "set price": "комплект|набір|set of"
+  },
+  "noise": ["wedding hall", "flower delivery service"],
+  "skip_hooks": [],
+  "seasons": [
+    { "name": "Christmas", "from": "11-15", "to": "01-10", "note": "part of the ads is seasonal; repeat the snapshot after the holidays" }
+  ],
+  "policy": "",
+  "products": {
+    "red_flags": {},
+    "soft_flags": {},
+    "page_name_flags": {}
+  }
+}

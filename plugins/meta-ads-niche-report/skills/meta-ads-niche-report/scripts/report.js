@@ -37,12 +37,31 @@ function checkRegex(label, src, flags) {
   }
 }
 
+// The shape of niche.json, checked before anything reads it, so a wrong type gives a clear message instead of a crash deep in the report.
+function validateNiche(n) {
+  const bad = (k, want) => { throw new Error('niche.json: "' + k + '" must be ' + want); };
+  if (n === null || typeof n !== 'object' || Array.isArray(n)) bad('(the file)', 'an object');
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  if (n.extra_hooks !== undefined && !isObj(n.extra_hooks)) bad('extra_hooks', 'an object {"hook name": "regular expression"}');
+  for (const k of ['noise', 'skip_hooks', 'query_ignore']) if (n[k] !== undefined && !(Array.isArray(n[k]) && n[k].every(x => typeof x === 'string'))) bad(k, 'a list of strings');
+  for (const k of ['title', 'currency', 'policy']) if (n[k] !== undefined && typeof n[k] !== 'string') bad(k, 'a string');
+  for (const k of ['local', 'base_hooks', 'online_only', 'query_match']) if (n[k] !== undefined && typeof n[k] !== 'boolean') bad(k, 'true or false');
+  if (n.seasons !== undefined) {
+    if (!Array.isArray(n.seasons)) bad('seasons', 'a list: [{"name": "...", "from": "MM-DD", "to": "MM-DD", "note": "..."}] (an object is not accepted)');
+    n.seasons.forEach((x, i) => {
+      if (!isObj(x) || typeof x.name !== 'string' || !/^[0-9]{2}-[0-9]{2}$/.test(x.from || '') || !/^[0-9]{2}-[0-9]{2}$/.test(x.to || '')) bad('seasons[' + i + ']', '{"name": "...", "from": "MM-DD", "to": "MM-DD"}');
+    });
+  }
+  if (n.products !== undefined && !isObj(n.products)) bad('products', 'an object');
+}
+
 function loadNicheConfig(dir, presetId) {
   const meta = readJson(path.join(dir, 'run.json')) || {};
   const id = presetId || meta.preset;
   if (id && !/^[a-z0-9-]+$/.test(id)) throw new Error('Bad preset id: ' + id);
   const preset = id ? readJson(path.join(__dirname, '..', 'presets', id + '.json')) : null;
   const niche = readJson(path.join(dir, 'niche.json'));
+  if (niche !== null) validateNiche(niche);
   for (const [k, src] of Object.entries((niche && niche.extra_hooks) || {})) checkRegex('hook "' + k + '"', src, '');
   const np = (niche && niche.products) || null; // your own flags (brands, categories) live in niche.json, not in the shared preset
   for (const g of ['red_flags', 'page_name_flags', 'soft_flags']) for (const [k, src] of Object.entries((np && np[g]) || {})) checkRegex('products.' + g + ' "' + k + '"', src, 'i');

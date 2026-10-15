@@ -160,6 +160,9 @@ async def run(args) -> None:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):  # cp1252 consoles cannot print Cyrillic (python -I ignores PYTHONIOENCODING)
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="Collect EU reach and audience data for the ads of a snapshot.")
     ap.add_argument("folder", help="snapshot folder with ads.csv (collected for an EU country)")
     ap.add_argument("--limit", type=int, default=DEFAULT_ADS, help=f"how many ads to open (default {DEFAULT_ADS}, cap {MAX_ADS})")

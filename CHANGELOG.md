@@ -3,6 +3,20 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.16.1] - 2026-10-15
+
+Small fixes from the dried-flowers retrospective (block B).
+
+### Added
+- `--pages "Name 1" "Name 2"` for `scrape.py --pages-of`: collect only the named competitors (case and extra spaces ignored; an unknown name stops the run and lists the known ones).
+- `niche.example.json` next to SKILL.md, and a shape check of `niche.json` (`seasons` must be a list, types of the other fields) with a clear message instead of a crash.
+
+### Fixed
+- Page names in `curation.json` match with trailing and doubled spaces trimmed (no more false `not_found` and duplicate keys).
+- `creatives.js lint` no longer asks to label creatives of advertisers that `curation.json` removed.
+- Python scripts switch stdout/stderr to UTF-8 (`python -I` ignores `PYTHONIOENCODING`, Cyrillic crashed on cp1252 consoles).
+- `export_xlsx.py` saves `report-<date-time>.xlsx` when the target file is open in Excel instead of failing.
+
 ## [0.16.0] - 2026-10-15
 
 From the retrospective of a run on a niche without a preset (dried flowers, UA): about 80% of the sample turned out to be off-niche after the first cleaning, and the report, creatives and hypotheses had to be redone three times.

@@ -433,21 +433,26 @@
   //     "notes": "free text" }
   // Without the file nothing changes. Returns the kept rows plus what was
   // removed, the labels and any names that match no advertiser (typos).
+  const pageKey = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
   function applyCuration(rows, curation) {
     const c = curation || {};
+    // names are matched with spaces trimmed and collapsed ("Page Name " and "Page Name" are one advertiser)
+    const N = pageKey;
     const include = c.include && typeof c.include === 'object' ? c.include : null;
-    const includeSet = include ? new Set(Object.keys(include)) : null;
-    const excludeSet = new Set(Array.isArray(c.exclude) ? c.exclude : []);
+    const includeSet = include ? new Set(Object.keys(include).map(N)) : null;
+    const excludeSet = new Set((Array.isArray(c.exclude) ? c.exclude : []).map(N));
     const types = { ...(c.types || {}), ...(include || {}) };
+    for (const [k, v] of Object.entries({ ...types })) for (const r of rows) if (N(r.page) === N(k) && !(r.page in types)) types[r.page] = v;
     // disputed: advertisers that cannot be told by their ads (mixed range, service next to sales). They are not
     // counted as competitors, and are listed with the reason and their ads so the reader can decide.
     const disputedRaw = c.disputed && typeof c.disputed === 'object' && !Array.isArray(c.disputed) ? c.disputed : {};
     const disputedWhy = Object.fromEntries(Object.entries(disputedRaw).map(([p, v]) => [p, typeof v === 'string' ? v : (v && v.why) || '']));
-    const disputedSet = new Set(Object.keys(disputedWhy));
-    const keep = r => !excludeSet.has(r.page) && !disputedSet.has(r.page) && (!includeSet || includeSet.has(r.page));
+    const disputedSet = new Set(Object.keys(disputedWhy).map(N));
+    for (const [p, why] of Object.entries({ ...disputedWhy })) disputedWhy[N(p)] = why;
+    const keep = r => !excludeSet.has(N(r.page)) && !disputedSet.has(N(r.page)) && (!includeSet || includeSet.has(N(r.page)));
     const kept = rows.filter(keep);
-    const present = new Set(rows.map(r => r.page));
-    const named = [...new Set([...excludeSet, ...disputedSet, ...(includeSet || []), ...Object.keys(c.types || {})])];
+    const present = new Set(rows.map(r => N(r.page)));
+    const named = [...new Set([...excludeSet, ...disputedSet, ...(includeSet || []), ...Object.keys(c.types || {}).map(N)])];
     // criterion: one phrase, who counts as a competitor ("sells <the client's product category>"); confirmed: the user
     // has seen the list and agreed (true only by their word); context: substitutes and suppliers, kept out of include.
     const keptTypes = new Set(kept.map(r => types[r.page]).filter(Boolean));
@@ -457,7 +462,7 @@
       context: c.context && typeof c.context === 'object' ? c.context : null,
       types_kept: keptTypes.size,
       disputed: [...disputedSet].filter(p => present.has(p)).map(p => {
-        const ads = rows.filter(r => r.page === p);
+        const ads = rows.filter(r => N(r.page) === p);
         return { page: p, why: disputedWhy[p], ads: ads.length, active: ads.filter(r => !isStoppedAd(r)).length, sample: ((ads[0].title ? ads[0].title + ' | ' : '') + (ads[0].body || '')).replace(/\s+/g, ' ').slice(0, 120) };
       }).sort((a, b) => b.ads - a.ads),
       rows: kept,
@@ -849,15 +854,20 @@
 
   // Checks creatives.json against the vocabulary and the downloaded pictures
   // (manifest.json). Returns { errors, warnings, findings: [{ id, severity, code, field, message }] }.
-  function lintCreatives(labels, manifest) {
+  // opts.keepPages: names of the advertisers that count after curation; creatives of the others are not asked for and not linted.
+  function lintCreatives(labels, manifest, opts = {}) {
     const f = [];
     const add = (id, severity, code, field, message) => f.push({ id, severity, code, field, message });
-    const ok = new Map(((manifest && manifest.items) || []).filter(i => i.status === 'ok').map(i => [String(i.id), i]));
+    const keep = opts.keepPages ? new Set([...opts.keepPages].map(pageKey)) : null;
+    const counts = i => !keep || keep.has(pageKey(i.page));
+    const all = new Map(((manifest && manifest.items) || []).filter(i => i.status === 'ok').map(i => [String(i.id), i]));
+    const ok = new Map([...all].filter(([, i]) => counts(i)));
     const seen = new Set();
     for (const l of labelList(labels)) {
       const id = String(l && l.id);
       if (seen.has(id)) { add(id, 'error', 'duplicate_id', 'id', 'This creative is labeled twice.'); continue; }
       seen.add(id);
+      if (all.has(id) && !ok.has(id)) continue; // an advertiser curation.json removed: not part of the report
       const item = ok.get(id);
       if (!item) { add(id, 'error', 'unknown_id', 'id', 'No downloaded creative with this id in creatives/manifest.json.'); continue; }
       for (const [field, t] of Object.entries(CREATIVE_TAGS)) {

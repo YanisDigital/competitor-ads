@@ -53,7 +53,7 @@ if (cmd === 'lint') {
   const labels = read(path.join(dir, 'creatives.json'));
   if (!manifest) { console.error('No creatives/manifest.json: run fetch_creatives.py first.'); process.exit(2); }
   if (!labels) { console.error('No creatives.json: label the downloaded pictures first. Fields: ' + Object.keys(CREATIVE_TAGS).join(', ') + ', notes.'); process.exit(2); }
-  const res = lintCreatives(labels, manifest);
+  const res = lintCreatives(labels, manifest, { keepPages: new Set(loadSnapshot(dir).rows.map(r => r.page)) });
   const out = path.join(dir, 'creatives_lint.json');
   fs.writeFileSync(out, JSON.stringify(res, null, 2), 'utf8');
   console.log(`${res.errors} errors, ${res.warnings} warnings`);

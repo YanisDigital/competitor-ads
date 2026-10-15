@@ -169,6 +169,27 @@ def page_library_url(country: str, page_id: str, status: str = "active", date_fr
     )
 
 
+def page_key(name: str) -> str:
+    """A page name compared without case, extra spaces or a trailing space."""
+    return " ".join(str(name).split()).casefold()
+
+
+def select_pages(pages: list[dict], names) -> list[dict]:
+    """--pages: only the named advertisers (spaces and case ignored); an unknown name stops the run and lists the known ones."""
+    if not names:
+        return pages
+    by_key = {page_key(p["name"]): p for p in pages}
+    unknown = [n for n in names if page_key(n) not in by_key]
+    if unknown:
+        sys.exit("--pages: not among the advertisers of that snapshot: " + ", ".join(unknown) + ". Known: " + ", ".join(p["name"] for p in pages))
+    picked = []
+    for n in names:
+        p = by_key[page_key(n)]
+        if p not in picked:
+            picked.append(p)
+    return picked
+
+
 def pages_from_snapshot(folder) -> list[dict]:
     """The advertisers that count in a snapshot (after its curation.json), with their page ids.
 
@@ -365,7 +386,7 @@ async def run(args, keywords: list[str]) -> None:
         src_run = Path(args.pages_of) / "run.json"
         if not args.country and src_run.exists():
             country = validate_country(json.loads(src_run.read_text(encoding="utf-8")).get("country") or country)
-        pages = pages_from_snapshot(args.pages_of)
+        pages = select_pages(pages_from_snapshot(args.pages_of), getattr(args, "pages", None))
         if args.pages_file:  # one batch of a run_in_batches() run
             wanted = set(json.loads(Path(args.pages_file).read_text(encoding="utf-8")))
             pages = [p for p in pages if p["name"] in wanted]
@@ -507,6 +528,9 @@ def creatives_step(out_dir: Path) -> str:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):  # cp1252 consoles cannot print Cyrillic (python -I ignores PYTHONIOENCODING)
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="Collect active ads from the Meta Ads Library for a niche + city.")
     parser.add_argument("--keywords", nargs="+", help='Search queries, e.g. --keywords "nail salon odesa" "manicure odesa" (any language works, just avoid non-ASCII in --help)')
     parser.add_argument("--keywords-file", help="Path to a text file with one query per line")
@@ -520,6 +544,7 @@ def main() -> None:
     parser.add_argument("--city-ru", default="", dest="city_ru", help="City name in Russian for preset queries")
     parser.add_argument("--max-queries", type=int, default=12, dest="max_queries", help="Max preset-built queries (default: 12)")
     parser.add_argument("--pages-of", dest="pages_of", help="Snapshot folder: collect ALL active ads of the advertisers that count there (curation.json applied), instead of keyword searches. Needs a snapshot with page ids (collected by v0.12.4 or newer)")
+    parser.add_argument("--pages", nargs="+", metavar="NAME", help="With --pages-of: only these advertisers (names as in ads.csv; case and extra spaces ignored) instead of every competitor of the snapshot")
     parser.add_argument("--batch-pause", type=float, default=180.0, dest="batch_pause", help="--pages-of with more than 15 advertisers runs in batches of 15 into one folder; seconds to wait between batches (default 180, minimum 30)")
     parser.add_argument("--pages-file", dest="pages_file", help=argparse.SUPPRESS)
     parser.add_argument("--status", choices=VALID_STATUSES, default="active", help="active (default), inactive (stopped ads only) or all. Stopped ads show what competitors tried and switched off")
@@ -542,11 +567,13 @@ def main() -> None:
         sys.exit(f"--max-queries above {MAX_KEYWORDS} is not allowed.")
     if args.pages_of and not args.out:
         sys.exit("--pages-of needs --out (a new snapshot folder), so the full page collection does not mix with the original snapshot.")
+    if args.pages and not args.pages_of:
+        sys.exit("--pages works only together with --pages-of.")
     if args.batch_pause < 30:
         sys.exit("--batch-pause below 30 seconds is not allowed.")
     keywords = read_keywords(args)  # validated before importing/launching Playwright
     if args.pages_of and not args.pages_file:
-        pages = pages_from_snapshot(args.pages_of)
+        pages = select_pages(pages_from_snapshot(args.pages_of), args.pages)
         prev = pages_state(Path(args.out), args.pages_of)
         if len(pages) > MAX_KEYWORDS or (prev and (prev.get("queries_remaining") or prev.get("blocked"))):
             sys.exit(run_in_batches(args, pages))

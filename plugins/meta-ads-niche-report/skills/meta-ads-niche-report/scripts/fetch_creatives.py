@@ -378,7 +378,7 @@ def select(folder: Path, limit: int, per_advertiser: int, videos: int = 0, top_a
 
 def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(errors="replace")  # page names on a cp1252 console
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # page names on a cp1252 console
     ap = argparse.ArgumentParser(description="Download the pictures of a snapshot's creatives (Meta CDN only) for analysis.")
     ap.add_argument("folder", help="snapshot folder with ads.csv")
     ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help=f"how many creatives (default {DEFAULT_LIMIT}, cap {MAX_LIMIT})")

@@ -276,6 +276,9 @@ async def run(args) -> None:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):  # cp1252 consoles cannot print Cyrillic (python -I ignores PYTHONIOENCODING)
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="Check landing pages of a snapshot's leading advertisers.")
     ap.add_argument("folder", help="snapshot folder with ads.csv (e.g. out/ecom-dropship-us/2026-09-30)")
     ap.add_argument("--top", type=int, default=5, help="how many advertisers to check (default 5, max 10)")

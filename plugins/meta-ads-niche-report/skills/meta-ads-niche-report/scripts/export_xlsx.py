@@ -82,6 +82,9 @@ def domain(u: str) -> str:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):  # cp1252 consoles cannot print Cyrillic (python -I ignores PYTHONIOENCODING)
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="Export an ads snapshot folder to Excel.")
     ap.add_argument("folder", help="snapshot folder with ads.csv (e.g. out/ecom-dropship-us/2026-09-30)")
     ap.add_argument("--out", help="output .xlsx path (default: <folder>/report.xlsx)")
@@ -653,7 +656,13 @@ def main() -> None:
                 if c.data_type == "f" and (sheet.title, c.row, c.column) not in own_formulas:
                     c.data_type = "s"  # third-party text that starts with "="
     wb.calculation.fullCalcOnLoad = True
-    wb.save(out_path)
+    try:
+        wb.save(out_path)
+    except PermissionError:  # the file is open in Excel: keep the work under another name instead of failing
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        out_path = Path(out_path).with_name(f"{Path(out_path).stem}-{stamp}{Path(out_path).suffix}")
+        wb.save(out_path)
+        print(f"The target file is open in another program (Excel?), saved under another name: {out_path}")
     print(f"Saved: {out_path} ({len(rows)} ads, {len(page_rows)} advertisers)")
 
 
