@@ -3,6 +3,19 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.16.0] - 2026-10-15
+
+From the retrospective of a run on a niche without a preset (dried flowers, UA): about 80% of the sample turned out to be off-niche after the first cleaning, and the report, creatives and hypotheses had to be redone three times.
+
+### Added
+- `curation.json` keys `criterion` (one phrase: who counts as a competitor), `confirmed` (the user has seen the list and agreed) and `context` (substitutes and suppliers kept out of `include`). Reports carry them in `meta.curation`.
+- Warnings: `unconfirmed` (cleaning not confirmed by the user), `no_criterion`, `mixed_types` (more than three business types among competitors), `noisy_queries` (queries where under 30% of advertisers are competitors).
+- "What else can be done": `confirm` (first, urgent, also when the market looks empty) and `few_competitors` (under 10 competitors: all ads of competitors via `--pages-of` and product-synonym queries first). Creatives wait for the confirmation.
+
+### Changed
+- SKILL.md: step "criterion and confirmation" before the report; a query must name the product, not an occasion or a recipient, with a pilot of 3-4 queries first; step 1 asks for the conversion channel (site, Direct, lead form, call) and B2C/B2B and reads a pasted brief first.
+- Old curation files without `confirmed` now get the `unconfirmed` warning until the user confirms.
+
 ## [tiktok-ads-niche-report 0.1.7] - 2026-10-14
 
 From the privacy and security audit of 2026-10-14.

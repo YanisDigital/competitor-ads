@@ -108,7 +108,7 @@ test('niche.json: query_match, local: false and the cities of run.json reach the
 // ---- 4. an empty market ----
 test('after curation with two advertisers or fewer the market is called empty, with one honest next step', () => {
   const rows = [ad('Laptop Shop', 100, 'Б/у ноутбуки', 'ноутбуки б/у по цене 10 000 Kč', 'ноутбуки б/у', 'https://s.example/', false), ...MANY.slice(0, 5)];
-  const s = loadSnapshot(snapshot(rows, {}, { include: { 'Laptop Shop': 'продавец' } }));
+  const s = loadSnapshot(snapshot(rows, {}, { include: { 'Laptop Shop': 'продавец' }, confirmed: true }));
   const w = s.warnings.find(x => x.code === 'empty_market');
   assert.ok(w, 'empty_market');
   assert.ok(!s.warnings.some(x => x.code === 'small_sample'));

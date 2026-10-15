@@ -87,7 +87,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const queryEnforced = opts.queryMatch === true || !!(preset && preset.products && preset.products.query_match === true);
   const query_match = (!curation || queryEnforced) && rows.some(r => (r.kws || []).length) ? Object.fromEntries(rows.map(r => [r.id, queryMatch(r, null, opts.queryIgnore)])) : null;
   const stats = queryStats(allRows, rows, { queries: meta.queries, rateLimited: meta.rate_limited_queries, curated: !!curation });
-  const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, disputed: cur.disputed, notes: curation.notes || '' } } : {};
+  const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, disputed: cur.disputed, criterion: cur.criterion, confirmed: cur.confirmed, context: cur.context, notes: curation.notes || '' } } : {};
   const euData = readJson(path.join(dir, 'eu.json')); // EU reach and audience, collected by eu_details.py
   const eu = euData ? euSummary(euData, rows) : null;
   // Pictures downloaded by fetch_creatives.py (creatives/manifest.json) and the
@@ -96,14 +96,14 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
   const report = buildReport(rows, opts);
   const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads,
-    curated: !!curation, activeAds: report.status_counts.active, queryCheck: report.query_check,
+    curated: !!curation, curation: curation ? { criterion: cur.criterion, confirmed: cur.confirmed, types_kept: cur.types_kept } : null, activeAds: report.status_counts.active, queryCheck: report.query_check,
     blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   // What the folder already has, for the "what else can be done" block.
   const has = f => fs.existsSync(path.join(dir, f));
   const now = opts0.now || Date.now() / 1000;
   const next_steps = nextSteps({
-    curated: !!curation, has_image_links: allRows.some(r => r.image_url), has_page_id: allRows.some(r => r.page_id),
+    curated: !!curation, confirmed: !!curation && cur.confirmed, advertisers: report.advertisers, has_image_links: allRows.some(r => r.image_url), has_page_id: allRows.some(r => r.page_id),
     age_days: Math.max(0, (now - ts) / 86400), manifest: !!manifest, downloaded: visuals ? visuals.downloaded : 0, labeled: visuals ? visuals.labeled : 0,
     sites: has('sites.json'), client: has('client.json') || fs.existsSync(path.join(path.dirname(path.resolve(dir)), 'client.json')),
     hypotheses: has('hypotheses.json'), plan: has('test_plan.json'), diff: has('diff.json'), eu_country: isEuCountry(meta.country), eu: !!euData,

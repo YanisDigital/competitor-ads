@@ -5,7 +5,9 @@
 //   node curate.js list <snapshot-folder> [--undecided] [--min-ads N] [--limit N] [--json]
 //
 // Decide by reading the text, not by keywords; write the decision to curation.json:
-//   { "include": { "Page": "type" }, "exclude": ["Page"], "disputed": { "Page": "why unclear" }, "notes": "..." }
+//   { "criterion": "sells <the client's product>", "confirmed": false, "include": { "Page": "type" }, "exclude": ["Page"],
+//     "disputed": { "Page": "why unclear" }, "context": { "Page": "substitute or supplier" }, "notes": "..." }
+// Show the criterion and the list to the user; set "confirmed": true only on their word (the report warns until then).
 // Nothing here changes any file.
 const fs = require('fs');
 const path = require('path');

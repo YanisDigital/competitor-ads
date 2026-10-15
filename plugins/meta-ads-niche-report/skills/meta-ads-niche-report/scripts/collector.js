@@ -448,7 +448,14 @@
     const kept = rows.filter(keep);
     const present = new Set(rows.map(r => r.page));
     const named = [...new Set([...excludeSet, ...disputedSet, ...(includeSet || []), ...Object.keys(c.types || {})])];
+    // criterion: one phrase, who counts as a competitor ("sells <the client's product category>"); confirmed: the user
+    // has seen the list and agreed (true only by their word); context: substitutes and suppliers, kept out of include.
+    const keptTypes = new Set(kept.map(r => types[r.page]).filter(Boolean));
     return {
+      criterion: typeof c.criterion === 'string' ? c.criterion.trim() : '',
+      confirmed: c.confirmed === true,
+      context: c.context && typeof c.context === 'object' ? c.context : null,
+      types_kept: keptTypes.size,
       disputed: [...disputedSet].filter(p => present.has(p)).map(p => {
         const ads = rows.filter(r => r.page === p);
         return { page: p, why: disputedWhy[p], ads: ads.length, active: ads.filter(r => !isStoppedAd(r)).length, sample: ((ads[0].title ? ads[0].title + ' | ' : '') + (ads[0].body || '')).replace(/\s+/g, ' ').slice(0, 120) };
@@ -500,6 +507,14 @@
     if (info.curated && info.advertisers <= 2) {
       add('empty_market', 'warn', 'После чистки в срезе ' + info.advertisers + ' конкурентов и ' + (info.activeAds || 0) + ' активных объявлений' + (info.stoppedAds ? ' (остановленных: ' + info.stoppedAds + ')' : '') + '. Это не «мало данных», а вывод: по этим запросам, языку и гео рынок сейчас почти пуст, или так не ищут. Скажи это первой строкой отчёта. Что можно: другой язык и соседние страны, запуск с --status all (что рекламировали раньше), повтор через 2-4 недели.');
     } else if (info.advertisers < SMALL_SAMPLE) add('small_sample', 'warn', 'В выборке только ' + info.advertisers + ' рекламодателей: выводы про хуки, форматы и «что работает» это гипотезы для проверки, а не тренд ниши.');
+    const cm = info.curation;
+    if (info.curated && cm) {
+      if (!cm.confirmed) add('unconfirmed', 'warn', 'Список конкурентов не подтверждён пользователем (в curation.json нет "confirmed": true). Все выводы ниже предварительные: покажи пользователю критерий и таблицу рекламодателей (node curate.js list <срез>), спорных назови, и только после его слова ставь confirmed.');
+      if (!cm.criterion) add('no_criterion', 'info', 'В curation.json нет criterion: одной фразы, кого считаем конкурентом («продаёт <товар клиента>»). Без неё граница между конкурентами и заменителями у каждого своя; заменители и поставщиков веди в context, а не в include.');
+      if (cm.types_kept > 3) add('mixed_types', 'warn', 'В конкурентах ' + cm.types_kept + ' разных типов бизнеса: проверь критерий. Если сюда попали заменители и поставщики, а не те, кто продаёт то же, что клиент, выводы о нише размыты.');
+    }
+    const noisy = stats.filter(q => info.curated && q.relevant_advertisers !== null && q.relevant_advertisers !== undefined && q.advertisers >= 5 && q.relevant_advertisers / q.advertisers < 0.3);
+    if (noisy.length) add('noisy_queries', 'warn', 'Запросы, где конкурентов меньше 30% рекламодателей: ' + noisy.map(q => '«' + q.query + '» (' + q.relevant_advertisers + ' из ' + q.advertisers + ')').join(', ') + '. Скорее всего запрос назван поводом или адресатом, а не товаром: замени его названием товара и его синонимами (node suggest_queries.js <срез>).');
     const qc = info.queryCheck;
     if (qc && qc.ads_checked >= 20 && qc.loose_ads / qc.ads_checked >= 0.3) {
       const pct = Math.round(100 * qc.loose_ads / qc.ads_checked);
@@ -530,12 +545,17 @@
     const s = st || {};
     const out = [];
     const add = (code, title, why, how, extra = {}) => out.push({ code, title, why, urgent: false, needs: '', how, ...extra });
+    const unconfirmed = !!s.curated && s.confirmed === false; // report.js passes a boolean; absent = not known
+    if (unconfirmed) add('confirm', 'Подтвердить список конкурентов с пользователем', 'Чистка сделана, но пользователь её не видел: в curation.json нет "confirmed": true. На неподтверждённой чистке креативы и гипотезы приходится переделывать (в одном прогоне 80% выборки оказалось не по нише).', 'Записать в curation.json criterion («продаёт <товар клиента>»), показать критерий и список (node curate.js list <срез>), спорных вынести в disputed, дождаться слова пользователя и поставить "confirmed": true.', { urgent: true });
     if (s.empty_market) { // nothing to analyse: no creatives, sites, briefs or hypotheses on two advertisers
       add('empty_market', 'Рынок пуст: решить, что дальше', 'После чистки конкурентов не больше двух. Креативы, сайты, гипотезы и сбор всех объявлений конкурентов здесь ничего не дадут.', 'Сказать пользователю вывод «рынок на этом языке и гео почти пуст». Если нужно проверить глубже: другой язык, соседние страны, --status all для истории; либо брать смежную нишу.', { urgent: true });
       add('compare', 'Повторить срез через 2-4 недели', 'Пустой рынок может измениться: сезон, новый игрок.', 'Те же запросы и фильтры, затем node compare.js <старый> <новый>.');
       return out;
     }
-    const curateFirst = s.curated ? '' : 'сначала отобрать конкурентов (curation.json)';
+    if (s.curated && typeof s.advertisers === 'number' && s.advertisers < SMALL_SAMPLE) {
+      add('few_competitors', 'Конкурентов меньше ' + SMALL_SAMPLE + ': расширить, а не углублять', 'После чистки ' + s.advertisers + ' конкурентов: хуки и форматы на такой выборке это гипотезы. Полезнее всего собрать все объявления найденных конкурентов и добавить запросы-синонимы товара.', (s.pages_of ? '' : 'python scrape.py --pages-of <срез> --out <новая папка> (только по просьбе пользователя); ') + 'добавить запросы по названию товара и его синонимам (не по поводу и не по адресату), затем снова чистка и suggest_queries.js.', { urgent: true, needs: s.pages_of ? '' : 'только по просьбе пользователя: новые запросы к Meta' });
+    }
+    const curateFirst = !s.curated ? 'сначала отобрать конкурентов (curation.json)' : unconfirmed ? 'сначала подтверждение списка конкурентов пользователем' : '';
     if (!s.curated) add('curate', 'Отобрать конкурентов (curation.json)', 'Поиск идёт по тексту объявлений, поэтому в срезе есть не конкуренты. Без чистки креативы, гипотезы и сбор всех объявлений конкурентов уходят на чужих.', 'Прочитать топ рекламодателей по смыслу, спорных обсудить, решение записать в curation.json рядом с ads.csv.');
     if (!s.preset && !s.niche) add('niche_hooks', 'Хуки ниши в niche.json', 'Для ниши нет пресета: в отчёте посчитаны только базовые хуки (цена, скидка, запись, адрес и т.п.), приёмы этой ниши в них не видны.', 'Записать niche.json рядом с ads.csv (extra_hooks, noise, currency) и пересобрать отчёт: хуки ниши получат силу сигнала по рекламодателям.');
     if (!s.has_image_links) add('creatives_unavailable', 'Креативы этого среза недоступны', 'Срез собран версией до 0.13.4: ссылок на картинки и видео в нём нет.', 'Если нужны выводы по картинкам и роликам, собрать срез заново.');
