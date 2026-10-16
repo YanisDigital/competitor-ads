@@ -115,7 +115,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
   const report = buildReport(rows, opts);
   const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads,
-    curated: !!curation, curation: curation ? { criterion: cur.criterion, confirmed: cur.confirmed, types_kept: cur.types_kept } : null, activeAds: report.status_counts.active, queryCheck: report.query_check,
+    curated: !!curation, dominant: report.dominant, curation: curation ? { criterion: cur.criterion, confirmed: cur.confirmed, types_kept: cur.types_kept } : null, activeAds: report.status_counts.active, queryCheck: report.query_check,
     blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   // What the folder already has, for the "what else can be done" block.

@@ -79,6 +79,11 @@ function buildHtml(m) {
   out.push(bars('CTA (топ-8)', Object.entries(r.ctas || {}).sort((a, b) => b[1] - a[1]).slice(0, 8), total));
   out.push(bars('Возраст объявлений, дней', Object.entries(r.age_buckets || {}), total));
   out.push(bars('Хуки (по тексту)', Object.entries(r.hook_freq || {}).sort((a, b) => b[1] - a[1]).filter(([, n]) => n > 0).slice(0, 12), total));
+  const fa = r.formats_by_advertiser || {}, da = r.doors_by_advertiser || {};
+  if (r.advertisers && Object.keys(fa).length) {
+    const share = o => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => esc(k) + ': ' + n + ' из ' + r.advertisers).join('; ');
+    out.push('</div><p class="mut">По рекламодателям (сколько рекламодателей используют): форматы — ' + share(fa) + '; двери — ' + share(da) + '.' + (r.campaigns && r.campaigns.copies > 0 ? ' Объявлений ' + total + ', но кампаний ' + r.campaigns.count + ': остальное копии одной рекламы одного рекламодателя.' : '') + '</p><div>');
+  }
   out.push('</div><p class="mut">Хуки считаются регулярными выражениями по тексту объявления. Хук, слова которого входят в ваши же поисковые запросы, круговой.</p>');
 
   out.push('<h2>Кто рекламируется (топ)</h2>');

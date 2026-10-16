@@ -363,10 +363,11 @@ def fetch_all(items: list, folder: Path, fetch=download, sleep=time.sleep, delay
     return write_manifest(folder, out)
 
 
-def select(folder: Path, limit: int, per_advertiser: int, videos: int = 0, top_advertisers: int = 0) -> list:
+def select(folder: Path, limit: int, per_advertiser: int, videos: int = 0, top_advertisers: int = 0, types=None, leaders_only: bool = False) -> list:
     try:
         res = subprocess.run(["node", str(HERE / "creatives.js"), "select", str(folder), "--limit", str(limit), "--per-advertiser", str(per_advertiser),
-                              "--videos", str(videos), "--top-advertisers", str(top_advertisers)],
+                              "--videos", str(videos), "--top-advertisers", str(top_advertisers),
+                              *(["--types", *types] if types else []), *(["--leaders-only"] if leaders_only else [])],
                              capture_output=True, encoding="utf-8", timeout=120)
     except FileNotFoundError:
         sys.exit("Node.js is required (collector.js picks the creatives).")
@@ -385,6 +386,8 @@ def main() -> None:
     ap.add_argument("--per-advertiser", type=int, default=3, dest="per_advertiser", help="at most this many per advertiser (default 3)")
     ap.add_argument("--delay", type=float, default=0.5, help=f"seconds between downloads (default 0.5, minimum {MIN_DELAY:g})")
     ap.add_argument("--videos", type=int, default=0, help=f"also cut this many video creatives into frames (default 0, cap {MAX_VIDEOS}; needs Playwright)")
+    ap.add_argument("--types", nargs="+", metavar="TYPE", help="only advertisers of these types from curation.json (e.g. the competitors of your own product, not substitutes)")
+    ap.add_argument("--leaders-only", action="store_true", dest="leaders_only", help="with --top-advertisers: skip the advertisers outside the leaders (by default each of them still gets one creative)")
     ap.add_argument("--top-advertisers", type=int, default=0, dest="top_advertisers", help="only the N advertisers with the most ads, the leaders (default 0 = all); the usual run uses 10 with --limit 30 --videos 10")
     args = ap.parse_args()
     if args.top_advertisers < 0:
@@ -400,7 +403,7 @@ def main() -> None:
     folder = Path(args.folder)
     if not (folder / "ads.csv").exists():
         sys.exit(f"No ads.csv in {folder}")
-    items = select(folder, args.limit, args.per_advertiser, args.videos, args.top_advertisers)
+    items = select(folder, args.limit, args.per_advertiser, args.videos, args.top_advertisers, args.types, args.leaders_only)
     if not items:
         sys.exit("Nothing to download: no running ads with picture links (a snapshot collected before v0.13.4 has none; collect it again).")
     manifest = fetch_all(items, folder, delay=args.delay, log=print)

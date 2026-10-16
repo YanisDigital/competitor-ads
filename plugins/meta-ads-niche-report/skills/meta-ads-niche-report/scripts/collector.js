@@ -518,6 +518,8 @@
       if (!cm.criterion) add('no_criterion', 'info', 'В curation.json нет criterion: одной фразы, кого считаем конкурентом («продаёт <товар клиента>»). Без неё граница между конкурентами и заменителями у каждого своя; заменители и поставщиков веди в context, а не в include.');
       if (cm.types_kept > 3) add('mixed_types', 'warn', 'В конкурентах ' + cm.types_kept + ' разных типов бизнеса: проверь критерий. Если сюда попали заменители и поставщики, а не те, кто продаёт то же, что клиент, выводы о нише размыты.');
     }
+    const dom = info.dominant;
+    if (dom && dom.ads >= 5 && dom.share >= 0.3 && info.advertisers >= 2) add('dominant_advertiser', 'warn', 'Рекламодатель «' + dom.page + '» даёт ' + Math.round(dom.share * 100) + '% объявлений выборки (' + dom.ads + ' объявлений в ' + dom.campaigns + ' кампаниях): доли форматов, дверей, возраста и свежих запусков по объявлениям отражают в основном его. Смотри доли по рекламодателям (formats_by_advertiser, doors_by_advertiser) и кампании (campaigns), а не число объявлений.');
     const noisy = stats.filter(q => info.curated && q.relevant_advertisers !== null && q.relevant_advertisers !== undefined && q.advertisers >= 5 && q.relevant_advertisers / q.advertisers < 0.3);
     if (noisy.length) add('noisy_queries', 'warn', 'Запросы, где конкурентов меньше 30% рекламодателей: ' + noisy.map(q => '«' + q.query + '» (' + q.relevant_advertisers + ' из ' + q.advertisers + ')').join(', ') + '. Скорее всего запрос назван поводом или адресатом, а не товаром: замени его названием товара и его синонимами (node suggest_queries.js <срез>).');
     const qc = info.queryCheck;
@@ -810,8 +812,11 @@
   // each picture once; per advertiser its long-running ads first (>= longDays),
   // then the ones with more variants, then the older; advertisers take turns
   // (most ads first), at most perAdvertiser each. rows: already curated.
-  // opts.topAdvertisers: only the N advertisers with the most ads (the leaders).
+  // opts.topAdvertisers: N leaders (the most ads) get up to perAdvertiser creatives; every other advertiser still gets one,
+  // so a competitor with a single ad is not skipped (opts.leadersOnly: the old cut, only the leaders).
+  // opts.types + opts.typeOf (page -> type): only advertisers of these types (curation.json).
   function selectCreatives(rows, opts = {}) {
+    if (opts.types && opts.types.length) { const want = new Set(opts.types.map(pageKey)); rows = rows.filter(r => want.has(pageKey((opts.typeOf || {})[r.page] || ''))); }
     const limit = opts.limit || 60, perAdvertiser = opts.perAdvertiser || 3, longDays = opts.longDays || 90;
     const adsOf = {};
     rows.forEach(r => { adsOf[r.page] = (adsOf[r.page] || 0) + 1; });
@@ -826,7 +831,8 @@
       queues.get(r.page).push({ id: r.id, page: r.page, fmt: r.fmt || '', kind: m.kind, urls: m.urls, ...(m.video_url ? { video_url: m.video_url } : {}), days: age(r), long_running: age(r) >= longDays, variants: +r.variants || 1 });
     }
     let order = [...queues.values()].sort((a, b) => (adsOf[b[0].page] - adsOf[a[0].page]) || (b.length - a.length));
-    if (opts.topAdvertisers > 0) order = order.slice(0, opts.topAdvertisers);
+    const leaders = new Set(opts.topAdvertisers > 0 ? order.slice(0, opts.topAdvertisers).map(q => q[0].page) : order.map(q => q[0].page));
+    if (opts.topAdvertisers > 0 && opts.leadersOnly) order = order.slice(0, opts.topAdvertisers);
     for (const q of order) q.sort((a, b) => (b.long_running - a.long_running) || (b.variants - a.variants) || (b.days - a.days));
     const out = [], seen = new Set(), taken = new Map(), pos = new Map();
     let moved = true;
@@ -835,7 +841,7 @@
       for (const q of order) {
         if (out.length >= limit) break;
         const page = q[0].page;
-        if ((taken.get(page) || 0) >= perAdvertiser) continue;
+        if ((taken.get(page) || 0) >= (leaders.has(page) ? perAdvertiser : 1)) continue;
         let i = pos.get(page) || 0;
         while (i < q.length && seen.has(mediaKey(q[i].urls[0]))) i++;
         pos.set(page, i + 1);
@@ -1439,6 +1445,31 @@
         .filter(r => (perFresh[r.page] = (perFresh[r.page] || 0) + 1) <= 2).slice(0, 25)
         .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, cta: r.cta || '', door: classifyDoor(r), hooks: Object.keys(hp).filter(k => hp[k].test(text(r))), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }))
     };
+    // Shares by advertiser. The ad counts above count one advertiser as many times as it has ads, and a big advertiser
+    // launches dozens of copies of one ad (or a catalog of ads with one text). A campaign is the copies of one ad of one
+    // advertiser: the same text and the same picture or video; all catalog ads of an advertiser are one catalog campaign.
+    const mediaOf = r => { const u = r.video_url || r.image_url || ''; return u ? mediaKey(u) : ''; };
+    const campaignMap = new Map();
+    for (const r of rows) {
+      const tk = text(r).replace(/[^a-zа-яіїєґ0-9]/g, '').slice(0, 70);
+      const key = r.page + '\u0001' + (r.catalog ? 'catalog' : (tk.length >= 10 || mediaOf(r)) ? tk + '|' + mediaOf(r) : 'id:' + r.id);
+      const c = campaignMap.get(key) || { page: r.page, ads: 0, catalog: !!r.catalog, text: snip(r), id: r.id, oldest_days: 0, ids: [] };
+      c.ads++; c.ids.push(r.id);
+      if (!isStoppedAd(r)) c.oldest_days = Math.max(c.oldest_days, age(r));
+      campaignMap.set(key, c);
+    }
+    const campaignOf = new Map();
+    for (const [k, c] of campaignMap) c.ids.forEach(id => campaignOf.set(id, k));
+    const campaigns = {
+      count: campaignMap.size,
+      copies: rows.length - campaignMap.size,
+      groups: [...campaignMap.values()].filter(c => c.ads >= 2).sort((a, b) => b.ads - a.ads || b.oldest_days - a.oldest_days).slice(0, 15)
+        .map(c => ({ page: c.page, ads: c.ads, catalog: c.catalog, oldest_days: c.oldest_days, text: c.catalog ? '(каталожные объявления)' : c.text, id: c.id, url: 'https://www.facebook.com/ads/library/?id=' + c.id }))
+    };
+    const distinctPages = (rs, by) => { const m = {}; rs.forEach(r => { const k = by(r); (m[k] = m[k] || new Set()).add(r.page); }); return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v.size])); };
+    fresh.campaigns = new Set(freshRows.map(r => campaignOf.get(r.id))).size;
+    const topPage = pageList[0];
+    const dominant = topPage && rows.length ? { page: topPage.page, ads: topPage.ads, share: topPage.ads / rows.length, campaigns: [...campaignMap.values()].filter(c => c.page === topPage.page).length } : null;
     return {
       ads: rows.length,
       advertisers: pageList.length,
@@ -1449,7 +1480,12 @@
       ai_made_ads: rows.filter(r => r.ai_made === true).length,
       platforms: cnt(rows.flatMap(r => (r.platforms || '').split('|').filter(Boolean))),
       formats: cnt(rows.map(r => r.fmt || '?')),
+      formats_by_advertiser: distinctPages(rows, r => r.fmt || '?'),
+      doors_by_advertiser: distinctPages(rows, classifyDoor),
       age_buckets: buckets,
+      age_buckets_by_advertiser: distinctPages(liveRows, r => { const a = age(r); return a < 7 ? '<7' : a < 30 ? '7-30' : a < 90 ? '30-90' : a < 365 ? '90-365' : '>365'; }),
+      campaigns,
+      dominant,
       hook_freq: freq,
       hypothesis_inputs,
       catalog_ads: rows.filter(r => r.catalog).length,

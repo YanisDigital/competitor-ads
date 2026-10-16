@@ -46,7 +46,7 @@ test('buildReport: fresh lists live ads younger than a week, max 2 per advertise
 
 test('buildReport: no young ads gives an empty fresh block', () => {
   const r = buildReport([ROWS[4], ROWS[5]], { now: NOW });
-  assert.deepEqual(r.fresh, { days: 7, ads: 0, advertisers: 0, bursts: [], top: [] });
+  assert.deepEqual(r.fresh, { days: 7, ads: 0, advertisers: 0, campaigns: 0, bursts: [], top: [] });
 });
 
 function snapshotDir(rows, curation) {

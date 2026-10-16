@@ -3,6 +3,19 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.16.2] - 2026-10-16
+
+Shares by advertiser and creative selection, from the dried-flowers retrospective (A3, A4).
+
+### Added
+- Report: `campaigns` (copies of one ad of one advertiser are one campaign; all catalog ads of an advertiser are one catalog campaign), `formats_by_advertiser`, `doors_by_advertiser`, `age_buckets_by_advertiser`, `dominant` (the biggest advertiser and its share), `fresh.campaigns`. HTML shows the shares by advertiser and the number of campaigns.
+- Warning `dominant_advertiser`: one advertiser gives 30% or more of the ads (5 or more ads).
+- `fetch_creatives.py` / `creatives.js select`: `--types "Type" ...` (only advertisers of these curation types) and `--leaders-only`.
+
+### Changed
+- `--top-advertisers N`: the leaders get up to `--per-advertiser` creatives, every other advertiser still gets one (a competitor with a single ad is no longer skipped). `--leaders-only` restores the old cut.
+- SKILL.md: report shares are named by advertiser first, the dominant advertiser is mentioned before the numbers.
+
 ## [0.16.1] - 2026-10-15
 
 Small fixes from the dried-flowers retrospective (block B).

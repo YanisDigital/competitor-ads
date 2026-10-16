@@ -74,15 +74,24 @@ const row = (id, page, daysAgo) => ({ id, page, start: NOW - daysAgo * 86400, ac
 test('selectCreatives topAdvertisers: only the N advertisers with the most ads, then the usual rules', () => {
   const rows = [];
   ['A', 'B', 'C', 'D'].forEach((p, i) => { for (let k = 0; k < 4 - i; k++) rows.push(row(p + k, p, 10 + k)); });
-  const sel = selectCreatives(rows, { now: NOW, topAdvertisers: 2, limit: 30, perAdvertiser: 3 });
+  const sel = selectCreatives(rows, { now: NOW, topAdvertisers: 2, limit: 30, perAdvertiser: 3, leadersOnly: true });
   assert.deepEqual([...new Set(sel.map(s => s.page))], ['A', 'B']);
   assert.equal(sel.length, 6);
+  // by default the others are not skipped: each of them still gets one creative
+  const all = selectCreatives(rows, { now: NOW, topAdvertisers: 2, limit: 30, perAdvertiser: 3 });
+  assert.deepEqual(['A', 'B', 'C', 'D'].map(p => all.filter(s => s.page === p).length), [3, 3, 1, 1]);
+  // a tight limit: everyone gets one before any leader gets a second
+  const tight = selectCreatives(rows, { now: NOW, topAdvertisers: 2, limit: 4, perAdvertiser: 3 });
+  assert.deepEqual(tight.map(s => s.page).sort(), ['A', 'B', 'C', 'D']);
+  // --types: only advertisers of the chosen curation type
+  const typed = selectCreatives(rows, { now: NOW, limit: 30, types: ['maker'], typeOf: { A: 'maker', C: 'maker', B: 'shop' } });
+  assert.deepEqual([...new Set(typed.map(s => s.page))].sort(), ['A', 'C']);
   assert.equal(selectCreatives(rows, { now: NOW, limit: 30 }).length, 9, 'without the option every advertiser takes part');
 });
 
 test('creatives.js select --top-advertisers', () => {
   const dir = snapshot();
-  const r = spawnSync('node', [path.join(SCRIPTS, 'creatives.js'), 'select', dir, '--top-advertisers', '2', '--limit', '30'], { encoding: 'utf8' });
+  const r = spawnSync('node', [path.join(SCRIPTS, 'creatives.js'), 'select', dir, '--top-advertisers', '2', '--limit', '30', '--leaders-only'], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const items = JSON.parse(readFileSync(path.join(dir, 'creatives', 'selection.json'), 'utf8')).items;
   assert.equal(new Set(items.map(i => i.page)).size, 2);
