@@ -45,6 +45,7 @@ function validateNiche(n) {
   if (n.extra_hooks !== undefined && !isObj(n.extra_hooks)) bad('extra_hooks', 'an object {"hook name": "regular expression"}');
   for (const k of ['noise', 'skip_hooks', 'query_ignore']) if (n[k] !== undefined && !(Array.isArray(n[k]) && n[k].every(x => typeof x === 'string'))) bad(k, 'a list of strings');
   for (const k of ['title', 'currency', 'policy']) if (n[k] !== undefined && typeof n[k] !== 'string') bad(k, 'a string');
+  if (n.business_type !== undefined && !['product', 'service'].includes(n.business_type)) bad('business_type', '"product" or "service"');
   for (const k of ['local', 'base_hooks', 'online_only', 'query_match']) if (n[k] !== undefined && typeof n[k] !== 'boolean') bad(k, 'true or false');
   if (n.seasons !== undefined) {
     if (!Array.isArray(n.seasons)) bad('seasons', 'a list: [{"name": "...", "from": "MM-DD", "to": "MM-DD", "note": "..."}] (an object is not accepted)');
@@ -94,6 +95,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     if (preset.online_only) opts.onlineOnly = true;
     if (preset.local === false || preset.online_only) opts.local = false; // an online niche: no "first visit", "before/after", "sign up", "address" among the free angles
     if (Array.isArray(preset.skip_hooks)) opts.skipHooks = preset.skip_hooks;
+    if (preset.business_type === 'product') opts.businessType = 'product'; // goods: no hooks of salons and courses among the free angles
     if (preset.query_match === true) opts.queryMatch = true; // keep ads without the query words out of the lists (also under products.query_match)
     opts.queryIgnore = [...(preset.query_ignore || []), ...(meta.cities || [])]; // words of a query that are not about the ad: the city
     if (preset.products) opts.products = preset.products;

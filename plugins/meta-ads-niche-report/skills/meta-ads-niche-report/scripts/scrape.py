@@ -475,7 +475,9 @@ async def run(args, keywords: list[str]) -> None:
 
     report_path = out_dir / "report.json"
     csv_path = out_dir / "ads.csv"
-    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    # report.json is the raw report before curation.json, niche.json and the preset; the actual report is `node report.js <folder> --save`
+    raw = {**report, "_raw_before_curation": "not cleaned by curation.json: build the real report with node report.js <folder> --save"}
+    report_path.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
     csv_path.write_text(csv_text, encoding="utf-8")
     (out_dir / "run.json").write_text(
         json.dumps({"date": datetime.now(timezone.utc).isoformat(), "country": country, "queries": done, **({"cities": [c for c in (args.city_uk, args.city_ru) if c]} if (args.city_uk or args.city_ru) else {}),

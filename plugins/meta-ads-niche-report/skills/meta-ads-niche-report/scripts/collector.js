@@ -224,10 +224,12 @@
   // (e.g. a US preset shouldn't report Ukrainian-language hooks).
   // Hooks that only make sense for a business with a place and appointments: "first visit", before/after, sign up, address.
   const LOCAL_HOOKS = ['первый визит', 'до/после', 'запись/бронь', 'адрес/район'];
+  const SERVICE_HOOKS = ['обучение/курсы'];
   function hookPatterns(opts = {}) {
     const hooks = opts.baseHooks === false ? {} : { ...HOOK_PATTERNS };
     if (opts.baseHooks !== false) {
-      if (opts.local === false) for (const k of LOCAL_HOOKS) delete hooks[k]; // an online niche: not "free angles" there
+      if (opts.local === false || opts.businessType === 'product') for (const k of LOCAL_HOOKS) delete hooks[k]; // an online niche: not "free angles" there
+      if (opts.businessType === 'product') for (const k of SERVICE_HOOKS) delete hooks[k]; // a goods niche: courses are not an angle there either
       for (const k of opts.skipHooks || []) delete hooks[k];
       const cur = String(opts.currency || '').toUpperCase();
       if (cur && cur !== 'UAH' && CURRENCY_RE[cur] && hooks['цена в грн']) { // "price in hryvnias" counts prices in the niche's own currency
@@ -1037,6 +1039,34 @@
     });
   }
 
+  // ---- Numbers in hypotheses ----
+  // A number typed into evidence goes stale when curation.json changes. A hypothesis may list its numbers as
+  // facts: [{ metric, value }]; metric is a path into the report (advertisers, ads, campaigns.count, doors.Директ/Messenger,
+  // formats_by_advertiser.VIDEO, hook:<name>.advertisers, hook:<name>.ads) and checkFacts compares the value with it.
+  function metricValue(report, metric) {
+    const m = String(metric || '');
+    const hk = /^hook:(.+)\.(advertisers|ads)$/.exec(m);
+    if (hk) {
+      const hi = report.hypothesis_inputs || {};
+      const h = [...(hi.winner_hooks || []), ...(hi.underused_hooks || [])].find(x => x.hook === hk[1]);
+      if (h && h[hk[2]] !== undefined) return h[hk[2]];
+      return hk[2] === 'ads' && report.hook_freq && report.hook_freq[hk[1]] !== undefined ? report.hook_freq[hk[1]] : undefined;
+    }
+    let v = report;
+    for (const part of m.split('.')) { if (v === null || typeof v !== 'object' || !(part in v)) return undefined; v = v[part]; }
+    return typeof v === 'number' ? v : undefined;
+  }
+  function checkFacts(hyps, report) {
+    const out = [];
+    (hyps || []).forEach((h, i) => (Array.isArray(h && h.facts) ? h.facts : []).forEach(f => {
+      const actual = metricValue(report, f && f.metric);
+      const name = (h && h.name) || 'hypothesis #' + (i + 1);
+      if (actual === undefined) out.push({ name, metric: f && f.metric, severity: 'error', code: 'fact_unknown_metric', message: 'The report has no number "' + (f && f.metric) + '".' });
+      else if (+f.value !== actual) out.push({ name, metric: f.metric, severity: 'error', code: 'fact_mismatch', message: 'The hypothesis says ' + f.value + ' for "' + f.metric + '", the report has ' + actual + ': update the text and the fact.' });
+    }));
+    return out;
+  }
+
   // ---- Prioritization and test plan ----------------------------------------
   // score = evidence * readiness / effort.
   //  evidence: hypothesis.evidence_strength (strong 3, moderate 2,
@@ -1048,7 +1078,7 @@
   //    asset); default 2.
   // opts: { client, lint: { [name]: { errors } } }.
   function prioritizeHypotheses(hyps, opts = {}) {
-    const EV = { strong: 3, moderate: 2, structural: 2, weak: 1 };
+    const EV = { strong: 3, moderate: 2, structural: 1, weak: 1 }; // structural = no data of competitors behind it: weighs like weak
     const READY = { ready: 1, 'n/a': 1, unknown: 0.5, blocked: 0 };
     const items = hyps.map((h, i) => {
       const fit = h.hook ? checkClientFit(opts.client || null, [h.hook])[0].status : 'n/a';
@@ -1062,6 +1092,7 @@
       return {
         name: h.name, hook: h.hook || null, variable_type: h.variable_type || 'creative', evidence_strength: h.evidence_strength || 'weak',
         evidence, effort, fit, lint_errors: lintErrors,
+        ...(h.evidence_strength === 'structural' ? { note: 'без доказательств из данных конкурентов: гипотеза о структуре оффера или страницы, а не вывод из среза' } : {}),
         score: Math.round(100 * evidence * READY[fit] * (lintErrors ? 0.5 : 1) / effort) / 100,
         launchable: blockers.length === 0, blockers, _i: i
       };
@@ -1400,7 +1431,12 @@
     const find = x => { if (parent[x] === undefined) parent[x] = x; return parent[x] === x ? x : (parent[x] = find(parent[x])); };
     for (const pgs of Object.values(bySite)) if (pgs.length >= 2) for (const q of pgs.slice(1)) parent[find(q)] = find(pgs[0]);
     const kwText = [...new Set(rows.flatMap(r => r.kws || []))].map(k => k.toLowerCase());
-    const evidence = (re, rs) => {
+    // A hook is also circular when a word of its name shares a stem with a query word ("подарок/сертификат" and the query
+    // "подарунки партнерам": подар-): the regular expression alone misses other endings and the other language.
+    const kwWords = new Set(kwText.flatMap(k => k.split(/[^a-zа-яіїєґ0-9]+/).filter(w => w.length >= 4)));
+    const stemCircular = label => String(label || '').toLowerCase().split(/[^a-zа-яіїєґ0-9]+/).filter(w => w.length >= 5).some(w => { const st = w.slice(0, 5); return [...kwWords].some(q => q.startsWith(st)); });
+    const circularOf = (label, re) => kwText.some(k => re.test(k)) || stemCircular(label);
+    const evidence = (re, rs, label) => {
       const m = rs.filter(r => re.test(text(r)));
       const byE = {};
       m.forEach(r => { const e = find(r.page); byE[e] = (byE[e] || 0) + 1; });
@@ -1411,18 +1447,18 @@
         .map(r => ({ page: r.page, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }));
       const advertisers = ents.length, top_share = m.length ? share(ents[0][1], m.length) : 0;
       const strength = strengthOf(advertisers, top_share);
-      return { ads: m.length, advertisers, top_advertiser: ents.length ? ents[0][0] : null, top_share, strength, circular: kwText.some(k => re.test(k)), examples };
+      return { ads: m.length, advertisers, top_advertiser: ents.length ? ents[0][0] : null, top_share, strength, circular: circularOf(label, re), examples };
     };
     const rank = { strong: 0, moderate: 1, weak: 2 };
     const hypothesis_inputs = {
       ads_analyzed: rows.length,
       long_running_ads: longRows.length,
       enough_long_ads: enough,
-      underused_hooks: Object.entries(freq).map(([hook, n]) => ({ hook, ads: n, share: share(n, rows.length), advertisers: evidence(hp[hook], rows).advertisers, circular: kwText.some(k => hp[hook].test(k)) })).filter(h => h.share <= 0.05).sort((x, y) => x.share - y.share).slice(0, 8),
+      underused_hooks: Object.entries(freq).map(([hook, n]) => ({ hook, ads: n, share: share(n, rows.length), advertisers: evidence(hp[hook], rows, hook).advertisers, circular: circularOf(hook, hp[hook]) })).filter(h => h.share <= 0.05).sort((x, y) => x.share - y.share).slice(0, 8),
       winner_hooks: !enough ? [] : Object.entries(hp).map(([hook, re]) => {
         const l = longRows.filter(r => re.test(text(r))).length, o = restRows.filter(r => re.test(text(r))).length;
         const ls = share(l, longRows.length), os = share(o, restRows.length);
-        return { hook, long_ads: l, long_share: ls, other_share: os, lift: os ? Math.round(10 * ls / os) / 10 : null, ...evidence(hp[hook], longRows) };
+        return { hook, long_ads: l, long_share: ls, other_share: os, lift: os ? Math.round(10 * ls / os) / 10 : null, ...evidence(hp[hook], longRows, hook) };
       }).filter(h => h.long_ads >= 3 && (h.lift === null || h.lift >= 1.3)).sort((x, y) => (rank[x.strength] - rank[y.strength]) || (y.long_share - x.long_share)).slice(0, 6),
       winner_formats: enough ? top(longRows, r => r.fmt || '?', 3) : [],
       winner_ctas: enough ? top(longRows, r => r.cta || '(нет)', 3) : [],
@@ -1764,7 +1800,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, queryMatch, checkClientFit, serviceEconomics, lintHypotheses, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, queryMatch, checkClientFit, serviceEconomics, lintHypotheses, checkFacts, metricValue, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

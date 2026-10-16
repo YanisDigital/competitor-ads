@@ -164,6 +164,69 @@ def load_report(folder: Path, preset: str | None):
     return json.loads(res.stdout)
 
 
+async def run_client(args, folder: Path, fact_opts: dict, meta: dict) -> None:
+    """--client URL: read the client's own page with the same guards and write client_site.json plus client.from_site.json.
+
+    The facts are what the page says (prices, hooks, headings), a draft for the brief: every value must be confirmed with the
+    client. An existing client.json is never changed."""
+    from playwright.async_api import async_playwright
+
+    url = args.client.strip()
+    if not is_public_url(url):
+        sys.exit("--client must be a public http(s) address.")
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=not args.headed)
+        context = await browser.new_context(viewport={"width": 1366, "height": 768}, accept_downloads=False, java_script_enabled=args.with_js)
+        await context.route("**/*", guard_requests)
+        await context.route_web_socket("**", refuse_websocket)
+        tools = await browser.new_context()
+        await tools.route("**/*", lambda route: route.abort())
+        blank = await tools.new_page()
+        await blank.add_init_script(script=COLLECTOR_JS.read_text(encoding="utf-8"))
+        await blank.goto("about:blank")
+        if not fact_opts["currency"]:
+            fact_opts["currency"] = await blank.evaluate("(c) => window.__mai.currencyForCountry(c)", meta.get("country")) or "UAH"
+        page = await context.new_page()
+        entry = {"url": url}
+        try:
+            await safe_goto(page, url)
+            if not is_public_url(page.url):
+                raise ValueError("the page ended on a non-public address; skipped")
+            try:
+                await page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+            text = (await page.evaluate("document.body ? document.body.innerText : ''"))[:MAX_TEXT]
+            if any(m in text[:1500].lower() for m in BLOCK_MARKERS) and len(text) < 2500:
+                entry["error"] = "bot challenge or access denied; skipped (no bypass)"
+            else:
+                info = await page.evaluate("""() => ({ title: document.title,
+                    description: (document.querySelector('meta[name=description]') || {}).content || '',
+                    headings: [...document.querySelectorAll('h1,h2')].slice(0, 12).map(h => h.innerText.trim()).filter(Boolean) })""")
+                site = await blank.evaluate("([t, o]) => window.__mai.siteFacts(t, o)", [text, fact_opts])
+                entry.update({"final_url": page.url, **info, "site": site, "text_excerpt": re.sub(r"\s+", " ", text)[:2000]})
+        except Exception as e:
+            entry["error"] = f"{type(e).__name__}: {str(e)[:160]}"
+        finally:
+            await page.close()
+            await browser.close()
+    (folder / "client_site.json").write_text(json.dumps(entry, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Saved: {folder / 'client_site.json'}" + (f" ({entry['error']})" if "error" in entry else ""))
+    if "error" in entry:
+        return
+    pr = (entry.get("site") or {}).get("prices") or {}
+    draft = {
+        "_status": "read from the client's site by check_sites.py --client; every value must be confirmed with the client before it is used in an ad",
+        "site": entry["final_url"], "currency": fact_opts["currency"],
+        "price_seen_min": pr.get("min"), "price_seen_max": pr.get("max"),
+        "site_hooks": sorted((entry.get("site") or {}).get("hooks") or []),
+        "headings": entry.get("headings", []),
+    }
+    draft_path = folder / "client.from_site.json"
+    draft_path.write_text(json.dumps(draft, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Draft facts for the brief (confirm with the client): {draft_path}")
+
+
 async def run(args) -> None:
     from playwright.async_api import async_playwright  # lazy: arg errors don't need Playwright
 
@@ -186,6 +249,9 @@ async def run(args) -> None:
     ad_text = {}
     for r in rows:
         ad_text.setdefault(r["page"], []).append(f'{r["title"]} {r["body"]}')
+
+    if args.client:
+        return await run_client(args, folder, fact_opts, meta)
 
     candidates = [p for p in report["top_pages"] if p.get("landing") and not p.get("local") and not p.get("platform")]
     # top_pages holds 15; that is enough for --top up to 10
@@ -285,6 +351,7 @@ def main() -> None:
     ap.add_argument("--preset", help="preset id for snapshots without run.json")
     ap.add_argument("--delay", type=float, default=2.0, help="pause between sites, seconds (default 2)")
     ap.add_argument("--headed", action="store_true", help="show the browser window")
+    ap.add_argument("--client", help="URL of the CLIENT's own site: read it with the same guards, write client_site.json and a draft client.from_site.json (facts to confirm; client.json is never changed) instead of checking competitors")
     ap.add_argument("--with-js", action="store_true", dest="with_js", help="run the sites' JavaScript (off by default: the browser has no sandbox); only for sites that show nothing without it")
     args = ap.parse_args()
     if args.top > MAX_SITES:

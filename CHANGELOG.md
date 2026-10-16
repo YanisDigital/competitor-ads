@@ -3,6 +3,22 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.16.3] - 2026-10-16
+
+The rest of the dried-flowers retrospective.
+
+### Added
+- Hypotheses: `facts: [{metric, value}]` are checked against the report (`fact_mismatch`, `fact_unknown_metric`); `lint_hypotheses.js` warns and writes `stale_numbers` when `ads.csv`, `curation.json` or `niche.json` changed after the last check.
+- `business_type: "product"` in `niche.json` or a preset: hooks of salons and courses (first visit, booking, before/after, address, courses) are not counted among the free angles.
+- `contact_sheets.py`: 2x2 contact sheets of the downloaded creatives, video storyboards, and a `creatives.todo.json` template built from the vocabulary in `collector.js`.
+- `check_sites.py --client <url>`: facts of the client's own site into `client_site.json` and a draft `client.from_site.json` (to confirm with the client; `client.json` is never changed).
+- `client.b2b.example.json` (batches, production time, branding, who answers leads, last order date; `conversion_channel`, `directions`), templates `references/strategy_month1.md` and `references/pitch.md`.
+
+### Changed
+- A `structural` hypothesis weighs like a `weak` one and carries a note "no evidence from competitor data".
+- A hook is also marked `circular` when a word of its name shares a stem with a query word (other endings, the other language).
+- `report.json` from `scrape.py` is marked `_raw_before_curation`: the real report is `node report.js <folder> --save`.
+
 ## [0.16.2] - 2026-10-16
 
 Shares by advertiser and creative selection, from the dried-flowers retrospective (A3, A4).
