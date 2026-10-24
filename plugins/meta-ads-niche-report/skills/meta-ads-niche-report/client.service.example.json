@@ -34,5 +34,8 @@
   "avoid": [
     "do not promise the result lasts all day",
     "do not address the viewer's looks"
-  ]
+  ],
+  "proposal_language": "uk",
+  "proposal_person": "first_singular",
+  "proposal_style": "prose"
 }

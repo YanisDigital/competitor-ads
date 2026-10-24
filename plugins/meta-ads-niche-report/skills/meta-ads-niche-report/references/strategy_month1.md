@@ -2,6 +2,12 @@
 
 Use only numbers from the snapshot and from client.json. No forecast of results. Every assumption is written as an assumption.
 
+## Parameters (set them before writing)
+- **Language** of the text: `proposal_language` in client.json (uk, ru, en) or what the user asked for. Not stated: ask once, in one line. The notes to the targeting specialist stay in the language of the chat.
+- **Person**: `proposal_person`: `first_singular` ("I analysed", "I suggest"), `first_plural` ("we"), or neutral. Keep it the same in the whole text.
+- **Form**: `proposal_style`: `prose` (short paragraphs, no bullet lists) or `lists`. Compact by default: a client reads a screen, not a report.
+- A rewrite in another language, person or form is a new pass over the same facts, not a translation of the notes: keep every number and link as it is.
+
 ## 0. Before writing
 - Conversion channel (client.json `conversion_channel`): site purchase, Direct/messenger, lead form, call. It sets the campaign objective, whether a pixel matters and how learning is counted.
 - Directions (`directions`): B2C, B2B or both. Different offers, different budgets: write one block per direction.

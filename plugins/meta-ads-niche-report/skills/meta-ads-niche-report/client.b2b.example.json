@@ -5,7 +5,10 @@
   "market": "UA",
   "language": "uk",
   "business_type": "product",
-  "directions": ["b2c", "b2b"],
+  "directions": [
+    "b2c",
+    "b2b"
+  ],
   "conversion_channel": "instagram_direct",
   "who_answers_leads": "manager, replies within 2 hours on weekdays",
   "lead_form_url": null,
@@ -16,12 +19,28 @@
   "min_order_qty": 10,
   "production_days": 7,
   "rush_available": false,
-  "branding_options": ["card with a logo", "ribbon", "box"],
+  "branding_options": [
+    "card with a logo",
+    "ribbon",
+    "box"
+  ],
   "sample_available": true,
-  "price_by_qty": [{ "qty": 10, "unit_price": 900 }, { "qty": 50, "unit_price": 750 }],
+  "price_by_qty": [
+    {
+      "qty": 10,
+      "unit_price": 900
+    },
+    {
+      "qty": 50,
+      "unit_price": 750
+    }
+  ],
   "last_order_date_for_holiday": "2026-12-10",
   "invoice_with_vat": false,
-  "documents": ["invoice", "closing documents"],
+  "documents": [
+    "invoice",
+    "closing documents"
+  ],
   "reviews_count": null,
   "reviews_rating": null,
   "reviews_quotable": false,
@@ -30,6 +49,15 @@
   "guarantee_days": null,
   "max_discount_pct": 10,
   "target_cpa": null,
-  "usp": ["handmade", "branding for the company"],
-  "avoid": ["do not promise delivery dates after the last order date", "do not promise a result of the campaign"]
+  "usp": [
+    "handmade",
+    "branding for the company"
+  ],
+  "avoid": [
+    "do not promise delivery dates after the last order date",
+    "do not promise a result of the campaign"
+  ],
+  "proposal_language": "uk",
+  "proposal_person": "first_singular",
+  "proposal_style": "prose"
 }

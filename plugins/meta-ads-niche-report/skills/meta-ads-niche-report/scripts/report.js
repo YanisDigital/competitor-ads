@@ -110,6 +110,8 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   }
   // No preset currency: price the ads in the currency of the run's country (KZ: tenge).
   if (!opts.currency && currencyForCountry(meta.country)) opts.currency = currencyForCountry(meta.country);
+  const currencyUnknown = !opts.currency && !!meta.country && !currencyForCountry(meta.country); // a country without a rule and no currency in niche.json: do not guess hryvnias
+  if (currencyUnknown) opts.currencyUnknown = true;
   const doors = Object.fromEntries(rows.map(r => [r.id, classifyDoor(r)]));
   // presets with a products block: does each ad's own text hold the words of its query (Excel column)
   // after curation the advertisers are chosen by meaning, and a competitor's ad often lacks the words of the query (a city, a synonym): the column is shown only when the check is enforced
@@ -125,7 +127,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
   const report = buildReport(rows, opts);
   const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads,
-    curated: !!curation, geo, dominant: report.dominant, curation: curation ? { criterion: cur.criterion, confirmed: cur.confirmed, types_kept: cur.types_kept } : null, activeAds: report.status_counts.active, queryCheck: report.query_check,
+    curated: !!curation, geo, currencyUnknown: currencyUnknown ? meta.country : '', dominant: report.dominant, curation: curation ? { criterion: cur.criterion, confirmed: cur.confirmed, types_kept: cur.types_kept } : null, activeAds: report.status_counts.active, queryCheck: report.query_check,
     blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   // What the folder already has, for the "what else can be done" block.

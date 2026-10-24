@@ -29,5 +29,8 @@
   "avoid": [
     "do not claim it removes stains permanently"
   ],
-  "target_cpa": 18
+  "target_cpa": 18,
+  "proposal_language": "uk",
+  "proposal_person": "first_singular",
+  "proposal_style": "prose"
 }

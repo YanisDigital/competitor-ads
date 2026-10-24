@@ -695,7 +695,7 @@ def main() -> None:
         row += 1
     pr = report.get("prices")
     if pr:
-        section(f"Цены ({pr.get('currency', '')}, только объявления с ценой в тексте)")
+        section(f"Цены ({pr.get('currency') or 'валюта не определена: задай currency в niche.json'}, только объявления с ценой в тексте)")
         for label, key in [("Объявлений с ценой", "ads_with_price"), ("Минимум", "min"), ("Медиана", "median"), ("Максимум", "max"),
                            ("Упоминаний «% off»", "pct_off_mentions"), ("Медианная скидка, %", "median_pct_off")]:
             put(ws, row, [label, pr.get(key)])

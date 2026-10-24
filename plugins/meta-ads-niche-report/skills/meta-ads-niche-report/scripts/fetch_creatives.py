@@ -385,7 +385,7 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help=f"how many creatives (default {DEFAULT_LIMIT}, cap {MAX_LIMIT})")
     ap.add_argument("--per-advertiser", type=int, default=3, dest="per_advertiser", help="at most this many per advertiser (default 3)")
     ap.add_argument("--delay", type=float, default=0.5, help=f"seconds between downloads (default 0.5, minimum {MIN_DELAY:g})")
-    ap.add_argument("--videos", type=int, default=0, help=f"also cut this many video creatives into frames (default 0, cap {MAX_VIDEOS}; needs Playwright)")
+    ap.add_argument("--videos", type=int, default=None, help=f"also cut this many video creatives into frames (cap {MAX_VIDEOS}; needs Playwright). Default: 10 together with --top-advertisers (the usual run), otherwise 0; --videos 0 turns it off")
     ap.add_argument("--types", nargs="+", metavar="TYPE", help="only advertisers of these types from curation.json (e.g. the competitors of your own product, not substitutes)")
     ap.add_argument("--leaders-only", action="store_true", dest="leaders_only", help="with --top-advertisers: skip the advertisers outside the leaders (by default each of them still gets one creative)")
     ap.add_argument("--top-advertisers", type=int, default=0, dest="top_advertisers", help="only the N advertisers with the most ads, the leaders (default 0 = all); the usual run uses 10 with --limit 30 --videos 10")
@@ -394,6 +394,10 @@ def main() -> None:
         sys.exit("--top-advertisers must be 0 (all) or more.")
     if not 1 <= args.limit <= MAX_LIMIT:
         sys.exit(f"--limit must be between 1 and {MAX_LIMIT}.")
+    if args.videos is None:  # the usual run (leaders) also looks at the videos: a run without them left the video creatives unlooked
+        args.videos = 10 if args.top_advertisers > 0 else 0
+        if args.videos:
+            print("Videos: 10 of the leaders are cut into frames (default of --top-advertisers; --videos 0 turns it off).")
     if not 0 <= args.videos <= MAX_VIDEOS:
         sys.exit(f"--videos must be between 0 and {MAX_VIDEOS}.")
     if args.per_advertiser < 1:

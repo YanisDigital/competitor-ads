@@ -63,7 +63,7 @@ test('loadSnapshot takes the currency from the run country when the preset names
   assert.equal(loadSnapshot(snapshot('UA')).report.prices.currency, 'UAH');
   assert.equal(loadSnapshot(snapshot('DE')).report.prices.currency, 'EUR');
   assert.equal(loadSnapshot(snapshot('CZ')).report.prices.currency, 'CZK');
-  assert.equal(loadSnapshot(snapshot('BR')).report.prices.currency, 'UAH'); // unknown country keeps the old default
+  assert.equal(loadSnapshot(snapshot('BR')).report.prices.currency, null); // a country without a rule: no guess (it used to be read as hryvnias)
 });
 
 test('a preset currency wins over the run country', () => {

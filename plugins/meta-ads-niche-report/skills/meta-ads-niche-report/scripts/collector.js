@@ -228,6 +228,7 @@
   function hookPatterns(opts = {}) {
     const hooks = opts.baseHooks === false ? {} : { ...HOOK_PATTERNS };
     if (opts.baseHooks !== false) {
+      if (opts.currencyUnknown) delete hooks['цена в грн']; // the country has no currency rule: do not count hryvnias in an ad of another country
       if (opts.local === false || opts.businessType === 'product') for (const k of LOCAL_HOOKS) delete hooks[k]; // an online niche: not "free angles" there
       if (opts.businessType === 'product') for (const k of SERVICE_HOOKS) delete hooks[k]; // a goods niche: courses are not an angle there either
       for (const k of opts.skipHooks || []) delete hooks[k];
@@ -249,7 +250,8 @@
   // Country -> price currency (UA, KZ and US as before; the Library countries of the EU, GB, CH, TR ... as in the TikTok plugin).
   const CURRENCY_BY_COUNTRY = {
     UA: 'UAH', KZ: 'KZT', US: 'USD', GB: 'GBP', PL: 'PLN', TR: 'TRY', CH: 'CHF', LI: 'CHF', CZ: 'CZK', RO: 'RON', HU: 'HUF',
-    SE: 'SEK', DK: 'DKK', NO: 'NOK', IS: 'ISK', BG: 'BGN'
+    SE: 'SEK', DK: 'DKK', NO: 'NOK', IS: 'ISK', BG: 'BGN',
+    UZ: 'UZS', RU: 'RUB', BY: 'BYN', GE: 'GEL', AM: 'AMD', AZ: 'AZN', MD: 'MDL', KG: 'KGS', CA: 'CAD', AU: 'AUD', IL: 'ILS', AE: 'AED'
   };
   const EURO = new Set(['AT', 'BE', 'CY', 'DE', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'SI', 'SK']);
   const currencyForCountry = c => { const k = String(c || '').toUpperCase(); return CURRENCY_BY_COUNTRY[k] || (EURO.has(k) ? 'EUR' : null); };
@@ -257,9 +259,10 @@
   const CURRENCY_RE = {
     UAH: '(?:грн|₴|uah|гривен|гривень)', KZT: '(?:₸|тг(?![а-яё])|тенге|kzt)', USD: '(?:usd|dollars?)', EUR: '(?:€|eur\\b|euro)',
     GBP: '(?:£|gbp)', PLN: '(?:zł|zl\\b|pln)', TRY: '(?:₺|\\btl\\b|try\\b)', CHF: '(?:chf|fr\\.)', CZK: '(?:kč|czk|крон)', RON: '(?:lei\\b|ron\\b)',
-    HUF: '(?:ft\\b|huf)', SEK: '(?:kr\\b|sek)', DKK: '(?:kr\\b|dkk)', NOK: '(?:kr\\b|nok)', ISK: '(?:kr\\b|isk)', BGN: '(?:лв|bgn)'
+    HUF: '(?:ft\\b|huf)', UZS: '(?:сум|сўм|so.?m\\b|uzs)', RUB: '(?:₽|руб|rub\\b)', BYN: '(?:byn|руб)', GEL: '(?:₾|gel\\b|лари)', AMD: '(?:֏|amd|драм)',
+    AZN: '(?:₼|azn|манат)', MDL: '(?:mdl|лей\\b)', KGS: '(?:сом\\b|kgs)', CAD: '(?:cad)', AUD: '(?:aud)', ILS: '(?:₪|ils|шек)', AED: '(?:aed|дирхам)', SEK: '(?:kr\\b|sek)', DKK: '(?:kr\\b|dkk)', NOK: '(?:kr\\b|nok)', ISK: '(?:kr\\b|isk)', BGN: '(?:лв|bgn)'
   };
-  const CURRENCY_PREFIX = { USD: '\\$', EUR: '€', GBP: '£', TRY: '₺' };
+  const CURRENCY_PREFIX = { USD: '\\$', EUR: '€', GBP: '£', TRY: '₺', GEL: '₾', AZN: '₼', ILS: '₪', CAD: 'c\\$', AUD: 'a\\$' };
 
   // Does the ad's own text hold the words of a query that found it? The Library matches ANY word of a
   // query, and also text we never see (other creative variants, text on the picture or in the video), so a
@@ -544,6 +547,7 @@
       const none = g.pages.filter(p => p.kind === 'unconfirmed');
       if (none.length) add('geo_unconfirmed', 'info', 'У ' + none.length + ' из ' + g.pages.length + ' рекламодателей ни одно объявление не называет город (' + none.slice(0, 6).map(p => '«' + p.page + '»').join(', ') + (none.length > 6 ? ' и др.' : '') + '): поиск Библиотеки идёт по тексту, а не по месту. Проверь город по креативам или странице и решай через curation.json.');
     }
+    if (info.currencyUnknown) add('currency_unknown', 'warn', 'Для страны ' + info.currencyUnknown + ' нет правила валюты, поэтому цены в тексте объявлений не считаются (раньше их читали как гривны). Задай "currency" в niche.json (например "EUR", "UZS") и пересобери отчёт.');
     const noisy = stats.filter(q => info.curated && q.relevant_advertisers !== null && q.relevant_advertisers !== undefined && q.advertisers >= 5 && q.relevant_advertisers / q.advertisers < 0.3);
     if (noisy.length) add('noisy_queries', 'warn', 'Запросы, где конкурентов меньше 30% рекламодателей: ' + noisy.map(q => '«' + q.query + '» (' + q.relevant_advertisers + ' из ' + q.advertisers + ')').join(', ') + '. Скорее всего запрос назван поводом или адресатом, а не товаром: замени его названием товара и его синонимами (node suggest_queries.js <срез>).');
     const qc = info.queryCheck;
@@ -1402,6 +1406,7 @@
     // Prices mentioned in ad text, in opts.currency (UAH by default, USD for
     // US presets); "X instead of Y" / "was X now Y" pairs and "N% off"
     // mentions give the typical discount.
+    const currencyUnknown = opts.currencyUnknown === true && !opts.currency;
     const currency = String(opts.currency || 'UAH').toUpperCase();
     const amounts = [];
     const discounts = [];
@@ -1409,13 +1414,14 @@
     let adsWithPrice = 0;
     for (const r of rows) {
       const h = priceHits(text(r), currency);
-      if (h.amounts.length) { adsWithPrice++; amounts.push(...h.amounts); }
-      discounts.push(...h.discounts);
+      if (!currencyUnknown && h.amounts.length) { adsWithPrice++; amounts.push(...h.amounts); }
+      if (!currencyUnknown) discounts.push(...h.discounts); // a percentage does not depend on the currency, an amount does
       pctOff.push(...h.pctOff);
     }
     const med = median;
     const prices = {
-      currency,
+      currency: currencyUnknown ? null : currency,
+      ...(currencyUnknown ? { currency_unknown: true } : {}),
       ads_with_price: adsWithPrice,
       min: amounts.length ? Math.min(...amounts) : null, median: med(amounts), max: amounts.length ? Math.max(...amounts) : null,
       discount_pairs: discounts.length, median_discount_pct: med(discounts),

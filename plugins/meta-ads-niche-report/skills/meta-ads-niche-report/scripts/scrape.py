@@ -246,6 +246,18 @@ def batch_command(args, tmp: Path, names_file: Path) -> list[str]:
     return cmd
 
 
+def inherit_snapshot_files(src: str, out: str) -> list[str]:
+    """--pages-of: the new snapshot keeps the decisions of the source (curation.json) and its niche settings (niche.json, with geo_terms),
+    so the report of the full collection is cleaned the same way and a chain's ads of other cities can be cut (geo_only). Never overwrites."""
+    copied = []
+    for name in ("curation.json", "niche.json"):
+        a, b = Path(src) / name, Path(out) / name
+        if a.is_file() and not b.exists():
+            b.write_text(a.read_text(encoding="utf-8"), encoding="utf-8")
+            copied.append(name)
+    return copied
+
+
 def read_geos(path: str) -> dict:
     """--geos-file: {"kyiv": ["query", ...], "odesa": {"keywords": [...], "country": "UA"}} -> {label: (keywords, country or None)}."""
     try:
@@ -604,6 +616,21 @@ def creatives_step(out_dir: Path) -> str:
     return "fetch" if (out_dir / "curation.json").exists() else "curate_first"
 
 
+def announce_inherited(args) -> None:
+    if not args.pages_of or not args.out or not (Path(args.out) / "ads.csv").exists():
+        return
+    copied = inherit_snapshot_files(args.pages_of, args.out)
+    if copied:
+        print("Copied from the source snapshot: " + ", ".join(copied) + ".")
+    niche = Path(args.out) / "niche.json"
+    try:
+        geo = bool(json.loads(niche.read_text(encoding="utf-8")).get("geo_terms")) if niche.is_file() else False
+    except ValueError:
+        geo = False
+    if geo:
+        print("niche.json has geo_terms: a chain's ads of other cities are cut with \"geo_only\": true in niche.json (see the geo_chain warning of the report).")
+
+
 def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):  # cp1252 consoles cannot print Cyrillic (python -I ignores PYTHONIOENCODING)
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -662,9 +689,12 @@ def main() -> None:
         pages = select_pages(pages_from_snapshot(args.pages_of), args.pages)
         prev = pages_state(Path(args.out), args.pages_of)
         if len(pages) > MAX_KEYWORDS or (prev and (prev.get("queries_remaining") or prev.get("blocked"))):
-            sys.exit(run_in_batches(args, pages))
+            code = run_in_batches(args, pages)
+            announce_inherited(args)
+            sys.exit(code)
 
     asyncio.run(run(args, keywords))
+    announce_inherited(args)
 
 
 if __name__ == "__main__":

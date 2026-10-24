@@ -3,6 +3,20 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.17.1] - 2026-10-24
+
+Block C of the review of five real projects.
+
+### Added
+- Preset `hotels-resort-ua`: hotels, cottages and chalets of a Ukrainian resort (the resort is the city of the queries), Ukrainian queries, hooks for spa, vats, distance to the lift, meals, early booking, autonomy, seasons and the Meta policy note.
+- Currency rules for UZ (UZS), RU, BY, GE, AM, AZ, MD, KG, CA, AU, IL, AE.
+- `proposal_language`, `proposal_person`, `proposal_style` in the client briefs and a "Parameters" block in `pitch.md` and `strategy_month1.md` (language, person, prose or lists).
+
+### Changed
+- A country without a currency rule and no `currency` in `niche.json`: prices in ad texts are no longer read as hryvnias. The report says `prices.currency_unknown`, gives the warning `currency_unknown`, drops the hryvnia hook; percentages still count.
+- `scrape.py --pages-of`: the new snapshot inherits `curation.json` and `niche.json` (with `geo_terms`) of the source when it has none, and says how to cut a chain's ads of other cities (`geo_only`).
+- `fetch_creatives.py --top-advertisers` cuts 10 videos into frames by default (`--videos 0` turns it off); a run without the leaders option is unchanged.
+
 ## [0.17.0] - 2026-10-24
 
 From the review of five real projects (photographers, websites, kids centre, Russian literature, Bukovel hotels): block B of the recommendations.
