@@ -50,6 +50,27 @@ dl{margin:.4em 0;display:grid;grid-template-columns:minmax(0,max-content) minmax
 .note.urgent{border-left-color:var(--err)}.gal{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-top:12px}figure{margin:0;font-size:.85rem}figure.wide{grid-column:span 2}@media(max-width:420px){figure.wide{grid-column:auto}}img.cr{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:6px}
 @media print{body{background:#fff;color:#000}details{border:1px solid #999}details>*{display:block}details:not([open])>*:not(summary){display:block}.card,.tw{break-inside:avoid}}`;
 
+// analysis.md next to the snapshot: the analyst's conclusions (a plan, a client proposal) in the report itself. A small, safe Markdown:
+// # ## ### headings, "- " or "* " lists, "1. " lists, **bold**, paragraphs; everything is escaped, no links, no raw HTML.
+function mdToHtml(text) {
+  const inline = s => esc(s).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  const out = [];
+  let list = null, para = [];
+  const flush = () => { if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; } };
+  const close = () => { if (list) { out.push('</' + list + '>'); list = null; } };
+  for (const raw of String(text || '').slice(0, 200000).split(/\r?\n/)) {
+    const line = raw.trimEnd();
+    let m;
+    if (!line.trim()) { flush(); close(); continue; }
+    if ((m = /^(#{1,3})\s+(.*)$/.exec(line))) { flush(); close(); out.push('<h' + (m[1].length + 2) + '>' + inline(m[2]) + '</h' + (m[1].length + 2) + '>'); continue; }
+    if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) { flush(); if (list !== 'ul') { close(); out.push('<ul>'); list = 'ul'; } out.push('<li>' + inline(m[1]) + '</li>'); continue; }
+    if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(line))) { flush(); if (list !== 'ol') { close(); out.push('<ol>'); list = 'ol'; } out.push('<li>' + inline(m[1]) + '</li>'); continue; }
+    close(); para.push(line.trim());
+  }
+  flush(); close();
+  return out.join('\n');
+}
+
 function buildHtml(m) {
   const { report: r, meta = {}, rows = [] } = m;
   const total = r.ads || rows.length;
@@ -59,6 +80,7 @@ function buildHtml(m) {
   out.push(`<h1>Ads Library: ${esc(title)}</h1><p class="mut">Дата сбора: ${esc(dateStr)}${meta.country ? ' · страна: ' + esc(meta.country) : ''}${meta.queries ? ' · запросов: ' + esc(meta.queries.length) : ''}. Снимок на дату сбора: библиотека отдаёт до ~120 объявлений на запрос (верх выдачи по охвату), это не весь рынок.</p>`);
   if (meta.queries && meta.queries.length) out.push(`<p class="mut">Запросы: ${meta.queries.map(q => chip(q)).join('')}</p>`);
   const warnings = m.warnings || [];
+  if (m.analysis) out.push('<h2>Выводы</h2><section class="card analysis">' + mdToHtml(m.analysis) + '</section>');
   if (warnings.length) out.push(`<h2>Предупреждения</h2>${warnings.map(w => `<div class="note">${esc(w.message)}</div>`).join('')}`);
   const cur = meta.curation;
   const types = (cur && cur.types) || {};
@@ -247,23 +269,26 @@ ${ln ? '<p>' + ln.findings.filter(f => f.severity !== 'info').map(f => chip(f.me
 <title>Ads Library: ${esc(title)} ${esc(dateStr)}</title><style>${CSS}</style></head><body><main>${out.join('\n')}</main></body></html>`;
 }
 
-module.exports = { buildHtml, esc, safeUrl, cleanUrl };
+module.exports = { buildHtml, mdToHtml, esc, safeUrl, cleanUrl };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
   const outIdx = args.indexOf('--out');
   const outPath = outIdx >= 0 ? args.splice(outIdx, 2)[1] : null;
   const noImages = args.includes('--no-images') && args.splice(args.indexOf('--no-images'), 1);
+  const li = args.indexOf('--lang');
+  const lang = li >= 0 ? args.splice(li, 2)[1] : 'ru';
+  if (!['ru', 'uk'].includes(lang)) { console.error('--lang must be ru or uk'); process.exit(1); }
   const withBudget = args.includes('--with-budget') && args.splice(args.indexOf('--with-budget'), 1);
   const dir = args[0];
   if (!dir || !fs.existsSync(path.join(dir, 'ads.csv'))) {
-    console.error('Usage: node export_html.js <snapshot-folder-with-ads.csv> [--out file.html] [--no-images] [--with-budget]');
+    console.error('Usage: node export_html.js <snapshot-folder-with-ads.csv> [--out file.html] [--no-images] [--with-budget] [--lang ru|uk]');
     process.exit(1);
   }
   const { loadSnapshot } = require('./report.js');
   const snap = loadSnapshot(dir);
   const read = f => (fs.existsSync(path.join(dir, f)) ? JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')) : null);
-  const model = { ...snap, sites: read('sites.json'), hypotheses: read('hypotheses.json'), lint: read('hypotheses_lint.json'), plan: read('test_plan.json'), diff: read('diff.json'), images: {}, withBudget: !!withBudget, generated: new Date().toISOString().slice(0, 10) };
+  const model = { ...snap, analysis: fs.existsSync(path.join(dir, 'analysis.md')) ? fs.readFileSync(path.join(dir, 'analysis.md'), 'utf8') : '', sites: read('sites.json'), hypotheses: read('hypotheses.json'), lint: read('hypotheses_lint.json'), plan: read('test_plan.json'), diff: read('diff.json'), images: {}, withBudget: !!withBudget, generated: new Date().toISOString().slice(0, 10) };
   try { model.version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', '.claude-plugin', 'plugin.json'), 'utf8')).version; } catch (e) { /* not installed as a plugin */ }
   if (!noImages) {
     const root = path.resolve(dir) + path.sep;
@@ -286,6 +311,6 @@ if (require.main === module) {
     }
   }
   const out = outPath || path.join(dir, 'report.html');
-  fs.writeFileSync(out, buildHtml(model), 'utf8');
+  fs.writeFileSync(out, require('./i18n.js').translateHtml(buildHtml(model), lang), 'utf8');
   console.log(`Saved: ${out} (${Math.round(fs.statSync(out).size / 1024)} KB, single file)`);
 }

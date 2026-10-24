@@ -14,7 +14,7 @@
 //   node report.js out/ecom-dropship-us/2026-09-30 [preset-id]
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, nextSteps, currencyForCountry, euSummary, creativesSummary, isEuCountry, queryMatch } = require('./collector.js');
+const { geoCheck, parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, nextSteps, currencyForCountry, euSummary, creativesSummary, isEuCountry, queryMatch } = require('./collector.js');
 
 const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null);
 
@@ -45,6 +45,8 @@ function validateNiche(n) {
   if (n.extra_hooks !== undefined && !isObj(n.extra_hooks)) bad('extra_hooks', 'an object {"hook name": "regular expression"}');
   for (const k of ['noise', 'skip_hooks', 'query_ignore']) if (n[k] !== undefined && !(Array.isArray(n[k]) && n[k].every(x => typeof x === 'string'))) bad(k, 'a list of strings');
   for (const k of ['title', 'currency', 'policy']) if (n[k] !== undefined && typeof n[k] !== 'string') bad(k, 'a string');
+  if (n.geo_terms !== undefined && !(Array.isArray(n.geo_terms) && n.geo_terms.length && n.geo_terms.every(x => typeof x === 'string' && x))) bad('geo_terms', 'a list of regular expressions, e.g. ["чернів", "chernivt"]');
+  if (n.geo_only !== undefined && typeof n.geo_only !== 'boolean') bad('geo_only', 'true or false');
   if (n.business_type !== undefined && !['product', 'service'].includes(n.business_type)) bad('business_type', '"product" or "service"');
   for (const k of ['local', 'base_hooks', 'online_only', 'query_match']) if (n[k] !== undefined && typeof n[k] !== 'boolean') bad(k, 'true or false');
   if (n.seasons !== undefined) {
@@ -64,6 +66,7 @@ function loadNicheConfig(dir, presetId) {
   const niche = readJson(path.join(dir, 'niche.json'));
   if (niche !== null) validateNiche(niche);
   for (const [k, src] of Object.entries((niche && niche.extra_hooks) || {})) checkRegex('hook "' + k + '"', src, '');
+  ((niche && niche.geo_terms) || []).forEach((src, i) => checkRegex('geo_terms[' + i + ']', src, 'i'));
   const np = (niche && niche.products) || null; // your own flags (brands, categories) live in niche.json, not in the shared preset
   for (const g of ['red_flags', 'page_name_flags', 'soft_flags']) for (const [k, src] of Object.entries((np && np[g]) || {})) checkRegex('products.' + g + ' "' + k + '"', src, 'i');
   const config = preset || niche ? { ...(preset || {}), ...(niche || {}), extra_hooks: { ...((preset && preset.extra_hooks) || {}), ...((niche && niche.extra_hooks) || {}) } } : null;
@@ -85,7 +88,12 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const allRows = parseCsv(fs.readFileSync(path.join(dir, 'ads.csv'), 'utf8'));
   const curation = readJson(path.join(dir, 'curation.json'));
   const cur = applyCuration(allRows, curation);
-  const rows = cur.rows;
+  let rows = cur.rows;
+  let geo = null;
+  if (preset && Array.isArray(preset.geo_terms) && preset.geo_terms.length) {
+    geo = geoCheck(rows, preset.geo_terms);
+    if (preset.geo_only === true) { geo.only = true; rows = rows.filter(r => !geo.chain_pages.has(r.page) || geo.matched.has(r.id)); }
+  }
   const opts = { longDays: 90, now: ts };
   if (preset) {
     opts.extraHooks = preset.extra_hooks || {};
@@ -117,7 +125,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const visuals = manifest ? creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { now: ts, longDays: opts.longDays }) : null;
   const report = buildReport(rows, opts);
   const warnings = snapshotWarnings({ advertisers: report.advertisers, queryStats: stats, ts, preset, stoppedAds: report.stopped.ads,
-    curated: !!curation, dominant: report.dominant, curation: curation ? { criterion: cur.criterion, confirmed: cur.confirmed, types_kept: cur.types_kept } : null, activeAds: report.status_counts.active, queryCheck: report.query_check,
+    curated: !!curation, geo, dominant: report.dominant, curation: curation ? { criterion: cur.criterion, confirmed: cur.confirmed, types_kept: cur.types_kept } : null, activeAds: report.status_counts.active, queryCheck: report.query_check,
     blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   // What the folder already has, for the "what else can be done" block.
@@ -133,7 +141,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     blocked: !!meta.blocked, queries_remaining: (meta.queries_remaining || []).length,
     empty_market: !!curation && report.advertisers <= 2
   });
-  return { report, doors, query_match, rows, query_stats: stats, warnings, eu, visuals, next_steps,
+  return { report, doors, query_match, rows, geo: geo && { terms: geo.terms, only: !!geo.only, pages: geo.pages }, query_stats: stats, warnings, eu, visuals, next_steps,
     meta: { ...meta, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };
 }
 

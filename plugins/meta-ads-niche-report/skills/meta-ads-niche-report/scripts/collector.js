@@ -492,6 +492,21 @@
     }));
   }
 
+  // ---- Geography by text ----
+  // The Library searches the TEXT of an ad, not where the advertiser works, so a city niche gets chains and advertisers of
+  // other cities. niche.json geo_terms (regular expressions, e.g. "чернів|chernivt") mark the ads that name the place in the
+  // page name, title, text, caption or link. Per advertiser: confirmed (at least half of its ads name the place, or one of
+  // 1-4 ads does), chain (5+ ads, under half name the place: a network of many cities), unconfirmed (no ad names it).
+  function geoCheck(rows, terms) {
+    const re = new RegExp((terms || []).join('|'), 'i');
+    const hit = r => re.test([r.page, r.title, r.body, r.caption, r.link].join(' ').slice(0, MAX_TEXT));
+    const matched = new Set(rows.filter(hit).map(r => r.id));
+    const by = new Map();
+    for (const r of rows) { const p = by.get(r.page) || { page: r.page, ads: 0, matched: 0 }; p.ads++; if (matched.has(r.id)) p.matched++; by.set(r.page, p); }
+    const pages = [...by.values()].map(p => ({ ...p, kind: p.matched === 0 ? 'unconfirmed' : (p.ads >= 5 && p.matched / p.ads < 0.5) ? 'chain' : 'confirmed' }));
+    return { terms, matched, pages, chain_pages: new Set(pages.filter(p => p.kind === 'chain').map(p => p.page)) };
+  }
+
   // ---- Warnings a reader must see next to the numbers -----------------------
   // A preset may carry `seasons` ([{name, from:'MM-DD', to:'MM-DD', note}], the
   // window may wrap the new year) and `policy` (a short note for niches Meta
@@ -522,6 +537,13 @@
     }
     const dom = info.dominant;
     if (dom && dom.ads >= 5 && dom.share >= 0.3 && info.advertisers >= 2) add('dominant_advertiser', 'warn', 'Рекламодатель «' + dom.page + '» даёт ' + Math.round(dom.share * 100) + '% объявлений выборки (' + dom.ads + ' объявлений в ' + dom.campaigns + ' кампаниях): доли форматов, дверей, возраста и свежих запусков по объявлениям отражают в основном его. Смотри доли по рекламодателям (formats_by_advertiser, doors_by_advertiser) и кампании (campaigns), а не число объявлений.');
+    const g = info.geo;
+    if (g) {
+      const chains = g.pages.filter(p => p.kind === 'chain');
+      if (chains.length) add('geo_chain', 'warn', 'Рекламодатели-сети (город назван меньше чем в половине объявлений): ' + chains.slice(0, 6).map(p => '«' + p.page + '» (' + p.matched + ' из ' + p.ads + ')').join(', ') + '. Их остальные объявления, скорее всего, про другие города' + (g.only ? ' и убраны из отчёта (geo_only)' : ': включи "geo_only": true в niche.json, чтобы оставить только объявления с городом') + '.');
+      const none = g.pages.filter(p => p.kind === 'unconfirmed');
+      if (none.length) add('geo_unconfirmed', 'info', 'У ' + none.length + ' из ' + g.pages.length + ' рекламодателей ни одно объявление не называет город (' + none.slice(0, 6).map(p => '«' + p.page + '»').join(', ') + (none.length > 6 ? ' и др.' : '') + '): поиск Библиотеки идёт по тексту, а не по месту. Проверь город по креативам или странице и решай через curation.json.');
+    }
     const noisy = stats.filter(q => info.curated && q.relevant_advertisers !== null && q.relevant_advertisers !== undefined && q.advertisers >= 5 && q.relevant_advertisers / q.advertisers < 0.3);
     if (noisy.length) add('noisy_queries', 'warn', 'Запросы, где конкурентов меньше 30% рекламодателей: ' + noisy.map(q => '«' + q.query + '» (' + q.relevant_advertisers + ' из ' + q.advertisers + ')').join(', ') + '. Скорее всего запрос назван поводом или адресатом, а не товаром: замени его названием товара и его синонимами (node suggest_queries.js <срез>).');
     const qc = info.queryCheck;
@@ -1564,12 +1586,35 @@
   // Inverse of toCsv: reads an ads.csv back into rows shaped like the store.
   // Undoes the formula-injection quote prefix. Fields never contain newlines
   // (toCsv collapses whitespace), so a line-based parse is safe.
+  // A real CSV reader (RFC 4180): quoted and unquoted fields, doubled quotes, a comma or a line break inside quotes, CRLF or LF,
+  // a BOM. The old reader accepted only fully quoted fields and silently returned empty rows for a file saved by another
+  // program (a spreadsheet, a script without QUOTE_ALL): 2 advertisers instead of 100.
+  function csvRecords(text) {
+    const s = String(text).replace(/^\uFEFF/, '');
+    const recs = [];
+    let rec = [], f = '', q = false, any = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (q) { if (c === '"') { if (s[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"' && f === '') { q = true; any = true; }
+      else if (c === ',') { rec.push(f); f = ''; any = true; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && s[i + 1] === '\n') i++;
+        if (any || f !== '' || rec.length) { rec.push(f); recs.push(rec); }
+        rec = []; f = ''; any = false;
+      } else { f += c; any = true; }
+    }
+    if (any || f !== '' || rec.length) { rec.push(f); recs.push(rec); }
+    return recs;
+  }
+
   function parseCsv(text) {
-    const lines = String(text).replace(/^﻿/, '').split(/\r?\n/).filter(Boolean);
-    const cols = lines[0].split(',');
+    const recs = csvRecords(text);
+    if (!recs.length) return [];
+    const cols = recs[0].map(c => c.trim());
     const field = v => (/^'[=+\-@]/.test(v) ? v.slice(1) : v);
-    return lines.slice(1).map(l => {
-      const v = [...l.matchAll(/"((?:[^"]|"")*)"/g)].map(m => field(m[1].replace(/""/g, '"')));
+    return recs.slice(1).map(rec => {
+      const v = rec.map(field);
       const o = {};
       cols.forEach((k, i) => { o[k] = v[i]; });
       o.start = Date.parse(o.start + 'T00:00:00Z') / 1000;
@@ -1800,7 +1845,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, queryMatch, checkClientFit, serviceEconomics, lintHypotheses, checkFacts, metricValue, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { geoCheck, HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, queryMatch, checkClientFit, serviceEconomics, lintHypotheses, checkFacts, metricValue, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

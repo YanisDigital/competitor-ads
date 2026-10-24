@@ -246,6 +246,81 @@ def batch_command(args, tmp: Path, names_file: Path) -> list[str]:
     return cmd
 
 
+def read_geos(path: str) -> dict:
+    """--geos-file: {"kyiv": ["query", ...], "odesa": {"keywords": [...], "country": "UA"}} -> {label: (keywords, country or None)}."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        sys.exit(f"--geos-file: cannot read {path}: {e}")
+    if not isinstance(data, dict) or not data:
+        sys.exit('--geos-file must be an object like {"kyiv": ["фотограф Київ", ...], "odesa": [...]}')
+    geos = {}
+    for label, v in data.items():
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(label)):
+            sys.exit(f"--geos-file: bad label '{label}': latin letters, digits, - and _ only (it becomes a folder name).")
+        kws, country = (v.get("keywords"), v.get("country")) if isinstance(v, dict) else (v, None)
+        if not isinstance(kws, list) or not kws or not all(isinstance(k, str) and k.strip() for k in kws):
+            sys.exit(f"--geos-file: '{label}' needs a non-empty list of queries.")
+        if len(kws) > MAX_KEYWORDS:
+            sys.exit(f"--geos-file: '{label}' has {len(kws)} queries; limit is {MAX_KEYWORDS} per run.")
+        geos[label] = ([k.strip() for k in kws], country)
+    return geos
+
+
+def geo_command(args, label: str, kws: list, country, out: Path) -> list[str]:
+    cmd = [sys.executable, str(Path(__file__).resolve()), "--keywords", *kws, "--out", str(out), "--status", args.status, "--media", args.media,
+           "--sort", args.sort, "--delay", str(args.delay), "--long-days", str(args.long_days)]
+    for flag, value in (("--country", country or args.country), ("--date-from", args.date_from), ("--date-to", args.date_to)):
+        if value:
+            cmd += [flag, value]
+    if args.language:
+        cmd += ["--language", *args.language]
+    if args.exact:
+        cmd.append("--exact")
+    if args.headed:
+        cmd.append("--headed")
+    return cmd
+
+
+def run_geos(args, run_geo=None, sleep=time.sleep) -> int:
+    """Several places in one go (a photographer in six cities, a niche in several countries): one snapshot folder per label under --out.
+
+    Every geo is a normal run of this script (its own queries, at most MAX_KEYWORDS), --batch-pause seconds apart because Meta
+    shows a captcha to a fast pace. A geo that already has a finished snapshot is skipped, so after a captcha (exit code 3) the
+    same command later continues with the geos that are left. Nothing is retried and nothing is done to get around the block."""
+    geos = read_geos(args.geos_file)
+    root = Path(args.out)
+    root.mkdir(parents=True, exist_ok=True)
+    run_geo = run_geo or (lambda cmd: subprocess.run(cmd, check=False).returncode)
+
+    def finished(d: Path) -> bool:
+        rj = d / "run.json"
+        if not (d / "ads.csv").exists() or not rj.exists():
+            return False
+        try:
+            run = json.loads(rj.read_text(encoding="utf-8"))
+        except ValueError:
+            return False
+        return not run.get("blocked") and not run.get("queries_remaining")
+
+    todo = [(label, v) for label, v in geos.items() if not finished(root / label)]
+    print(f"{len(geos)} geos, {len(geos) - len(todo)} already done, {len(todo)} to collect into {root}/<label>, {args.batch_pause:g} s between geos.")
+    for k, (label, (kws, country)) in enumerate(todo, 1):
+        print(f"--- geo {k} of {len(todo)}: {label} ({len(kws)} queries)")
+        code = run_geo(geo_command(args, label, kws, country, root / label))
+        if code == 3:
+            print(f"Meta stopped the run at '{label}' (captcha or sign-in) and nothing was done to get around it. Wait several hours, then run the same command again: it continues with the geos that are left.")
+            return 3
+        if code != 0:
+            print(f"'{label}' failed (exit code {code}); the finished geos are saved in {root}.")
+            return code
+        if k < len(todo):
+            print(f"Pause of {args.batch_pause:g} s before the next geo (a captcha follows a fast pace).")
+            sleep(args.batch_pause)
+    print(f"All geos collected into {root}. Compare them: node geo_compare.js {root}/<label> ...")
+    return 0
+
+
 def run_batch_subprocess(args, tmp: Path, names_file: Path) -> int:
     return subprocess.run(batch_command(args, tmp, names_file), check=False).returncode
 
@@ -548,6 +623,7 @@ def main() -> None:
     parser.add_argument("--pages-of", dest="pages_of", help="Snapshot folder: collect ALL active ads of the advertisers that count there (curation.json applied), instead of keyword searches. Needs a snapshot with page ids (collected by v0.12.4 or newer)")
     parser.add_argument("--pages", nargs="+", metavar="NAME", help="With --pages-of: only these advertisers (names as in ads.csv; case and extra spaces ignored) instead of every competitor of the snapshot")
     parser.add_argument("--batch-pause", type=float, default=180.0, dest="batch_pause", help="--pages-of with more than 15 advertisers runs in batches of 15 into one folder; seconds to wait between batches (default 180, minimum 30)")
+    parser.add_argument("--geos-file", dest="geos_file", help='JSON {"kyiv": ["query", ...], "odesa": [...]}: one snapshot per key into <--out>/<key> (several cities or countries in one go, geo_compare.js compares them)')
     parser.add_argument("--pages-file", dest="pages_file", help=argparse.SUPPRESS)
     parser.add_argument("--status", choices=VALID_STATUSES, default="active", help="active (default), inactive (stopped ads only) or all. Stopped ads show what competitors tried and switched off")
     parser.add_argument("--date-from", dest="date_from", help="YYYY-MM-DD: only ads that were delivered on or after this day")
@@ -569,6 +645,14 @@ def main() -> None:
         sys.exit(f"--max-queries above {MAX_KEYWORDS} is not allowed.")
     if args.pages_of and not args.out:
         sys.exit("--pages-of needs --out (a new snapshot folder), so the full page collection does not mix with the original snapshot.")
+    if args.geos_file:
+        if not args.out:
+            sys.exit("--geos-file needs --out (the folder that will hold one snapshot per geo).")
+        if args.pages_of or args.keywords or args.keywords_file or args.preset:
+            sys.exit("--geos-file brings its own queries: do not combine it with --keywords, --keywords-file, --preset or --pages-of.")
+        if args.batch_pause < 30:
+            sys.exit("--batch-pause below 30 seconds is not allowed.")
+        sys.exit(run_geos(args))
     if args.pages and not args.pages_of:
         sys.exit("--pages works only together with --pages-of.")
     if args.batch_pause < 30:

@@ -3,6 +3,23 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.17.0] - 2026-10-24
+
+From the review of five real projects (photographers, websites, kids centre, Russian literature, Bukovel hotels): block B of the recommendations.
+
+### Added
+- `--lang uk` for `export_html.js` and `export_xlsx.py`: headings, labels, warnings, next steps and Excel sheet names in Ukrainian (tables in `i18n_uk.json`, `i18n.js`); ad texts and page names are never translated, Excel formulas follow the renamed sheets.
+- `analysis.md` next to a snapshot becomes the first section "Выводы" of the HTML report and a sheet of the Excel file (a small safe Markdown: nothing but headings, lists and bold gets through).
+- `curate.js set`: write `curation.json` by command (`--include`, `--exclude`, `--disputed`, `--context`, `--forget`, `--criterion`, `--note`, `--confirm`); names are matched without case and extra spaces, an unknown name exits with code 3.
+- `export_ads.js`: the ads of a snapshot as CSV (UTF-8 BOM, formula-safe) or HTML cards, filtered by `curation.json` types.
+- Geography by text: `geo_terms` / `geo_only` in `niche.json` mark advertisers as confirmed, chain or unconfirmed (warnings `geo_chain`, `geo_unconfirmed`); `geo_only` keeps only the ads that name the place for chains.
+- `geo_compare.js`: several cities or countries in one HTML (shares by advertiser, hooks per place, advertisers in more than one place, differing run parameters).
+- `scrape.py --geos-file`: one snapshot per place from one command, paused between places, resumable after a captcha.
+- `niche_check.js`: how many ads and advertisers each hook of `niche.json` catches; finds invalid JSON escapes, `\b` next to Cyrillic, hooks that catch nothing or too much, circular hooks.
+
+### Changed
+- `parseCsv` is a real CSV reader (unquoted fields, BOM, CRLF, commas and line breaks inside quotes). A file saved by another program no longer reads as "2 advertisers instead of 100".
+
 ## [0.16.3] - 2026-10-16
 
 The rest of the dried-flowers retrospective.

@@ -18,6 +18,7 @@ them when the file is opened.
 import argparse
 import csv
 import json
+import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
@@ -40,6 +41,39 @@ try:
     from openpyxl.utils import get_column_letter
 except ImportError:
     sys.exit("openpyxl is required for the Excel export. Install it with: pip install openpyxl")
+
+
+def load_i18n(lang: str):
+    """Tables of i18n_uk.json (the same file i18n.js reads) or None for Russian."""
+    if lang != "uk":
+        return None
+    t = json.loads((HERE / "i18n_uk.json").read_text(encoding="utf-8"))
+    t["fragments"] = sorted(t["fragments"], key=lambda p: -len(p[0]))
+    t["patterns"] = [(re.compile(p), r) for p, r in t["patterns"]]
+    return t
+
+
+def tr(text, t):
+    """Our own text in Ukrainian; a text that is not ours (an ad, a page name) is returned unchanged. Port of i18n.js trText."""
+    if not t or not isinstance(text, str) or not text.strip():
+        return text
+    core = text.strip()
+    lead, trail = text[:len(text) - len(text.lstrip())], text[len(text.rstrip()):]
+    if core in t["exact"]:
+        return lead + t["exact"][core] + trail
+    if ", " in core and all(x in t["exact"] for x in core.split(", ")):
+        return lead + ", ".join(t["exact"][x] for x in core.split(", ")) + trail
+    for rx, rp in t["patterns"]:
+        if rx.search(core):
+            return lead + rx.sub(rp, core) + trail
+    if not any(len(ru) >= 12 and ru in text for ru, _ in t["fragments"]):
+        return text
+    out = text
+    for ru, uk in t["fragments"]:
+        out = out.replace(ru, uk)
+    for a, b in t.get("after", []):
+        out = out.replace(a, b)
+    return out
 
 
 def load_report(folder: Path):
@@ -88,7 +122,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Export an ads snapshot folder to Excel.")
     ap.add_argument("folder", help="snapshot folder with ads.csv (e.g. out/ecom-dropship-us/2026-09-30)")
     ap.add_argument("--out", help="output .xlsx path (default: <folder>/report.xlsx)")
+    ap.add_argument("--lang", choices=("ru", "uk"), default="ru", help="language of the sheets, headers and notes of the report (ru by default); texts of ads and page names are never translated")
     args = ap.parse_args()
+    i18n = load_i18n(args.lang)
     folder = Path(args.folder)
     if not (folder / "ads.csv").exists():
         sys.exit(f"No ads.csv in {folder}")
@@ -341,6 +377,21 @@ def main() -> None:
         wdi.cell(row=len(disputed) + 3, column=1, value=(
             "По объявлениям не определить, конкурент ли это. В цифры отчёта эти рекламодатели не вошли (curation.json, ключ disputed); решение за вами.")).font = f_note
         wdi.freeze_panes = "A2"
+
+    # ---- Analyst's conclusions (analysis.md next to ads.csv): the text of the plan or the proposal, one paragraph per row ----
+    analysis_path = folder / "analysis.md"
+    if analysis_path.exists():
+        wan = wb.create_sheet("Выводы")
+        wan.column_dimensions["A"].width = 120
+        n = 1
+        for line in analysis_path.read_text(encoding="utf-8", errors="replace")[:200000].splitlines():
+            if not line.strip():
+                continue
+            text = line.strip().lstrip("#").strip() if line.lstrip().startswith("#") else line.strip()
+            c = wan.cell(row=n, column=1, value=text)
+            c.font = f_bold if line.lstrip().startswith("#") else f_base
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+            n += 1
 
     # ---- Early products (presets with a "products" block) ----
     prods = report.get("products") or {}
@@ -655,6 +706,19 @@ def main() -> None:
             for c in cells:
                 if c.data_type == "f" and (sheet.title, c.row, c.column) not in own_formulas:
                     c.data_type = "s"  # third-party text that starts with "="
+    if i18n:  # Ukrainian: our own headers, labels and notes; formulas keep working because the sheet names inside them are renamed too
+        renames = {sh.title: tr(sh.title, i18n) for sh in wb if tr(sh.title, i18n) != sh.title}
+        for sheet in wb:
+            for cells in sheet.iter_rows():
+                for c in cells:
+                    if c.data_type == "f" and isinstance(c.value, str):
+                        for old, new in renames.items():
+                            c.value = c.value.replace(f"'{old}'!", f"'{new}'!")
+                    elif c.data_type == "s" and isinstance(c.value, str):
+                        c.value = tr(c.value, i18n)
+        for sheet in wb:
+            if sheet.title in renames:
+                sheet.title = renames[sheet.title]
     wb.calculation.fullCalcOnLoad = True
     try:
         wb.save(out_path)
