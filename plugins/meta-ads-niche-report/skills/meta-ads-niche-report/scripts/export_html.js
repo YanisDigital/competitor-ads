@@ -26,6 +26,11 @@ const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']
 const cleanUrl = u => { try { const x = new URL(String(u || '')); return /^https?:$/.test(x.protocol) && !x.username && !x.password ? x.origin + x.pathname : ''; } catch (e) { return ''; } };
 const safeUrl = u => (/^https?:\/\//i.test(String(u || '')) ? esc(u) : '');
 const link = (u, text) => (safeUrl(u) ? `<a href="${safeUrl(u)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text));
+// A list of site domains ("a.ua, b.shop"): each one a link to https://<domain> (opens in a new tab), the rest escaped text. Only a plain
+// host name qualifies, so a value from ad data cannot smuggle a scheme, a path or markup into the href.
+const DOMAIN = /^[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+$/i;
+const domainLinks = list => String(list === null || list === undefined ? '' : list).split(/,\s*/).filter(Boolean)
+  .map(d => (DOMAIN.test(d) && d.length <= 120 ? link('https://' + d.toLowerCase(), d) : esc(d))).join(', ');
 const pct = (n, d) => (d ? Math.round(100 * n / d) : 0);
 const num = n => (n === null || n === undefined ? '-' : esc(n));
 
@@ -112,7 +117,7 @@ function buildHtml(m) {
   const hasTypes = Object.keys(types).length > 0;
   const hasLikes = (r.top_pages || []).some(p => Number.isFinite(p.page_likes));
   out.push(table(['Страница', ...(hasTypes ? ['Тип'] : []), ...(hasLikes ? ['Подписчики'] : []), 'Объявл.', 'Старейшее, дн.', 'Дверь', 'Сайты', 'Пометки'], (r.top_pages || []).map(p => [
-    link(p.library_url || p.page_url, p.page), ...(hasTypes ? [esc(types[p.page] || '')] : []), ...(hasLikes ? [num(p.page_likes)] : []), esc(p.ads), esc(p.oldest_days), esc(p.doors), esc(p.sites),
+    link(p.library_url || p.page_url, p.page), ...(hasTypes ? [esc(types[p.page] || '')] : []), ...(hasLikes ? [num(p.page_likes)] : []), esc(p.ads), esc(p.oldest_days), esc(p.doors), domainLinks(p.sites),
     (p.local ? chip('локальный', 'warn') : '') + (p.platform ? chip('платформа', 'warn') : '') + (p.out_of_niche ? p.out_of_niche.map(f => chip('вне ниши: ' + f, 'warn')).join('') : '')
   ])));
 
@@ -203,7 +208,7 @@ function buildHtml(m) {
   if ((r.creative_clusters || []).length || (r.store_groups || []).length) {
     out.push('<h2>Сети страниц</h2><div class="grid">');
     if (r.creative_clusters.length) out.push(`<section class="card"><h3>Один текст на разных страницах</h3>${r.creative_clusters.map(c => `<p><b>${esc(c.pages.length)} стр.</b>, старейшее ${esc(c.oldest_days)} дн.: ${esc(c.text)}<br><span class="mut">${esc(c.pages.join('; '))}</span></p>`).join('')}</section>`);
-    if (r.store_groups.length) out.push(`<section class="card"><h3>Страницы с общим сайтом</h3>${r.store_groups.map(g => `<p><b>${esc(g.site)}</b><br><span class="mut">${esc(g.pages.join('; '))}</span></p>`).join('')}</section>`);
+    if (r.store_groups.length) out.push(`<section class="card"><h3>Страницы с общим сайтом</h3>${r.store_groups.map(g => `<p><b>${domainLinks(g.site)}</b><br><span class="mut">${esc(g.pages.join('; '))}</span></p>`).join('')}</section>`);
     out.push('</div>');
   }
 
@@ -269,7 +274,7 @@ ${ln ? '<p>' + ln.findings.filter(f => f.severity !== 'info').map(f => chip(f.me
 <title>Ads Library: ${esc(title)} ${esc(dateStr)}</title><style>${CSS}</style></head><body><main>${out.join('\n')}</main></body></html>`;
 }
 
-module.exports = { buildHtml, mdToHtml, esc, safeUrl, cleanUrl };
+module.exports = { buildHtml, mdToHtml, domainLinks, esc, safeUrl, cleanUrl };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

@@ -7,23 +7,21 @@ A local server on 127.0.0.1 counts the requests it receives. Public pages that
 redirect to it (and to a router, a cloud metadata address, a decimal IP, a chain
 of redirects, a sub-resource and an iframe) must never reach it; a legitimate
 redirect must still work. Uses the plugin's own guard_requests / safe_goto.
-Exit codes: 0 passed, 1 failed, 77 skipped (no Playwright browser or no internet:
-the redirects come from httpbin.org).
+Exit codes: 0 passed, 1 failed, 77 skipped (no Playwright browser). No internet needed: tests/fake_web.py
+answers the "public" redirecting hosts (*.test) itself, the local server is real.
 """
 import asyncio
 import http.server
 import sys
 import threading
-import urllib.request
-from urllib.parse import quote
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+import fake_web as fw  # noqa: E402
 
 HITS = []
 PORT = 8767
-R = "https://httpbin.org/redirect-to?url="
-
-
-def q(u: str) -> str:
-    return R + quote(u, safe="")
+q = fw.q
 
 
 def skip(why: str) -> None:
@@ -52,7 +50,7 @@ async def check(cs) -> int:
         except Exception as e:
             skip(f"cannot launch Chromium ({str(e)[:80]})")
         ctx = await b.new_context(java_script_enabled=False, accept_downloads=False)
-        await ctx.route("**/*", cs.guard_requests)
+        await ctx.route("**/*", fw.wrap(cs.guard_requests))
         await ctx.route_web_socket("**", cs.refuse_websocket)
         pg = await ctx.new_page()
         must_block = {
@@ -61,7 +59,7 @@ async def check(cs) -> int:
             "redirect to the metadata address": q("http://169.254.169.254/latest/"),
             "redirect to a decimal IP": q(f"http://2130706433:{PORT}/nav"),
             "chain of redirects ending at 127.0.0.1": q(q(f"http://127.0.0.1:{PORT}/chain")),
-            "credentials in the URL": "https://user:pw@example.com/",
+            "credentials in the URL": "https://user:pw@example.test/",
         }
         for name, url in must_block.items():
             try:
@@ -70,17 +68,17 @@ async def check(cs) -> int:
                 bad += 1
             except ValueError:
                 pass
-            except Exception as e:  # httpbin.org slow or failing: not a verdict, the request counter at the end is
+            except Exception as e:  # not a verdict: the request counter at the end is
                 print(f"note {name}: did not complete ({type(e).__name__}), the local request counter decides")
         try:
-            await cs.safe_goto(pg, q("https://example.com/"))
-            if "example.com" not in pg.url:
+            await cs.safe_goto(pg, q("https://example.test/"))
+            if "example.test" not in pg.url:
                 print("FAIL legitimate redirect ended at", pg.url)
                 bad += 1
         except ValueError as e:
             print("FAIL legitimate redirect was blocked by the guard:", e)
             bad += 1
-        except Exception as e:  # httpbin.org or example.com slow or failing
+        except Exception as e:  # not a verdict
             print(f"note: legitimate redirect not verified ({type(e).__name__}: {str(e)[:60]})")
         await pg.set_content(f'<img src="{q(f"http://127.0.0.1:{PORT}/img")}"><iframe src="{q(f"http://127.0.0.1:{PORT}/iframe")}"></iframe>')
         await pg.wait_for_timeout(5000)
@@ -96,11 +94,8 @@ def main() -> None:
         import playwright  # noqa: F401
     except ImportError:
         skip("Playwright is not installed")
-    try:
-        urllib.request.urlopen("https://httpbin.org/status/200", timeout=10).read()
-    except Exception:
-        skip("httpbin.org is not reachable")
     import check_sites as cs
+    fw.install()
     server = http.server.HTTPServer(("127.0.0.1", PORT), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     bad = asyncio.run(check(cs))

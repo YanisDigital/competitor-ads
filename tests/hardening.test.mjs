@@ -1,6 +1,6 @@
 // meta-ads-niche-report: hardening found in the security review of 2026-10-10.
 //  - check_sites.py: a redirect into a private network must never be requested
-//    (network test, skipped without Playwright or internet)
+//    (no internet needed: tests/fake_web.py plays the public redirecting host; skipped without Playwright)
 //  - regexes over third-party text must not hang on a hostile page (ReDoS)
 //  - HTML: third-party links without tracking parameters, client budget hidden
 import assert from 'node:assert/strict';

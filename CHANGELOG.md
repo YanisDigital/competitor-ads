@@ -3,6 +3,14 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.17.2] - 2026-10-29
+
+### Changed
+- HTML report: the site domains in the advertiser table and in "pages with a common site" are links that open in a new tab (only a plain host name becomes a link; a scheme, path or markup from ad data never reaches the `href`). Before, they were plain text.
+
+### Fixed
+- The SSRF tests of `check_sites.py` (Meta and TikTok) no longer need httpbin.org, which started to answer 403 to `/redirect-to` and made them fail. `tests/fake_web.py` plays the public redirecting host (`*.test`), the local server that must never be reached stays real; with the guard switched off the test fails as it should. The TikTok copy of the test lives in the plugin folder and is not part of a Meta release.
+
 ## [0.17.1] - 2026-10-24
 
 Block C of the review of five real projects.
