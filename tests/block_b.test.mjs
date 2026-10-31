@@ -116,13 +116,13 @@ test('analysis.md: a safe small Markdown in the HTML report, nothing else gets t
 test('geoCheck: confirmed, chain and unconfirmed advertisers; geo_only drops the other cities of a chain', () => {
   const rows = [
     ...Array.from({ length: 6 }, (_, i) => ad('C' + i, 'Chain Kids', i < 2 ? 'Центр у Чернівцях, запис' : 'Центр у Києві, запис')),
-    ad('L1', 'Local Mudryk Чернівці', 'Заняття для дітей'), ad('L2', 'Local Mudryk Чернівці', 'Ще заняття'),
+    ad('L1', 'Local Kids Club Чернівці', 'Заняття для дітей'), ad('L2', 'Local Kids Club Чернівці', 'Ще заняття'),
     ad('U1', 'Somewhere', 'Дитячий центр розвитку')
   ];
   const g = geoCheck(rows, ['чернів']);
   const kind = p => g.pages.find(x => x.page === p).kind;
   assert.equal(kind('Chain Kids'), 'chain');
-  assert.equal(kind('Local Mudryk Чернівці'), 'confirmed');
+  assert.equal(kind('Local Kids Club Чернівці'), 'confirmed');
   assert.equal(kind('Somewhere'), 'unconfirmed');
   const w = snapshotWarnings({ advertisers: 3, queryStats: [], ts: NOW, geo: g });
   assert.ok(w.some(x => x.code === 'geo_chain' && /Chain Kids/.test(x.message) && /2 из 6/.test(x.message)));

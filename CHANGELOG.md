@@ -3,6 +3,19 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.17.3] - 2026-10-31
+
+From the security and privacy review of 2026-10-31 (the code of 0.16-0.17).
+
+### Security
+- `export_xlsx.py --lang uk`: translating a cell re-assigned its value, and openpyxl turned third-party text starting with `=` (a page name, an ad text, a line of `analysis.md`) back into a formula. Now only our own text is re-written, and always as text; the Russian file was not affected.
+- `contact_sheets.py`: file names come from `creatives/manifest.json`, a file anyone could edit. Only pictures (jpg, png, webp) inside `<folder>/creatives` are read, Pillow's pixel cap guards against a decompression bomb, `--tile` is limited to 120-1200 px.
+
+### Privacy
+- Two real names from collected snapshots had slipped into the tests (a shop domain and a kids centre); replaced with made-up ones. They stay in the git history of 0.17.0-0.17.2 (tests are not part of the release zip).
+- `.gitignore` covers the new files that can hold client data or third-party text: `analysis.md`, `client_site.json`, `client.from_site.json`, `ads_list.html`, `geo_compare.html/.json`, `*.xlsx`, `report*.html`.
+- SKILL.md: `analysis.md` goes into the HTML and Excel files whole, so no client budget or target CPA there when a report is shared; the client site facts stay in `out/`.
+
 ## [0.17.2] - 2026-10-29
 
 ### Changed
@@ -27,7 +40,7 @@ Block C of the review of five real projects.
 
 ## [0.17.0] - 2026-10-24
 
-From the review of five real projects (photographers, websites, kids centre, Russian literature, Bukovel hotels): block B of the recommendations.
+From the review of five real projects (photographers, websites, a kids centre, Russian literature, resort hotels): block B of the recommendations.
 
 ### Added
 - `--lang uk` for `export_html.js` and `export_xlsx.py`: headings, labels, warnings, next steps and Excel sheet names in Ukrainian (tables in `i18n_uk.json`, `i18n.js`); ad texts and page names are never translated, Excel formulas follow the renamed sheets.

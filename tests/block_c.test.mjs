@@ -134,9 +134,9 @@ test('preset hotels-resort-ua: Ukrainian queries with the resort as the city, ho
 // ---- links in the HTML report ----
 test('export_html: the site domains of the advertiser table are real links that open in a new tab; nothing but a plain host name becomes a href', async () => {
   const { domainLinks, buildHtml } = await import('../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/export_html.js');
-  const html = domainLinks('shop.example.ua, Bench.in.ua');
+  const html = domainLinks('shop.example.ua, Garden-Shop.example');
   assert.match(html, /<a href="https:\/\/shop\.example\.ua" target="_blank" rel="noopener noreferrer">shop\.example\.ua<\/a>/);
-  assert.match(html, /href="https:\/\/bench\.in\.ua"[^>]*>Bench\.in\.ua</, 'the text keeps its case, the link is lowercase');
+  assert.match(html, /href="https:\/\/garden-shop\.example"[^>]*>Garden-Shop\.example</, 'the text keeps its case, the link is lowercase');
   const bad = domainLinks('javascript:alert(1), evil.example/<b>x</b>, a b.ua, "><img src=x>');
   assert.ok(!/<a |<b>|<img/.test(bad), bad);
   const rep = buildReport([ad('1', 'pagea', 'text one here for test'), ad('2', 'pageb', 'text two here for test')], { now: NOW });

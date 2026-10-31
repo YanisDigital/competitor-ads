@@ -19,6 +19,20 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+MAX_PIXELS = 40_000_000  # a decompression bomb in a picture must not eat the memory (the same cap as fetch_creatives.py)
+PICTURE = (".jpg", ".jpeg", ".png", ".webp")
+
+
+def inside(folder: Path, rel) -> Path | None:
+    """A file named in manifest.json, only when it is a picture inside <folder>/creatives (the manifest is a file anyone could edit)."""
+    try:
+        root = (folder / "creatives").resolve()
+        p = (folder / str(rel)).resolve()
+    except (OSError, ValueError):
+        return None
+    if root not in p.parents or p.suffix.lower() not in PICTURE or not p.is_file():
+        return None
+    return p
 
 
 def tag_fields() -> dict:
@@ -61,12 +75,15 @@ def main() -> None:
     ap.add_argument("folder", help="snapshot folder with creatives/manifest.json")
     ap.add_argument("--tile", type=int, default=520, help="tile width in pixels (default 520)")
     args = ap.parse_args()
+    if not 120 <= args.tile <= 1200:
+        sys.exit("--tile must be between 120 and 1200 pixels.")
     folder = Path(args.folder)
     manifest_path = folder / "creatives" / "manifest.json"
     if not manifest_path.exists():
         sys.exit("No creatives/manifest.json: run fetch_creatives.py first.")
     try:
-        import PIL  # noqa: F401
+        from PIL import Image
+        Image.MAX_IMAGE_PIXELS = MAX_PIXELS
     except ImportError:
         sys.exit("Pillow is required for the sheets (pip install pillow); it is not installed here and nothing installs it for you.")
     items = [i for i in json.loads(manifest_path.read_text(encoding="utf-8")).get("items", []) if i.get("status") == "ok"]
@@ -83,14 +100,18 @@ def main() -> None:
         if not files:
             continue
         for k, f in enumerate(files, 1):
-            pics.append(folder / f)
+            p = inside(folder, f)
+            if p is None:
+                continue
+            pics.append(p)
             caps.append(f"#{n} {it['id']} {it.get('kind', '')} {k}/{len(files)}")
     tile_h = int(args.tile * 1.0)
     sheets = 0
     for s in range(0, len(pics), 4):
         sheets += 1
         sheet(pics[s:s + 4], caps[s:s + 4], 2, args.tile, tile_h, out / f"sheet-{sheets:02d}.jpg")
-    boards = [(it, folder / it["video"]["storyboard"]) for it in items if isinstance(it.get("video"), dict) and it["video"].get("storyboard") and (folder / it["video"]["storyboard"]).exists()]
+    boards = [(it, inside(folder, it["video"]["storyboard"])) for it in items if isinstance(it.get("video"), dict) and it["video"].get("storyboard")]
+    boards = [(it, b) for it, b in boards if b is not None]
     vsheets = 0
     for s in range(0, len(boards), 2):
         vsheets += 1

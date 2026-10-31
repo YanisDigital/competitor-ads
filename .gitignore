@@ -27,6 +27,16 @@ disputed.json
 niche.json
 selection.json
 *.mp4
+# 0.16-0.17: the analyst's notes, facts of the client's own site, lists of ads, comparisons of places, other report files
+analysis.md
+client_site.json
+client.from_site.json
+ads_list.html
+geo_compare.html
+geo_compare.json
+report-*.xlsx
+*.xlsx
+report*.html
 
 node_modules/
 .venv/

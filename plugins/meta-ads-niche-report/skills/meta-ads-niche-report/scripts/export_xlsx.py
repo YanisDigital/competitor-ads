@@ -715,7 +715,10 @@ def main() -> None:
                         for old, new in renames.items():
                             c.value = c.value.replace(f"'{old}'!", f"'{new}'!")
                     elif c.data_type == "s" and isinstance(c.value, str):
-                        c.value = tr(c.value, i18n)
+                        new = tr(c.value, i18n)
+                        if new != c.value:  # assigning a value makes openpyxl re-detect "=..." as a formula: write only our own text, and as text
+                            c.value = new
+                            c.data_type = "s"
         for sheet in wb:
             if sheet.title in renames:
                 sheet.title = renames[sheet.title]
