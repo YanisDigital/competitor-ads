@@ -143,3 +143,16 @@ test('export_html: the site domains of the advertiser table are real links that 
   const page = buildHtml({ report: rep, meta: {}, rows: [], warnings: [], query_stats: [], next_steps: [], images: {} });
   assert.match(page, /<td><a href="https:\/\/pagea\.example" target="_blank"/);
 });
+
+// ---- bar labels are never cut ----
+test('HTML bars: a long label (a hook, a button, a door) wraps on its own line and is never cut with an ellipsis (Meta and TikTok)', () => {
+  for (const plugin of ['meta-ads-niche-report', 'tiktok-ads-niche-report']) {
+    const f = path.join(SKILL, '..', '..', '..', plugin, 'skills', plugin, 'scripts', 'export_html.js');
+    const src = readFileSync(f, 'utf8');
+    const css = (/\.bl\{[^}]*\}/.exec(src) || [''])[0];
+    assert.ok(css, plugin + ': the .bl rule exists');
+    assert.ok(!/text-overflow|nowrap|overflow:\s*hidden/.test(css), plugin + ': the label is not cut: ' + css);
+    assert.match(css, /overflow-wrap:anywhere/);
+    assert.match(src, /\.bt\{grid-column:1 \/ -1;/, plugin + ': the bar sits under the label');
+  }
+});

@@ -3,6 +3,11 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.17.4] - 2026-11-03
+
+### Fixed
+- HTML report: the labels of the bars (hooks, buttons, doors, formats) were cut with an ellipsis ("консульта...", "врач-реп...") and could not be read. A label now takes the whole width of its card and wraps, the count stays at its right and the bar goes under both. The same in the TikTok report (not released separately yet).
+
 ## [0.17.3] - 2026-10-31
 
 From the security and privacy review of 2026-10-31 (the code of 0.16-0.17).
