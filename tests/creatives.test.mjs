@@ -209,7 +209,7 @@ test('HTML: creatives section with tag summary and an embedded thumbnail; text e
   const html = readFileSync(path.join(dir, 'report.html'), 'utf8');
   assert.match(html, /Креативы/);
   assert.match(html, /src="data:image\/png;base64,/);
-  assert.equal((html.match(/data:image/g) || []).length, 1, 'only the thumbnail inside the folder is embedded');
+  assert.equal((html.match(/src="data:image/g) || []).length, 1, 'only the thumbnail inside the folder is embedded (the paper grain of the CSS is not a file)');
   assert.equal((html.match(/<script/gi) || []).length, 0);
   assert.ok(html.includes('&lt;script&gt;'));
   assert.ok(html.includes('Beta &lt;b&gt;'));

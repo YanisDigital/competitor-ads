@@ -3,6 +3,12 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.17.5] - 2026-11-04
+
+### Changed
+- HTML report: a new design, "an analyst's dossier". Warm paper and ink, an editorial serif for headings, a DIN-like face for figures (local fonts only: the CSP allows no download), one signal colour for the leader of every list and a deep teal for data. A masthead with the niche, the date and the queries; a numbered contents line linking to every section; a KPI band; hooks laid out in columns when their card stands alone; quieter tables with small-caps headers; warnings with a marker. A short staggered reveal on load (off with prefers-reduced-motion and in print), dark mode and a print layout. Still one file, a strict CSP, no scripts, no external resources.
+- Ukrainian version: a few more of our phrases translated (hypothesis score, "the oldest", door names inside sentences).
+
 ## [0.17.4] - 2026-11-03
 
 ### Fixed
