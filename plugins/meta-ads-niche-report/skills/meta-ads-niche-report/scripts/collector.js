@@ -192,6 +192,16 @@
     return [...new Set(out.map(o => o.q))].slice(0, max);
   }
 
+  // The button text (cta) comes in the language of the Library's interface, that is of the browser that collected the ads
+  // (Ukrainian on a Ukrainian computer, also for ads in Norway), not of the ad. cta_type (LEARN_MORE, ORDER_NOW, ...) does not
+  // depend on it: the report shows the button by its type in the report language, and the raw text only when the type is unknown.
+  const CTA_LABELS = {"LEARN_MORE":["Подробнее","Докладніше","Learn more"],"SEE_DETAILS":["Посмотреть детали","Переглянути деталі","See details"],"SHOP_NOW":["В магазин","У магазин","Shop now"],"BUY_NOW":["Купить сейчас","Купити зараз","Buy now"],"ORDER_NOW":["Заказать сейчас","Замовити зараз","Order now"],"BOOK_TRAVEL":["Забронировать","Забронювати","Book now"],"BOOK_NOW":["Забронировать","Забронювати","Book now"],"REQUEST_TIME":["Записаться на время","Зарезервувати час","Request time"],"BOOK_A_CONSULTATION":["Записаться на консультацию","Записатися на консультацію","Book a consultation"],"CHECK_AVAILABILITY":["Проверить наличие","Перевірити наявність","Check availability"],"SIGN_UP":["Зарегистрироваться","Зареєструватися","Sign up"],"SUBSCRIBE":["Подписаться","Підписатися","Subscribe"],"APPLY_NOW":["Подать заявку","Подати заявку","Apply now"],"GET_QUOTE":["Узнать цену","Отримати пропозицію ціни","Get quote"],"GET_OFFER":["Получить предложение","Скористатися пропозицією","Get offer"],"GET_OFFER_VIEW":["Получить предложение","Скористатися пропозицією","Get offer"],"CONTACT_US":["Связаться с нами","Зв'яжіться з нами","Contact us"],"GET_IN_TOUCH":["Связаться","Зв’язатися","Get in touch"],"CALL_NOW":["Позвонить","Зателефонувати","Call now"],"MESSAGE_PAGE":["Отправить сообщение","Надіслати повідомлення","Send message"],"INSTAGRAM_MESSAGE":["Отправить сообщение (Instagram)","Надіслати повідомлення (Instagram)","Send message (Instagram)"],"WHATSAPP_MESSAGE":["Написать в WhatsApp","Надіслати повідомлення у WhatsApp","Send WhatsApp message"],"CHAT_WITH_US":["Начать чат","Розпочати чат","Chat with us"],"VIEW_INSTAGRAM_PROFILE":["Открыть профиль Instagram","Відкрити профіль Instagram","Visit Instagram profile"],"VISIT_PROFILE":["Открыть профиль","Відкрити профіль","Visit profile"],"LIKE_PAGE":["Отметить «Нравится»","Вподобати сторінку","Like page"],"JOIN_GROUP":["Вступить в группу","Приєднатися до групи","Join group"],"SEND_UPDATES":["Получать обновления","Отримувати оновлення","Get updates"],"WATCH_MORE":["Смотреть ещё","Дивитися ще","Watch more"],"LISTEN_NOW":["Слушать","Слухати зараз","Listen now"],"DOWNLOAD":["Скачать","Завантажити","Download"],"INSTALL_MOBILE_APP":["Установить","Установити зараз","Install now"],"INSTALL_APP":["Установить приложение","Установити додаток","Install app"],"USE_APP":["Открыть приложение","Використати додаток","Use app"],"USE_MOBILE_APP":["Открыть приложение","Використати додаток","Use app"],"PLAY_GAME":["Играть","Грати","Play game"],"BUY_TICKETS":["Купить билеты","Купити квитки","Buy tickets"],"GET_SHOWTIMES":["Расписание сеансов","Інформація про сеанси","Get showtimes"],"EVENT_RSVP":["Интересует","Цікавить","Interested"],"DONATE_NOW":["Пожертвовать","Пожертвувати зараз","Donate now"],"GET_DIRECTIONS":["Проложить маршрут","Показати маршрут","Get directions"],"SEE_MENU":["Открыть меню","Відкрити меню","See menu"],"VIEW_PRODUCT":["Посмотреть товар","Переглянути товар","View product"],"OPEN_LINK":["Открыть ссылку","Відкрити посилання","Open link"],"NO_BUTTON":["Без кнопки","Без кнопки","No button"]};
+  const CTA_LANG = { ru: 0, uk: 1, en: 2 };
+  const ctaLabel = (r, lang = 'ru') => {
+    const t = String((r && r.cta_type) || '').toUpperCase();
+    return CTA_LABELS[t] ? CTA_LABELS[t][CTA_LANG[lang] ?? 0] : ((r && r.cta) || '');
+  };
+
   // Classifies where an ad's link/CTA sends the viewer.
   function classifyDoor(rec) {
     const d = domainOf(rec.link);
@@ -1489,7 +1499,7 @@
         return { hook, long_ads: l, long_share: ls, other_share: os, lift: os ? Math.round(10 * ls / os) / 10 : null, ...evidence(hp[hook], longRows, hook) };
       }).filter(h => h.long_ads >= 3 && (h.lift === null || h.lift >= 1.3)).sort((x, y) => (rank[x.strength] - rank[y.strength]) || (y.long_share - x.long_share)).slice(0, 6),
       winner_formats: enough ? top(longRows, r => r.fmt || '?', 3) : [],
-      winner_ctas: enough ? top(longRows, r => r.cta || '(нет)', 3) : [],
+      winner_ctas: enough ? top(longRows, r => ctaLabel(r) || '(нет)', 3) : [],
       winner_doors: enough ? top(longRows, r => classifyDoor(r), 3) : [],
       price_anchors: { currency, median_price: prices.median, median_pct_off: prices.median_pct_off, median_discount_pct: prices.median_discount_pct }
     };
@@ -1507,7 +1517,7 @@
       bursts: Object.entries(freshBy).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).map(([page, ads]) => ({ page, ads })),
       top: freshRows.filter(fits).sort((a, b) => (b.variants - a.variants) || (b.start - a.start))
         .filter(r => (perFresh[r.page] = (perFresh[r.page] || 0) + 1) <= 2).slice(0, 25)
-        .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, cta: r.cta || '', door: classifyDoor(r), hooks: Object.keys(hp).filter(k => hp[k].test(text(r))), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }))
+        .map(r => ({ page: r.page, days: age(r), fmt: r.fmt, variants: r.variants, cta: ctaLabel(r), door: classifyDoor(r), hooks: Object.keys(hp).filter(k => hp[k].test(text(r))), id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, text: snip(r) }))
     };
     // Shares by advertiser. The ad counts above count one advertiser as many times as it has ads, and a big advertiser
     // launches dozens of copies of one ad (or a catalog of ads with one text). A campaign is the copies of one ad of one
@@ -1539,7 +1549,7 @@
       advertisers: pageList.length,
       single_ad_advertisers: pageList.filter(p => p.ads === 1).length,
       doors: cnt(rows.map(classifyDoor)),
-      ctas: cnt(rows.map(r => r.cta || '(нет)')),
+      ctas: cnt(rows.map(r => ctaLabel(r) || '(нет)')),
       cta_types: cnt(rows.map(r => r.cta_type).filter(Boolean)),
       ai_made_ads: rows.filter(r => r.ai_made === true).length,
       platforms: cnt(rows.flatMap(r => (r.platforms || '').split('|').filter(Boolean))),
@@ -1851,7 +1861,7 @@
   const installResult = installBrowser();
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { geoCheck, HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, queryMatch, checkClientFit, serviceEconomics, lintHypotheses, checkFacts, metricValue, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
+    module.exports = { ctaLabel, CTA_LABELS, geoCheck, HOOK_PATTERNS, payerDiffers, pick, domainOf, resultCountOf, buildQueries, firstNonEmptyCard, normalizeAd, classifyDoor, buildReport, toCsv, parseCsv, diffSnapshots, siteFacts, compareAdVsSite, isTrackerLink, earlyProducts, queryMatch, checkClientFit, serviceEconomics, lintHypotheses, checkFacts, metricValue, prioritizeHypotheses, planTests, applyCuration, queryStats, currencyForCountry, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, queryLang, isEuCountry, pickEuAds, parseEuDetails, euSummary, strengthOf, CREATIVE_TAGS, creativeMedia, selectCreatives, lintCreatives, creativesSummary, videoFramePlan, aspectOf };
   }
 
   return installResult;

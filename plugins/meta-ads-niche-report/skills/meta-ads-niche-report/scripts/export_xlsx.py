@@ -139,6 +139,9 @@ def main() -> None:
     if dropped:
         rows = [r for r in rows if r["page"] not in dropped]
     types = curation.get("types", {})
+    # the button in the report language by its type (the raw text is in the language of the browser that collected the ads)
+    cta_labels = meta.get("cta_labels") or {}
+    cta_of = lambda r: cta_labels.get((r.get("cta_type") or "").upper()) or r.get("cta") or "(нет)"
     ts = meta.get("ts") or (folder / "ads.csv").stat().st_mtime
     run_dt = datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None)
 
@@ -198,7 +201,7 @@ def main() -> None:
         start = datetime.strptime(r["start"], "%Y-%m-%d")
         url = "https://www.facebook.com/ads/library/?id=" + r["id"]
         values = [r["id"], url, r["page"], start, days_shown(r, run_dt), r["fmt"] or "?", int(r["variants"] or 1),
-                  r["cta"] or "(нет)", doors.get(r["id"], ""), domain(r["link"]), r["platforms"].replace("|", ", "),
+                  cta_of(r), doors.get(r["id"], ""), domain(r["link"]), r["platforms"].replace("|", ", "),
                   r["kws"], r["title"], r["body"]]
         if extra:
             values += [r.get("cta_type", ""), r.get("caption", ""), {"true": "да", "false": "нет"}.get(r.get("ai_made", ""), "")]
@@ -660,7 +663,7 @@ def main() -> None:
 
     block("Формат", "F", [k for k, _ in Counter(r["fmt"] or "?" for r in rows).most_common()])
     block("Дверь (куда ведёт)", "I", [k for k, _ in Counter(doors.get(r["id"], "") for r in rows).most_common() if k])
-    block("CTA (топ-8)", "H", [k for k, _ in Counter(r["cta"] or "(нет)" for r in rows).most_common(8)])
+    block("CTA (топ-8)", "H", [k for k, _ in Counter(cta_of(r) for r in rows).most_common(8)])
     section("Возраст объявления")
     for label, lo, hi in [("меньше 7 дней", 0, 6), ("7–30 дней", 7, 29), ("30–90 дней", 30, 89), ("90–365 дней", 90, 364), ("больше 365 дней", 365, 100000)]:
         put(ws, row, [label, F(f'=COUNTIFS({rng("E")},">={lo}",{rng("E")},"<={hi}")'), F(f"=B{row}/{total}")])

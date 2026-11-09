@@ -9,7 +9,7 @@
 // written as text. Nothing is downloaded.
 const fs = require('fs');
 const path = require('path');
-const { classifyDoor } = require('./collector.js');
+const { classifyDoor, ctaLabel } = require('./collector.js');
 const { loadSnapshot } = require('./report.js');
 const { esc, cleanUrl } = require('./export_html.js');
 
@@ -33,7 +33,7 @@ function toRecords(snap, ads) {
   const typeOf = (snap.meta.curation && snap.meta.curation.types) || {};
   return ads.map(r => ({
     page: r.page, type: typeOf[r.page] || '', id: r.id, url: 'https://www.facebook.com/ads/library/?id=' + r.id, start: iso(r.start), active: r.active === false || r.active === 'false' ? 'no' : 'yes',
-    format: r.fmt || '', cta: r.cta || '', door: classifyDoor(r), site: cleanUrl(r.link), queries: (r.kws || []).join('; '), title: r.title || '', body: r.body || ''
+    format: r.fmt || '', cta: ctaLabel(r), door: classifyDoor(r), site: cleanUrl(r.link), queries: (r.kws || []).join('; '), title: r.title || '', body: r.body || ''
   }));
 }
 const COLS = [['page', 'Page'], ['type', 'Type'], ['id', 'Ad id'], ['url', 'Ad link'], ['start', 'Start'], ['active', 'Active'], ['format', 'Format'], ['cta', 'Button'], ['door', 'Leads to'], ['site', 'Site'], ['queries', 'Found by queries'], ['title', 'Title'], ['body', 'Text']];

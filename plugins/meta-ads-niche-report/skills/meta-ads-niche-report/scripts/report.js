@@ -14,7 +14,7 @@
 //   node report.js out/ecom-dropship-us/2026-09-30 [preset-id]
 const fs = require('fs');
 const path = require('path');
-const { geoCheck, parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, nextSteps, currencyForCountry, euSummary, creativesSummary, isEuCountry, queryMatch } = require('./collector.js');
+const { CTA_LABELS, geoCheck, parseCsv, buildReport, classifyDoor, applyCuration, queryStats, snapshotWarnings, nextSteps, currencyForCountry, euSummary, creativesSummary, isEuCountry, queryMatch } = require('./collector.js');
 
 const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null);
 
@@ -144,7 +144,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     empty_market: !!curation && report.advertisers <= 2
   });
   return { report, doors, query_match, rows, geo: geo && { terms: geo.terms, only: !!geo.only, pages: geo.pages }, query_stats: stats, warnings, eu, visuals, next_steps,
-    meta: { ...meta, ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };
+    meta: { ...meta, cta_labels: Object.fromEntries(Object.entries(CTA_LABELS).map(([k, v]) => [k, v[0]])), ts, preset_title: preset && preset.title, niche_file: niche.niche_file, niche: preset, ...curationMeta } };
 }
 
 module.exports = { loadSnapshot, loadNicheConfig };

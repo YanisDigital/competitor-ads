@@ -20,7 +20,7 @@
 // do it only on the user's word, after they have seen the criterion and the list.
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, classifyDoor, domainOf } = require('./collector.js');
+const { parseCsv, classifyDoor, domainOf, ctaLabel } = require('./collector.js');
 const pageKey = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase();
 
 const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null);
@@ -52,7 +52,7 @@ function listAdvertisers(dir) {
     else if (include) status = 'не включён (белый список)';
     return {
       page, ads: ads.length, active: live.length, oldest_days: live.length ? Math.round((now - Math.min(...live.map(a => a.start))) / 86400) : null,
-      door: top(ads.map(classifyDoor)), site: top(ads.map(a => domainOf(a.link || ''))), cta: top(ads.map(a => a.cta)),
+      door: top(ads.map(classifyDoor)), site: top(ads.map(a => domainOf(a.link || ''))), cta: top(ads.map(a => ctaLabel(a))),
       text: ((sample.title ? sample.title + ' | ' : '') + (sample.body || '')).replace(/\s+/g, ' ').slice(0, 110),
       decided: page in disputed || exclude.has(page) || (include ? page in include : false) || page in types, status
     };

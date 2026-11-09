@@ -156,3 +156,30 @@ test('HTML bars: a long label (a hook, a button, a door) wraps on its own line a
     assert.match(src, /\.bt\{grid-column:1 \/ -1;/, plugin + ': the bar sits under the label');
   }
 });
+
+// ---- buttons in the report language ----
+test('CTA: the button is shown by its type in the report language, not in the language of the browser that collected the ads', async () => {
+  const { ctaLabel, CTA_LABELS } = await import('../plugins/meta-ads-niche-report/skills/meta-ads-niche-report/scripts/collector.js');
+  const r = { cta: 'Докладніше', cta_type: 'LEARN_MORE' };
+  assert.equal(ctaLabel(r), 'Подробнее');
+  assert.equal(ctaLabel(r, 'uk'), 'Докладніше');
+  assert.equal(ctaLabel(r, 'en'), 'Learn more');
+  assert.equal(ctaLabel({ cta: 'Something new', cta_type: 'BRAND_NEW_TYPE' }), 'Something new', 'an unknown type keeps the raw text');
+  assert.equal(ctaLabel({ cta: 'Замовити' }), 'Замовити', 'old snapshots without a type keep the text');
+  assert.ok(Object.keys(CTA_LABELS).length >= 40);
+  const rows = [
+    normalizeAd({ ad_archive_id: '1', page_id: 'p1', page_name: 'A', is_active: true, start_date: NOW - 86400 * 9, publisher_platform: ['facebook'], snapshot: { body: { text: 'x' }, cta_text: 'Замовити', cta_type: 'BOOK_TRAVEL', link_url: 'https://a.example/', display_format: 'IMAGE' } }, 'q'),
+    normalizeAd({ ad_archive_id: '2', page_id: 'p2', page_name: 'B', is_active: true, start_date: NOW - 86400 * 9, publisher_platform: ['facebook'], snapshot: { body: { text: 'y' }, cta_text: 'Докладніше', cta_type: 'LEARN_MORE', link_url: 'https://b.example/', display_format: 'IMAGE' } }, 'q')
+  ];
+  const rep = buildReport(rows, { now: NOW });
+  assert.deepEqual(Object.keys(rep.ctas).sort(), ['Забронировать', 'Подробнее']);
+  const dir = mkdtempSync(path.join(tmpdir(), 'cta-'));
+  writeFileSync(path.join(dir, 'ads.csv'), toCsv(rows));
+  writeFileSync(path.join(dir, 'run.json'), JSON.stringify({ date: new Date(NOW * 1000).toISOString(), country: 'NO', queries: ['q'] }));
+  const out = path.join(dir, 'uk.html');
+  const r2 = spawnSync('node', [path.join(SCRIPTS, 'export_html.js'), dir, '--lang', 'uk', '--out', out], { encoding: 'utf8' });
+  assert.equal(r2.status, 0, r2.stderr);
+  const html = readFileSync(out, 'utf8');
+  assert.match(html, />Забронювати</);
+  assert.ok(!/>Подробнее</.test(html));
+});

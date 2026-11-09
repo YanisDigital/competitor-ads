@@ -3,6 +3,11 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.17.6] - 2026-11-09
+
+### Fixed
+- Buttons (CTA) in the report were in the language of the Library's interface, that is of the browser that collected the ads (Ukrainian on a Ukrainian computer, also for ads in Norway), not in the language of the report. The report now names a button by its type (`cta_type`: LEARN_MORE, ORDER_NOW, ... 45 types) in the report language: Russian by default, Ukrainian with `--lang uk`. The raw text stays only for an unknown type or an old snapshot without the type. HTML, Excel (column and summary counts agree), `export_ads.js` and `curate.js list`; the door detection still reads the raw text and the type, as before.
+
 ## [0.17.5] - 2026-11-04
 
 ### Changed
