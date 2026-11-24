@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Creative analysis of a snapshot folder, the parts that need no network.
 //
-//   node creatives.js select <folder> [--limit 60] [--per-advertiser 3] [--videos 0] [--top-advertisers 0]
+//   node creatives.js select <folder> [--limit 60] [--per-advertiser 3] [--videos 0] [--top-advertisers 0] [--types "Type" ...] [--leaders-only]
 //     Picks which creatives to look at (collector.js selectCreatives, curation.json
 //     applied; --top-advertisers N keeps the N advertisers with the most ads, the
 //     leaders) and writes <folder>/creatives/selection.json; --videos N marks the
@@ -20,8 +20,9 @@ const MAX_LIMIT = 60;
 const MAX_VIDEOS = 30;
 const [cmd, dir, ...rest] = process.argv.slice(2);
 const flag = (name, def) => { const i = rest.indexOf(name); return i >= 0 ? Number(rest[i + 1]) : def; };
+const listFlag = name => { const i = rest.indexOf(name); if (i < 0) return []; const out = []; for (let j = i + 1; j < rest.length && !rest[j].startsWith('--'); j++) out.push(rest[j]); return out; };
 const usage = () => {
-  console.error('Usage: node creatives.js select <snapshot-folder> [--limit 60] [--per-advertiser 3] [--videos 0] [--top-advertisers 0]\n       node creatives.js lint <snapshot-folder>');
+  console.error('Usage: node creatives.js select <snapshot-folder> [--limit 60] [--per-advertiser 3] [--videos 0] [--top-advertisers 0] [--types "Type" ...] [--leaders-only]\n       node creatives.js lint <snapshot-folder>');
   process.exit(2);
 };
 if (!['select', 'lint'].includes(cmd) || !dir || !fs.existsSync(path.join(dir, 'ads.csv'))) usage();
@@ -33,7 +34,13 @@ if (cmd === 'select') {
     process.exit(2);
   }
   const snap = loadSnapshot(dir);
-  const items = selectCreatives(snap.rows, { limit, perAdvertiser, topAdvertisers, longDays: snap.meta.long_days || 60 });
+  const types = listFlag('--types');
+  const typeOf = (snap.meta.curation && snap.meta.curation.types) || {};
+  if (types.length && !snap.rows.some(r => types.some(t => String(typeOf[r.page] || '').trim().toLowerCase() === t.trim().toLowerCase()))) {
+    console.error('--types: no advertiser with such a type in curation.json. Known types: ' + [...new Set(Object.values(typeOf))].join(', '));
+    process.exit(2);
+  }
+  const items = selectCreatives(snap.rows, { limit, perAdvertiser, topAdvertisers, longDays: snap.meta.long_days || 60, types, typeOf, leadersOnly: rest.includes('--leaders-only') });
   // The first `videos` video creatives, in selection order (long-running first), are cut into frames.
   let left = videos;
   for (const it of items) if (it.video_url && left > 0) { it.want_video = true; left--; }
@@ -53,7 +60,7 @@ if (cmd === 'lint') {
   const labels = read(path.join(dir, 'creatives.json'));
   if (!manifest) { console.error('No creatives/manifest.json: run fetch_creatives.py first.'); process.exit(2); }
   if (!labels) { console.error('No creatives.json: label the downloaded creatives first. Fields: ' + Object.keys(CREATIVE_TAGS).join(', ') + ', hook_text, notes.'); process.exit(2); }
-  const res = lintCreatives(labels, manifest);
+  const res = lintCreatives(labels, manifest, { keepPages: new Set(loadSnapshot(dir).rows.map(r => r.page).filter(Boolean)) });
   const out = path.join(dir, 'creatives_lint.json');
   fs.writeFileSync(out, JSON.stringify(res, null, 2), 'utf8');
   console.log(`${res.errors} errors, ${res.warnings} warnings`);

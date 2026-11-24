@@ -322,7 +322,7 @@
   function hookPatterns(opts = {}) {
     const hooks = opts.baseHooks === false ? {} : { ...HOOK_PATTERNS };
     if (opts.baseHooks !== false) {
-      if (opts.local === false) for (const k of LOCAL_HOOKS) delete hooks[k];
+      if (opts.local === false || opts.businessType === 'product') for (const k of LOCAL_HOOKS) delete hooks[k];
       for (const k of opts.skipHooks || []) delete hooks[k];
     }
     for (const [k, src] of Object.entries(opts.extraHooks || {})) hooks[k] = new RegExp(src, 'u');
@@ -468,18 +468,28 @@
 
   // ---- Curation (curation.json next to ads.csv) ---------------------------------
   // { "include": { "Advertiser": "type" }, "exclude": ["Advertiser"], "types": {...}, "notes": "" }
+  // criterion: one phrase, who counts as a competitor; confirmed: the user has seen the list and agreed (true only by their
+  // word); context: substitutes and suppliers kept out of include. Names are matched with spaces trimmed and collapsed.
+  const pageKey = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
   function applyCuration(rows, curation) {
     const c = curation || {};
+    const N = pageKey;
     const include = c.include && typeof c.include === 'object' ? c.include : null;
-    const includeSet = include ? new Set(Object.keys(include)) : null;
-    const excludeSet = new Set(Array.isArray(c.exclude) ? c.exclude : []);
+    const includeSet = include ? new Set(Object.keys(include).map(N)) : null;
+    const excludeSet = new Set((Array.isArray(c.exclude) ? c.exclude : []).map(N));
     const excludeIds = new Set(Array.isArray(c.exclude_ids) ? c.exclude_ids.map(String) : []);
     const types = { ...(c.types || {}), ...(include || {}) };
-    const keep = r => !excludeIds.has(String(r.id)) && !excludeSet.has(r.page) && (!includeSet || includeSet.has(r.page));
+    for (const [k, v] of Object.entries({ ...types })) for (const r of rows) if (N(r.page) === N(k) && !(r.page in types)) types[r.page] = v;
+    const keep = r => !excludeIds.has(String(r.id)) && !excludeSet.has(N(r.page)) && (!includeSet || includeSet.has(N(r.page)));
     const kept = rows.filter(keep);
-    const present = new Set(rows.map(r => r.page));
-    const named = [...new Set([...excludeSet, ...(includeSet || []), ...Object.keys(c.types || {})])];
+    const present = new Set(rows.map(r => N(r.page)));
+    const named = [...new Set([...excludeSet, ...(includeSet || []), ...Object.keys(c.types || {}).map(N)])];
+    const keptTypes = new Set(kept.map(r => types[r.page]).filter(Boolean));
     return {
+      criterion: typeof c.criterion === 'string' ? c.criterion.trim() : '',
+      confirmed: c.confirmed === true,
+      context: c.context && typeof c.context === 'object' ? c.context : null,
+      types_kept: keptTypes.size,
       rows: kept,
       excluded_ads: rows.length - kept.length,
       excluded_pages: [...new Set(rows.filter(r => !keep(r)).map(r => r.page))].sort(),
@@ -532,6 +542,17 @@
       if (qc.enforced) add('loose_excluded', 'info', 'У ' + qc.loose_ads + ' из ' + qc.ads_checked + ' объявлений (' + pct + '%) в тексте нет слов запроса: TikTok ищет любое слово запроса, в том числе в названии рекламодателя. В отчёт они не вошли (query_match в niche.json).');
       else if (!info.curated) add('loose_matches', 'warn', 'У ' + qc.loose_ads + ' из ' + qc.ads_checked + ' объявлений (' + pct + '%) в тексте нет слов запроса: TikTok ищет любое слово запроса, в том числе в названии рекламодателя. Это шум выдачи: чисти рекламодателей по смыслу (curation.json) или включи "query_match": true в niche.json, иначе хуки и долгожители посчитаны и по чужим объявлениям.');
     }
+    const cm = info.curation;
+    if (info.source === 'library' && info.curated && cm) {
+      if (!cm.confirmed) add('unconfirmed', 'warn', 'Список конкурентов не подтверждён пользователем (в curation.json нет "confirmed": true). Все выводы ниже предварительные: покажи пользователю критерий и таблицу рекламодателей (node curate.js list <срез>), спорных назови, и только после его слова ставь confirmed.');
+      if (!cm.criterion) add('no_criterion', 'info', 'В curation.json нет criterion: одной фразы, кого считаем конкурентом («продаёт <товар клиента>»). Без неё граница между конкурентами и заменителями у каждого своя; заменители и поставщиков веди в context, а не в include.');
+      if (cm.types_kept > 3) add('mixed_types', 'warn', 'В конкурентах ' + cm.types_kept + ' разных типов бизнеса: проверь критерий. Если сюда попали заменители и поставщики, а не те, кто продаёт то же, что клиент, выводы о нише размыты.');
+    }
+    const dom = info.dominant;
+    if (info.source === 'library' && dom && dom.ads >= 5 && dom.share >= 0.3 && (info.advertisers || 0) >= 2) add('dominant_advertiser', 'warn', 'Рекламодатель «' + dom.page + '» даёт ' + Math.round(dom.share * 100) + '% объявлений выборки (' + dom.ads + ' объявлений, уникальных роликов ' + dom.creatives + '): доли двери, возраста и свежих запусков по объявлениям отражают в основном его. Смотри доли по рекламодателям (doors_by_advertiser), а не число объявлений.');
+    const noisy = stats.filter(q => info.curated && q.relevant_advertisers !== null && q.relevant_advertisers !== undefined && q.advertisers >= 5 && q.relevant_advertisers / q.advertisers < 0.3);
+    if (info.source === 'library' && noisy.length) add('noisy_queries', 'warn', 'Запросы, где конкурентов меньше 30% рекламодателей: ' + noisy.map(q => '«' + q.query + '» (' + q.relevant_advertisers + ' из ' + q.advertisers + ')').join(', ') + '. Скорее всего запрос назван поводом или адресатом, а не товаром: замени его названием товара и его синонимами (node suggest_queries.js <срез>).');
+    if (info.currencyUnknown) add('currency_unknown', 'warn', 'Для страны ' + info.currencyUnknown + ' нет правила валюты, поэтому цены в тексте объявлений не считаются. Задай "currency" в niche.json (например "EUR", "NOK") и пересобери отчёт.');
     const capped = stats.filter(q => q.capped);
     if (capped.length) add('capped', 'info', 'По ' + capped.length + ' из ' + stats.length + ' запросов собрана только часть выдачи (лимит страниц за прогон): ' + capped.map(q => q.query).join(', ') + '.');
     const empty = stats.filter(q => q.ads === 0);
@@ -556,10 +577,13 @@
       add('compare', 'Повторить срез через 2-4 недели', 'Пустой рынок может измениться: сезон, новый игрок.', 'Те же запросы и фильтры, затем node compare.js <старый> <новый>.');
       return out;
     }
+    const unconfirmed = s.source === 'library' && !!s.curated && s.confirmed === false;
+    if (unconfirmed) add('confirm', 'Подтвердить список конкурентов с пользователем', 'Чистка сделана, но пользователь её не видел: в curation.json нет "confirmed": true. На неподтверждённой чистке детали, креативы и гипотезы приходится переделывать.', 'Записать в curation.json criterion («продаёт <товар клиента>»), показать критерий и список (node curate.js list <срез>), дождаться слова пользователя и поставить "confirmed": true.', { urgent: true });
     if (s.blocked) add('resume', 'Дособрать запросы, которые не успели', 'TikTok остановил сбор (капча или окно входа): в срезе ' + (s.queries || 0) + ' запросов, ещё ' + (s.queries_remaining || 0) + ' не выполнены.', 'Подождать несколько часов, затем запустить только оставшиеся запросы из run.json (queries_remaining) с большей паузой --delay, в отдельную папку; обхода капчи нет.', { urgent: true });
     if (s.source === 'library' && !s.curated) add('curate', 'Отобрать конкурентов (curation.json)', 'Поиск идёт по тексту объявлений и названию рекламодателя, поэтому в срезе есть не конкуренты. Без чистки детали, креативы и гипотезы уходят на чужих.', 'Прочитать топ рекламодателей по смыслу, спорных обсудить, решение записать в curation.json рядом с ads.csv.');
     if (s.source === 'cc' && !s.curated) add('curate_cc', 'Убрать нерелевантные объявления (curation.json → exclude_ids)', 'Отрасль в Creative Center широкая: в подборку попадают соседние товары и услуги.', 'Просмотреть объявления, id лишних записать в curation.json → "exclude_ids".');
     if (!s.preset && !s.niche) add('niche_hooks', 'Хуки ниши в niche.json', 'Для ниши нет пресета: посчитаны только базовые хуки.', 'Записать niche.json рядом с ads.csv (extra_hooks, noise, currency) и пересобрать отчёт.');
+    if (s.source === 'library' && s.curated && typeof s.advertisers === 'number' && s.advertisers < SMALL_SAMPLE) add('few_competitors', 'Конкурентов меньше ' + SMALL_SAMPLE + ': расширить, а не углублять', 'После чистки ' + s.advertisers + ' конкурентов: хуки и форматы на такой выборке это гипотезы. Полезнее добавить запросы-синонимы товара и другие страны Ad Library, чем разбирать креативы.', 'Добавить запросы по названию товара и его синонимам (не по поводу и не по адресату), затем снова чистка и suggest_queries.js; сравнить страны: node geo_compare.js <срез1> <срез2>.', { urgent: true });
     if (s.source === 'library' && s.unchecked > 0) add('details', 'Открыть детали лидеров (CTA, ссылка, цель, таргетинг)', 'У ' + s.unchecked + ' объявлений неизвестно, куда ведёт реклама, какой CTA и на кого таргет.', 'python scripts/details.py <срез> --limit 40 (или __tti.details() в браузере).', { needs: s.curated ? '' : 'сначала отобрать конкурентов (curation.json)' });
     if (!s.manifest && s.age_days > CREATIVE_LINK_DAYS) add('creatives_recollect', 'Креативы: ссылки, скорее всего, уже не работают', 'Срезу ' + Math.round(s.age_days) + ' дн., ссылки TikTok на видео и обложки живут недолго.', 'Собрать срез заново и сразу после чистки скачать креативы.');
     else if (!s.manifest) add('creatives', 'Скачать и раскадровать видео лидеров', 'Выводы о креативах сейчас только по тексту: хук первых секунд, формат ролика и подача неизвестны.', 'python scripts/fetch_creatives.py <срез> --top-advertisers 10 --limit 30 --videos 15, затем разметить по references/creatives.md и проверить: node scripts/creatives.js lint <срез>.', { urgent: true, needs: s.curated ? '' : 'сначала чистка (curation.json)' });
@@ -668,7 +692,11 @@
     }
     const score = it => (it.source === 'cc' ? -(it.ctr_top ?? 1) : (it.days || 0));
     let order = [...queues.values()].sort((a, b) => (adsOf[keyOf(b[0])] - adsOf[keyOf(a[0])]) || (b.length - a.length) || (Math.max(...b.map(score)) - Math.max(...a.map(score))));
-    if (opts.topAdvertisers > 0) order = order.slice(0, opts.topAdvertisers);
+    // topAdvertisers: the N leaders (most ads) get up to perAdvertiser creatives, every other advertiser (a real page, not a
+    // Creative Center ad) still gets one; opts.leadersOnly keeps the old cut. opts.types + opts.typeOf: only these curation types.
+    if (opts.types && opts.types.length) { const want = new Set(opts.types.map(t => pageKey(t).toLowerCase())); order = order.filter(q => want.has(pageKey((opts.typeOf || {})[q[0].page] || '').toLowerCase())); }
+    const leaders = new Set(opts.topAdvertisers > 0 ? order.slice(0, opts.topAdvertisers).map(q => q[0].page || 'ad:' + q[0].id) : order.map(q => q[0].page || 'ad:' + q[0].id));
+    if (opts.topAdvertisers > 0) order = order.filter(q => leaders.has(q[0].page || 'ad:' + q[0].id) || (!opts.leadersOnly && q[0].page));
     for (const q of order) q.sort((a, b) => score(b) - score(a));
     const out = [], seen = new Set(), taken = new Map(), pos = new Map();
     let moved = true;
@@ -677,7 +705,7 @@
       for (const q of order) {
         if (out.length >= limit) break;
         const k = q[0].page || 'ad:' + q[0].id;
-        if ((taken.get(k) || 0) >= perAdvertiser) continue;
+        if ((taken.get(k) || 0) >= (leaders.has(k) ? perAdvertiser : 1)) continue;
         let i = pos.get(k) || 0;
         while (i < q.length && seen.has(mediaKey(q[i].video_url || q[i].urls[0]))) i++;
         pos.set(k, i + 1);
@@ -694,15 +722,20 @@
 
   const labelList = labels => (Array.isArray(labels) ? labels : (labels && Array.isArray(labels.items) ? labels.items : []));
 
-  function lintCreatives(labels, manifest) {
+  // opts.keepPages: names of the advertisers that count after curation; creatives of the others are not asked for and not linted.
+  function lintCreatives(labels, manifest, opts = {}) {
     const f = [];
     const add = (id, severity, code, field, message) => f.push({ id, severity, code, field, message });
-    const ok = new Map(((manifest && manifest.items) || []).filter(i => i.status === 'ok').map(i => [String(i.id), i]));
+    const keep = opts.keepPages ? new Set([...opts.keepPages].map(pageKey)) : null;
+    const counts = i => !keep || !i.page || keep.has(pageKey(i.page));
+    const all = new Map(((manifest && manifest.items) || []).filter(i => i.status === 'ok').map(i => [String(i.id), i]));
+    const ok = new Map([...all].filter(([, i]) => counts(i)));
     const seen = new Set();
     for (const l of labelList(labels)) {
       const id = String(l && l.id);
       if (seen.has(id)) { add(id, 'error', 'duplicate_id', 'id', 'This creative is labeled twice.'); continue; }
       seen.add(id);
+      if (all.has(id) && !ok.has(id)) continue; // an advertiser curation.json removed: not part of the report
       const item = ok.get(id);
       if (!item) { add(id, 'error', 'unknown_id', 'id', 'No downloaded creative with this id in creatives/manifest.json.'); continue; }
       for (const [field, t] of Object.entries(CREATIVE_TAGS)) {
@@ -870,7 +903,7 @@
   // opts: { client, lint: { [name]: { errors } } }.
   const VARIABLE_TYPES = ['creative', 'hook', 'offer', 'landing', 'audience'];
   function prioritizeHypotheses(hyps, opts = {}) {
-    const EV = { strong: 3, moderate: 2, structural: 2, weak: 1 };
+    const EV = { strong: 3, moderate: 2, structural: 1, weak: 1 }; // structural = no data of competitors behind it: weighs like weak
     const READY = { ready: 1, 'n/a': 1, unknown: 0.5, blocked: 0 };
     const items = hyps.map((h, i) => {
       const fit = h.hook ? checkClientFit(opts.client || null, [h.hook])[0].status : 'n/a';
@@ -884,12 +917,40 @@
       return {
         name: h.name, hook: h.hook || null, variable_type: VARIABLE_TYPES.includes(h.variable_type) ? h.variable_type : 'creative',
         evidence_strength: h.evidence_strength || 'weak', evidence, effort, fit, lint_errors: lintErrors,
+        ...(h.evidence_strength === 'structural' ? { note: 'без доказательств из данных конкурентов: гипотеза о структуре оффера или страницы, а не вывод из среза' } : {}),
         score: Math.round(100 * evidence * READY[fit] * (lintErrors ? 0.5 : 1) / effort) / 100,
         launchable: blockers.length === 0, blockers, _i: i
       };
     });
     return items.sort((a, b) => (b.score - a.score) || (b.evidence - a.evidence) || (a._i - b._i))
       .map(({ _i, ...it }, rank) => ({ rank: rank + 1, ...it }));
+  }
+
+  // ---- Numbers in hypotheses: facts: [{ metric, value }] are checked against the report (a number typed into the text goes
+  // stale when curation.json changes). metric: a path into the report (advertisers, ads, unique_texts, doors.Сайт,
+  // doors_by_advertiser.Сайт, hook:<name>.advertisers, hook:<name>.ads).
+  function metricValue(report, metric) {
+    const m = String(metric || '');
+    const hk = /^hook:(.+)\.(advertisers|ads)$/.exec(m);
+    if (hk) {
+      const hi = report.hypothesis_inputs || {};
+      const h = [...(hi.winner_hooks || []), ...(hi.underused_hooks || [])].find(x => x.hook === hk[1]);
+      if (h && h[hk[2]] !== undefined) return h[hk[2]];
+      return hk[2] === 'ads' && report.hook_freq && report.hook_freq[hk[1]] !== undefined ? report.hook_freq[hk[1]] : undefined;
+    }
+    let v = report;
+    for (const part of m.split('.')) { if (v === null || typeof v !== 'object' || !(part in v)) return undefined; v = v[part]; }
+    return typeof v === 'number' ? v : undefined;
+  }
+  function checkFacts(hyps, report) {
+    const out = [];
+    (hyps || []).forEach((h, i) => (Array.isArray(h && h.facts) ? h.facts : []).forEach(f => {
+      const actual = metricValue(report, f && f.metric);
+      const name = (h && h.name) || 'hypothesis #' + (i + 1);
+      if (actual === undefined) out.push({ name, metric: f && f.metric, severity: 'error', code: 'fact_unknown_metric', message: 'The report has no number "' + (f && f.metric) + '".' });
+      else if (+f.value !== actual) out.push({ name, metric: f.metric, severity: 'error', code: 'fact_mismatch', message: 'The hypothesis says ' + f.value + ' for "' + f.metric + '", the report has ' + actual + ': update the text and the fact.' });
+    }));
+    return out;
   }
 
   // Rounds of at most opts.maxParallel (default 2) tests with different
@@ -949,7 +1010,11 @@
     const freq = {};
     for (const [k, p] of Object.entries(hp)) freq[k] = rowsAll.filter(r => p.test(textOf(r))).length;
     const kwText = [...new Set(rowsAll.flatMap(r => r.kws || []))].map(k => k.toLowerCase());
-    const evidence = (re, rs) => {
+    // A hook is also circular when a word of its name shares a stem with a query word (other endings, the other language).
+    const kwWords = new Set(kwText.flatMap(k => k.split(/[^\p{L}\d]+/u).filter(w => w.length >= 4)));
+    const stemCircular = label => String(label || '').toLowerCase().split(/[^\p{L}\d]+/u).filter(w => w.length >= 5).some(w => { const st = w.slice(0, 5); return [...kwWords].some(q => q.startsWith(st)); });
+    const circularOf = (label, re) => kwText.some(k => re.test(k)) || stemCircular(label);
+    const evidence = (re, rs, label) => {
       const m = rs.filter(r => re.test(textOf(r)));
       const byE = {};
       m.forEach(r => { const e = keyOf(r); byE[e] = (byE[e] || 0) + 1; });
@@ -959,17 +1024,17 @@
       const advertisers = ents.length, top_share = m.length ? share(ents[0][1], m.length) : 0;
       let strength = strengthOf(advertisers, top_share);
       if (opts.capStrength && strength === 'strong') strength = 'moderate';
-      return { ads: m.length, advertisers, top_advertiser: ents.length ? ents[0][0] : null, top_share, strength, circular: kwText.some(k => re.test(k)), examples };
+      return { ads: m.length, advertisers, top_advertiser: ents.length ? ents[0][0] : null, top_share, strength, circular: circularOf(label, re), examples };
     };
     const winRows = rowsAll.filter(winnerRow), restRows = rowsAll.filter(r => !winnerRow(r));
     const enough = winRows.length >= 5;
     const rank = { strong: 0, moderate: 1, weak: 2 };
-    const underused = Object.entries(freq).map(([hook, n]) => ({ hook, ads: n, share: share(n, rowsAll.length), advertisers: evidence(hp[hook], rowsAll).advertisers, circular: kwText.some(k => hp[hook].test(k)) }))
+    const underused = Object.entries(freq).map(([hook, n]) => ({ hook, ads: n, share: share(n, rowsAll.length), advertisers: evidence(hp[hook], rowsAll, hook).advertisers, circular: circularOf(hook, hp[hook]) }))
       .filter(h => h.share <= 0.05).sort((x, y) => x.share - y.share).slice(0, 8);
     const winners = !enough ? [] : Object.entries(hp).map(([hook, re]) => {
       const l = winRows.filter(r => re.test(textOf(r))).length, o = restRows.filter(r => re.test(textOf(r))).length;
       const ls = share(l, winRows.length), os = share(o, restRows.length);
-      return { hook, winner_ads: l, winner_share: ls, other_share: os, lift: os ? Math.round(10 * ls / os) / 10 : null, ...evidence(re, winRows) };
+      return { hook, winner_ads: l, winner_share: ls, other_share: os, lift: os ? Math.round(10 * ls / os) / 10 : null, ...evidence(re, winRows, hook) };
     }).filter(h => h.winner_ads >= 3 && (h.lift === null || h.lift >= 1.3)).sort((x, y) => (rank[x.strength] - rank[y.strength]) || (y.winner_share - x.winner_share)).slice(0, 6);
     return { freq, underused, winners, winRows, restRows, enough };
   }
@@ -1058,8 +1123,9 @@
     };
     const keyOf = r => find(r.page);
     const ev = hookEvidence(uniqRows, keyOf, opts, isLong, country);
+    const currencyUnknown = !opts.currency && !currencyForCountry(country) && !!country; // a library country without a rule: do not guess
     const currency = String(opts.currency || currencyForCountry(country) || 'EUR').toUpperCase();
-    const prices = priceBlock(rows, currency);
+    const prices = currencyUnknown ? { currency: null, currency_unknown: true, ads_with_price: 0, min: null, median: null, max: null, pct_off_mentions: priceBlock(rows, currency).pct_off_mentions, median_pct_off: priceBlock(rows, currency).median_pct_off } : priceBlock(rows, currency);
     const longChecked = ev.winRows.filter(r => r.details);
     const hypothesis_inputs = {
       ads_analyzed: rows.length,
@@ -1072,8 +1138,12 @@
       winner_objectives: longChecked.length >= 5 ? topShares(longChecked, r => objectiveName(r.objective) || '(нет)', 3) : [],
       winner_ctas: longChecked.length >= 5 ? topShares(longChecked, r => r.cta || '(нет)', 3) : [],
       winner_doors: longChecked.length >= 5 ? topShares(longChecked, r => classifyDoor(r), 3) : [],
-      price_anchors: { currency, median_price: prices.median, median_pct_off: prices.median_pct_off }
+      price_anchors: { currency: currencyUnknown ? null : currency, median_price: prices.median, median_pct_off: prices.median_pct_off }
     };
+    const topPage = pageList[0];
+    const dominant = topPage && rows.length ? { page: topPage.page, ads: topPage.ads, share: topPage.ads / rows.length, creatives: uniqRows.filter(u => u.page === topPage.page).length } : null;
+    const doorsByAdv = {};
+    for (const r of rows) (doorsByAdv[classifyDoor(r)] = doorsByAdv[classifyDoor(r)] || new Set()).add(r.page);
     const geo = cities.length ? { cities: opts.cities, ads: rows.filter(r => cityHit(r, cities)).length, advertisers: pageList.filter(p => p.city_hits > 0).length } : null;
     return {
       source: 'library',
@@ -1084,6 +1154,8 @@
       status_counts: { active: rows.filter(active).length, not_shown_recently: rows.filter(r => !active(r)).length, active_days: activeDays },
       // Doors, CTAs and objectives per unique creative (copies of one video count once).
       doors: cnt(uniqRows.map(classifyDoor)),
+      doors_by_advertiser: Object.fromEntries(Object.entries(doorsByAdv).map(([k, v]) => [k, v.size])),
+      dominant,
       ctas: cnt(uniqRows.filter(r => r.details).map(r => r.cta || '(нет)')),
       objectives: cnt(uniqRows.filter(r => r.details).map(r => objectiveName(r.objective) || '(нет)')),
       creatives_with_details: uniqRows.filter(r => r.details).length,
@@ -1323,13 +1395,34 @@
     const lines = rows.map(r => CSV_COLS.map(c => esc(c === 'start' || c === 'last' ? isoDay(r[c]) : r[c])).join(','));
     return [CSV_COLS.join(',')].concat(lines).join('\n');
   }
+  // A real CSV reader (RFC 4180): quoted and unquoted fields, doubled quotes, a comma or a line break inside quotes, CRLF or LF,
+  // a BOM. The old reader accepted only fully quoted fields and silently returned empty rows for a file saved by another program.
+  function csvRecords(text) {
+    const s = String(text).replace(/^\uFEFF/, '');
+    const recs = [];
+    let rec = [], f = '', q = false, any = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (q) { if (c === '"') { if (s[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"' && f === '') { q = true; any = true; }
+      else if (c === ',') { rec.push(f); f = ''; any = true; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && s[i + 1] === '\n') i++;
+        if (any || f !== '' || rec.length) { rec.push(f); recs.push(rec); }
+        rec = []; f = ''; any = false;
+      } else { f += c; any = true; }
+    }
+    if (any || f !== '' || rec.length) { rec.push(f); recs.push(rec); }
+    return recs;
+  }
   function parseCsv(text) {
-    const lines = String(text).replace(/^﻿/, '').split(/\r?\n/).filter(Boolean);
-    const cols = lines[0].split(',');
+    const recs = csvRecords(text);
+    if (!recs.length) return [];
+    const cols = recs[0].map(c => c.trim());
     const field = v => (/^'[=+\-@]/.test(v) ? v.slice(1) : v);
     const numOrNull = v => (v === undefined || v === '' ? null : +v);
-    return lines.slice(1).map(l => {
-      const v = [...l.matchAll(/"((?:[^"]|"")*)"/g)].map(m => field(m[1].replace(/""/g, '"')));
+    return recs.slice(1).map(rec => {
+      const v = rec.map(field);
       const o = {};
       cols.forEach((k, i) => { o[k] = v[i] ?? ''; });
       o.start = o.start ? Date.parse(o.start + 'T00:00:00Z') / 1000 : null;
@@ -1557,7 +1650,7 @@
       buildQueries, classifyDoor, hookPatterns, priceHits, checkClientFit, serviceEconomics, CLIENT_RULES,
       applyCuration, queryStats, seasonWarnings, snapshotWarnings, nextSteps, suggestQueries, strengthOf,
       CREATIVE_TAGS, videoFramePlan, aspectOf, creativeMedia, selectCreatives, lintCreatives, creativesSummary,
-      lintHypotheses, TIKTOK_CTAS, CC_INDUSTRIES, COST_NAMES, buildReport,
+      pageKey, csvRecords, checkFacts, metricValue, lintHypotheses, TIKTOK_CTAS, CC_INDUSTRIES, COST_NAMES, buildReport,
       siteFacts, compareAdVsSite, pixelsIn, isTrackerLink, queryMatch, payerDiffers, prioritizeHypotheses, planTests, VARIABLE_TYPES, diffSnapshots, runDays, isActive, reachRank, pickForDetails,
       toCsv, parseCsv, CSV_COLS, uniqueTexts, libraryAdUrl, ccAdUrl, adUrl, advertiserUrl
     };

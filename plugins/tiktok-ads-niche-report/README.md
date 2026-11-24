@@ -45,7 +45,12 @@ competitors do.
 - 3–5 ad hypotheses for the client (hook for the first 2 seconds, a 15–30 s
   scenario, ad text up to 100 characters, a TikTok CTA button), linted against
   TikTok's ad rules and the client's confirmed facts, ranked into a test plan.
-- Excel and a single-file HTML report.
+- Excel, a single-file HTML report with a numbered contents and a dark theme, and
+  the whole report as an A4 PDF (`export_pdf.py`); `--lang uk` gives the report
+  in Ukrainian (only our own text is translated, never an ad's).
+- Cleaning by meaning with a stated criterion of a competitor, confirmed by the
+  user (`curate.js list/set`), warnings when the list is unconfirmed, mixed or
+  dominated by one advertiser, and a numbers check of hypotheses against the report.
 
 ## Install
 

@@ -19,6 +19,7 @@ Needs openpyxl (pip install openpyxl); never installed by this script.
 """
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -66,13 +67,48 @@ def load(folder: Path) -> dict:
     return json.loads(res.stdout)
 
 
+def load_i18n(lang: str):
+    """Tables of i18n_uk.json (the same file i18n.js reads) or None for Russian."""
+    if lang != "uk":
+        return None
+    t = json.loads((HERE / "i18n_uk.json").read_text(encoding="utf-8"))
+    t["fragments"] = sorted(t["fragments"], key=lambda p: -len(p[0]))
+    t["patterns"] = [(re.compile(p), r) for p, r in t["patterns"]]
+    return t
+
+
+def tr(text, t):
+    """Our own text in Ukrainian; a text that is not ours (an ad, a page name) is returned unchanged. Port of i18n.js trText."""
+    if not t or not isinstance(text, str) or not text.strip():
+        return text
+    core = text.strip()
+    lead, trail = text[:len(text) - len(text.lstrip())], text[len(text.rstrip()):]
+    if core in t["exact"]:
+        return lead + t["exact"][core] + trail
+    if ", " in core and all(x in t["exact"] for x in core.split(", ")):
+        return lead + ", ".join(t["exact"][x] for x in core.split(", ")) + trail
+    for rx, rp in t["patterns"]:
+        if rx.search(core):
+            return lead + rx.sub(rp, core) + trail
+    if not any(len(ru) >= 12 and ru in text for ru, _ in t["fragments"]):
+        return text
+    out = text
+    for ru, uk in t["fragments"]:
+        out = out.replace(ru, uk)
+    for a, b in t.get("after", []):
+        out = out.replace(a, b)
+    return out
+
+
 def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="Excel workbook for a TikTok snapshot folder.")
     ap.add_argument("folder")
     ap.add_argument("--out")
+    ap.add_argument("--lang", choices=("ru", "uk"), default="ru", help="language of the sheets, headers and notes (ru by default); texts of ads and advertiser names are never translated")
     args = ap.parse_args()
+    i18n = load_i18n(args.lang)
     folder = Path(args.folder)
     if not (folder / "ads.csv").exists():
         sys.exit(f"No ads.csv in {folder}")
@@ -280,8 +316,41 @@ def main() -> None:
             drows += [["не размечен", x["page"], x["ads"], ""] for x in df.get("unreviewed_pages") or []]
         sheet("Изменения", ["Блок", "Что", "Значение", "Ссылка"], drows, [20, 90, 18, 50], {4: lambda k: drows[k][3]})
 
+    # Analyst's conclusions (analysis.md next to ads.csv): the text of the plan or the proposal, one paragraph per row
+    analysis_path = folder / "analysis.md"
+    if analysis_path.exists():
+        wan = wb.create_sheet("Выводы")
+        wan.column_dimensions["A"].width = 120
+        n = 1
+        for line in analysis_path.read_text(encoding="utf-8", errors="replace")[:200000].splitlines():
+            if not line.strip():
+                continue
+            is_head = line.lstrip().startswith("#")
+            c = wan.cell(row=n, column=1)
+            text(c, line.strip().lstrip("#").strip() if is_head else line.strip())
+            c.font = Font(bold=is_head)
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+            n += 1
+    if i18n:  # Ukrainian: our own headers, labels and notes; written only as text, never as a formula
+        for sheet_ in wb:
+            for cells in sheet_.iter_rows():
+                for c in cells:
+                    if c.data_type == "s" and isinstance(c.value, str):
+                        new = tr(c.value, i18n)
+                        if new != c.value:
+                            c.value = new
+                            c.data_type = "s"
+        for sheet_ in wb:
+            new_title = tr(sheet_.title, i18n)
+            if new_title != sheet_.title:
+                sheet_.title = new_title
     out = Path(args.out) if args.out else folder / "report.xlsx"
-    wb.save(out)
+    try:
+        wb.save(out)
+    except PermissionError:  # the file is open in Excel: keep the work under another name instead of failing
+        out = out.with_name(f"{out.stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}{out.suffix}")
+        wb.save(out)
+        print(f"The target file is open in another program (Excel?), saved under another name: {out}")
     print(f"Saved: {out}")
 
 

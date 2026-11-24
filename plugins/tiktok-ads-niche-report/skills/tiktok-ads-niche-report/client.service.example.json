@@ -6,7 +6,10 @@
   "language": "pl",
   "city": "Warszawa",
   "price": 149,
-  "prices": [129, 99],
+  "prices": [
+    129,
+    99
+  ],
   "price_from": true,
   "currency": "PLN",
   "booking_url": "https://example.pl/zapisy",
@@ -32,6 +35,16 @@
   "margin_pct": 45,
   "booking_to_visit_pct": 60,
   "target_cpa": 60,
-  "usp": ["24/7", "free parking", "no contract"],
-  "avoid": ["do not show body transformations", "do not address the viewer's weight or looks"]
+  "usp": [
+    "24/7",
+    "free parking",
+    "no contract"
+  ],
+  "avoid": [
+    "do not show body transformations",
+    "do not address the viewer's weight or looks"
+  ],
+  "proposal_language": "pl",
+  "proposal_person": "first_singular",
+  "proposal_style": "prose"
 }

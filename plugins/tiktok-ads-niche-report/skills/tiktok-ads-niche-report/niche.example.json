@@ -1,0 +1,25 @@
+{
+  "title": "Gym passes, Warsaw (example)",
+  "business_type": "service",
+  "currency": "PLN",
+  "local": true,
+  "query_match": false,
+  "extra_hooks": {
+    "first training free": "pierwszy trening (gratis|za darmo)",
+    "no contract": "bez (umowy|zobowiązań)"
+  },
+  "noise": [
+    "audiobook",
+    "gym equipment shop"
+  ],
+  "skip_hooks": [],
+  "seasons": [
+    {
+      "name": "New Year",
+      "from": "12-26",
+      "to": "01-31",
+      "note": "peak of pass sales; ads and prices are not typical for an ordinary month"
+    }
+  ],
+  "policy": ""
+}

@@ -3,6 +3,23 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [tiktok-ads-niche-report 0.1.8] - 2026-11-24
+
+The changes of `meta-ads-niche-report` 0.16.0-0.17.7 that fit TikTok are ported (the code of the two plugins is copied, not shared).
+
+### Added
+- Cleaning by meaning with a stated criterion: `criterion`, `confirmed` and `context` in `curation.json`; warnings `unconfirmed`, `no_criterion`, `mixed_types`, `dominant_advertiser`, `noisy_queries`, `currency_unknown`; next steps `confirm` (first) and `few_competitors`.
+- `curate.js list/set` (decisions by command, no hand-made scripts), `export_ads.js` (the ads as CSV or HTML after cleaning), `geo_compare.js` (slices of several countries side by side), `niche_check.js` (checks `niche.json` against real ads), `contact_sheets.py` (2x2 sheets of creatives and a labeling template).
+- Creatives: leaders get several, the other advertisers one each; `--types`, `--leaders-only`; labels of removed advertisers are not linted.
+- Hypotheses: `facts` are checked against the report, `stale_numbers` warns when the data changed after the last check, `business_type: product`, circular hooks found by word stems.
+- Reports: `analysis.md` as the section "Выводы" in HTML and a sheet in Excel (with Markdown tables), `--lang uk` for HTML and Excel (only our own text is translated, never an ad's; Excel keeps third-party text out of formulas), `export_pdf.py` (the whole report as A4 PDF), the new HTML design (numbered contents, KPI band, dark theme, print styles), clickable domains.
+- A real CSV reader (quotes, BOM, CRLF, line breaks inside fields), a country without a currency rule no longer counts prices as one currency, `niche.example.json`, `proposal_*` fields in the client briefs.
+
+### Security
+- `contact_sheets.py` reads only pictures inside `creatives/`; third-party text that starts with `=` never becomes a formula in the Ukrainian Excel.
+
+Not ported (TikTok has no counterpart): `--geos-file`, `geo_terms`/`geo_only`, `--pages-of`/`merge.js`, CTA by type, `check_sites.py --client`.
+
 ## [0.17.7] - 2026-11-24
 
 ### Added

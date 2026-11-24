@@ -30,12 +30,31 @@ function checkRegex(label, src, flags) {
   }
 }
 
+// The shape of niche.json, checked before anything reads it, so a wrong type gives a clear message instead of a crash deep in the report.
+function validateNiche(n) {
+  const bad = (k, want) => { throw new Error('niche.json: "' + k + '" must be ' + want); };
+  if (n === null || typeof n !== 'object' || Array.isArray(n)) bad('(the file)', 'an object');
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  if (n.extra_hooks !== undefined && !isObj(n.extra_hooks)) bad('extra_hooks', 'an object {"hook name": "regular expression"}');
+  for (const k of ['noise', 'skip_hooks', 'query_ignore']) if (n[k] !== undefined && !(Array.isArray(n[k]) && n[k].every(x => typeof x === 'string'))) bad(k, 'a list of strings');
+  for (const k of ['title', 'currency', 'policy']) if (n[k] !== undefined && typeof n[k] !== 'string') bad(k, 'a string');
+  if (n.business_type !== undefined && !['product', 'service'].includes(n.business_type)) bad('business_type', '"product" or "service"');
+  for (const k of ['local', 'base_hooks', 'query_match']) if (n[k] !== undefined && typeof n[k] !== 'boolean') bad(k, 'true or false');
+  if (n.seasons !== undefined) {
+    if (!Array.isArray(n.seasons)) bad('seasons', 'a list: [{"name": "...", "from": "MM-DD", "to": "MM-DD", "note": "..."}] (an object is not accepted)');
+    n.seasons.forEach((x, i) => {
+      if (!isObj(x) || typeof x.name !== 'string' || !/^[0-9]{2}-[0-9]{2}$/.test(x.from || '') || !/^[0-9]{2}-[0-9]{2}$/.test(x.to || '')) bad('seasons[' + i + ']', '{"name": "...", "from": "MM-DD", "to": "MM-DD"}');
+    });
+  }
+}
+
 function loadNicheConfig(dir, presetId) {
   const meta = readJson(path.join(dir, 'run.json')) || {};
   const id = presetId || meta.preset;
   if (id && !/^[a-z0-9-]+$/.test(id)) throw new Error('Bad preset id: ' + id);
   const preset = id ? readJson(path.join(__dirname, '..', 'presets', id + '.json')) : null;
   const niche = readJson(path.join(dir, 'niche.json'));
+  if (niche !== null) validateNiche(niche);
   for (const [k, src] of Object.entries((niche && niche.extra_hooks) || {})) {
     checkRegex('hook "' + k + '"', src, 'u');
   }
@@ -64,7 +83,8 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
     opts.noise = preset.noise || [];
     if (preset.currency) opts.currency = preset.currency;
     if (preset.base_hooks === false) opts.baseHooks = false;
-    if (preset.local === false) opts.local = false; // an online niche: no "first visit", "before/after", "sign up", "address" among the free angles
+    if (preset.local === false) opts.local = false;
+    if (preset.business_type === 'product') opts.businessType = 'product'; // goods: no hooks of salons and courses among the free angles // an online niche: no "first visit", "before/after", "sign up", "address" among the free angles
     if (Array.isArray(preset.skip_hooks)) opts.skipHooks = preset.skip_hooks;
   }
   if (meta.cities && meta.cities.length) opts.cities = meta.cities;
@@ -77,7 +97,7 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const queryCheck = { loose_ads: looseIds.size, ads_checked: source === 'library' ? rows.length : 0, enforced: queryEnforced };
   if (queryEnforced && looseIds.size) rows = rows.filter(r => !looseIds.has(r.id));
   const stats = C.queryStats(allRows, rows, { queries: meta.queries, limited: meta.capped_queries, totals: meta.totals, curated: !!curation });
-  const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, notes: curation.notes || '' } } : {};
+  const curationMeta = curation ? { curation: { excluded_ads: cur.excluded_ads, excluded_pages: cur.excluded_pages, kept_pages: new Set(rows.map(r => r.page)).size, types: cur.types, not_found: cur.not_found, criterion: cur.criterion, confirmed: cur.confirmed, context: cur.context, notes: curation.notes || '' } } : {};
   const manifest = readJson(path.join(dir, 'creatives', 'manifest.json'));
   const visuals = manifest ? C.creativesSummary(rows, readJson(path.join(dir, 'creatives.json')), manifest, { longDays: opts.longDays, country: opts.country }) : null;
   const report = C.buildReport(rows, opts);
@@ -85,13 +105,14 @@ function loadSnapshot(dir, presetOverride, opts0 = {}) {
   const creatives = C.uniqueTexts(rows.filter(r => r.source === 'library')).uniqRows;
   const unchecked = creatives.filter(r => !r.details).length;
   const warnings = C.snapshotWarnings({ source, advertisers: report.advertisers, ads: report.ads, creatives: creatives.length, unchecked, queryStats: stats, ts, preset,
-    curated: !!curation, queryCheck,
+    curated: !!curation, queryCheck, dominant: report.dominant, currencyUnknown: report.prices && report.prices.currency_unknown ? meta.country : '',
+    curation: curation ? { criterion: cur.criterion, confirmed: cur.confirmed, types_kept: cur.types_kept } : null,
     blocked: meta.blocked || '', queriesDone: (meta.queries || []).length, queriesPlanned: meta.queries_planned })
     .concat(visuals ? visuals.warnings : []);
   const has = f => fs.existsSync(path.join(dir, f));
   const now = opts0.now || Date.now() / 1000;
   const next_steps = C.nextSteps({
-    source, curated: !!curation, unchecked, age_days: Math.max(0, (now - ts) / 86400),
+    source, curated: !!curation, confirmed: !!curation && cur.confirmed, advertisers: report.advertisers, unchecked, age_days: Math.max(0, (now - ts) / 86400),
     manifest: !!manifest, downloaded: visuals ? visuals.downloaded : 0, labeled: visuals ? visuals.labeled : 0,
     client: has('client.json') || fs.existsSync(path.join(path.dirname(path.resolve(dir)), 'client.json')),
     hypotheses: has('hypotheses.json'), lint: has('hypotheses_lint.json'), plan: has('test_plan.json'), sites: has('sites.json'), diff: has('diff.json'), preset: !!niche.preset_id, niche: niche.niche_file,

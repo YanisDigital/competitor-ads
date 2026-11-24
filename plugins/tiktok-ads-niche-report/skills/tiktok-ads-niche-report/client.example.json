@@ -5,7 +5,9 @@
   "market": "DE",
   "language": "de",
   "price": 19.95,
-  "prices": [34.9],
+  "prices": [
+    34.9
+  ],
   "currency": "EUR",
   "landing_url": "https://example.com/products/stain-spray",
   "guarantee_days": 30,
@@ -22,7 +24,15 @@
   "before_after_allowed": true,
   "has_creator": false,
   "spark_ads_possible": true,
-  "usp": ["enzyme formula", "no scrubbing"],
-  "avoid": ["do not claim it removes stains permanently"],
-  "target_cpa": 15
+  "usp": [
+    "enzyme formula",
+    "no scrubbing"
+  ],
+  "avoid": [
+    "do not claim it removes stains permanently"
+  ],
+  "target_cpa": 15,
+  "proposal_language": "pl",
+  "proposal_person": "first_singular",
+  "proposal_style": "prose"
 }
