@@ -3,6 +3,15 @@
 Entries without a prefix belong to `meta-ads-niche-report`; the TikTok plugin is
 versioned on its own (`tiktok-ads-niche-report`, its tags are prefixed).
 
+## [0.17.7] - 2026-11-24
+
+### Added
+- `export_pdf.py`: the report as a PDF with everything the HTML report holds, for A4. Printing `report.html` from a browser lost part of it: wide tables were cut at the right edge (on screen they scroll sideways) and closed blocks (hypotheses, site checks) were not printed. Now the HTML is built with every block open (`--expand` of `export_html.js`), the print styles wrap every table cell to the page width, and Chromium (Playwright) prints it with page numbers, a footer with the snapshot name and bookmarks. Options: `--lang uk`, `--landscape`, `--no-images`, `--with-budget`. No network, JavaScript off. Checked on three real snapshots: every word of the HTML is in the PDF.
+
+### Fixed
+- `analysis.md`: a Markdown table (`| A | B |`) was printed as raw `|` lines; it is now a real table.
+- Print styles of the HTML report: no scroll boxes on paper, wide tables wrap, closed blocks print open, two-column grids, page breaks kept clear of headings and cards.
+
 ## [0.17.6] - 2026-11-09
 
 ### Fixed

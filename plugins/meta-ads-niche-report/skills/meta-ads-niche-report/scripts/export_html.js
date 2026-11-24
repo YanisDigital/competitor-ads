@@ -95,26 +95,38 @@ img.cr{display:block;width:100%;height:auto;border-radius:2px;margin-bottom:8px}
 main>hr{border:0;border-top:6px solid var(--rule);margin:56px 0 10px}main>hr+p{font-size:.8rem}
 @media(prefers-reduced-motion:no-preference){main>*{animation:rise .55s cubic-bezier(.2,.7,.2,1) both}main>:nth-child(2){animation-delay:.05s}main>:nth-child(3){animation-delay:.1s}main>:nth-child(4){animation-delay:.15s}main>:nth-child(5){animation-delay:.2s}main>:nth-child(6){animation-delay:.25s}main>:nth-child(n+7){animation-delay:.3s}.bt i{animation:grow .9s .2s cubic-bezier(.2,.7,.2,1) both;transform-origin:left}}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-@media print{body{background:#fff;color:#000;font-size:11pt}main{max-width:none;padding:0}.toc{display:none}*{animation:none!important;box-shadow:none!important}.card,.tw,details{background:#fff}details{border:1px solid #999}details>*{display:block}details:not([open])>*:not(summary){display:block}.card,.tw,.note{break-inside:avoid}h2{break-after:avoid}a{color:#000}}`;
+@page{size:A4;margin:12mm 10mm 14mm}@media print{body{background:#fff;color:#000;font-size:9.5pt;line-height:1.4}main{max-width:none;padding:0}*{animation:none!important;box-shadow:none!important}.toc{margin:10px 0}.toc a{padding:2px 6px;font-size:8pt}.card,.tw,details{background:#fff}.card{padding:8px 10px}.tw{overflow:visible;border:1px solid #bbb}table{width:100%;font-size:8pt}th{white-space:normal}th,td{padding:4px 6px}td{overflow-wrap:anywhere;word-break:break-word}th{font-size:6.5pt;letter-spacing:.03em;overflow-wrap:break-word;hyphens:auto}thead{display:table-header-group}tr{break-inside:avoid}details{border:1px solid #bbb;break-inside:auto}details::details-content{content-visibility:visible;display:block}details>summary{break-after:avoid}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.grid>.card:last-child:nth-child(4n+1){columns:2}.gal{grid-template-columns:repeat(4,minmax(0,1fr))}figure.wide{grid-column:span 2}img{max-width:100%}.note{max-width:none;padding:6px 10px 6px 34px}.card,.note,figure,.kpi{break-inside:avoid}h2{break-after:avoid;margin-top:1.4em}h3{break-after:avoid}a{color:#000}.mast{border-top-width:4px}}`;
 
 // analysis.md next to the snapshot: the analyst's conclusions (a plan, a client proposal) in the report itself. A small, safe Markdown:
 // # ## ### headings, "- " or "* " lists, "1. " lists, **bold**, paragraphs; everything is escaped, no links, no raw HTML.
 function mdToHtml(text) {
   const inline = s => esc(s).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
   const out = [];
-  let list = null, para = [];
+  let list = null, para = [], rows = [];
   const flush = () => { if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; } };
   const close = () => { if (list) { out.push('</' + list + '>'); list = null; } };
+  // A Markdown table: lines that start with "|"; the first is the header, a "|---|---|" line under it is skipped.
+  const cells = line => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+  const table = () => {
+    if (!rows.length) return;
+    const body = rows.filter(r => !/^\|?\s*:?-{2,}/.test(r.trim()));
+    const head = cells(body[0]);
+    out.push('<div class="tw"><table><thead><tr>' + head.map(c => '<th>' + inline(c) + '</th>').join('') + '</tr></thead><tbody>' +
+      body.slice(1).map(r => '<tr>' + cells(r).map(c => '<td>' + inline(c) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
+    rows = [];
+  };
   for (const raw of String(text || '').slice(0, 200000).split(/\r?\n/)) {
     const line = raw.trimEnd();
     let m;
+    if (/^\s*\|/.test(line)) { flush(); close(); rows.push(line); continue; }
+    table();
     if (!line.trim()) { flush(); close(); continue; }
     if ((m = /^(#{1,3})\s+(.*)$/.exec(line))) { flush(); close(); out.push('<h' + (m[1].length + 2) + '>' + inline(m[2]) + '</h' + (m[1].length + 2) + '>'); continue; }
     if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) { flush(); if (list !== 'ul') { close(); out.push('<ul>'); list = 'ul'; } out.push('<li>' + inline(m[1]) + '</li>'); continue; }
     if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(line))) { flush(); if (list !== 'ol') { close(); out.push('<ol>'); list = 'ol'; } out.push('<li>' + inline(m[1]) + '</li>'); continue; }
     close(); para.push(line.trim());
   }
-  flush(); close();
+  table(); flush(); close();
   return out.join('\n');
 }
 
@@ -337,10 +349,11 @@ if (require.main === module) {
   const li = args.indexOf('--lang');
   const lang = li >= 0 ? args.splice(li, 2)[1] : 'ru';
   if (!['ru', 'uk'].includes(lang)) { console.error('--lang must be ru or uk'); process.exit(1); }
+  const expand = args.includes('--expand') && args.splice(args.indexOf('--expand'), 1);
   const withBudget = args.includes('--with-budget') && args.splice(args.indexOf('--with-budget'), 1);
   const dir = args[0];
   if (!dir || !fs.existsSync(path.join(dir, 'ads.csv'))) {
-    console.error('Usage: node export_html.js <snapshot-folder-with-ads.csv> [--out file.html] [--no-images] [--with-budget] [--lang ru|uk]');
+    console.error('Usage: node export_html.js <snapshot-folder-with-ads.csv> [--out file.html] [--no-images] [--with-budget] [--lang ru|uk] [--expand]');
     process.exit(1);
   }
   const { loadSnapshot } = require('./report.js');
@@ -369,6 +382,8 @@ if (require.main === module) {
     }
   }
   const out = outPath || path.join(dir, 'report.html');
-  fs.writeFileSync(out, require('./i18n.js').translateHtml(buildHtml(model), lang), 'utf8');
+  let html = require('./i18n.js').translateHtml(buildHtml(model), lang);
+  if (expand) html = html.replace(/<details>/g, '<details open>'); // print or PDF: nothing hidden behind a click
+  fs.writeFileSync(out, html, 'utf8');
   console.log(`Saved: ${out} (${Math.round(fs.statSync(out).size / 1024)} KB, single file)`);
 }
